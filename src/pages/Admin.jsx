@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
   Building2,
@@ -24,6 +24,14 @@ import {
   Settings,
   BarChart3,
   AlertTriangle,
+  Upload,
+  FileJson,
+  FileSpreadsheet,
+  Loader2,
+  Send,
+  Copy,
+  Eye,
+  Zap,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -41,12 +49,69 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
 import { Badge } from '../components/ui/badge'
+import { Progress } from '../components/ui/progress'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Skeleton } from '../components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { DonutChart, BarChart } from '../components/Charts'
+
+// JIRA Import Helpers
+const STATUS_MAP = {
+  'done': 'done', 'closed': 'done', 'resolved': 'done', 'complete': 'done', 'completed': 'done',
+  'in progress': 'inprogress', 'in development': 'inprogress', 'in review': 'inprogress', 'testing': 'inprogress',
+  'to do': 'todo', 'todo': 'todo', 'open': 'todo', 'new': 'todo', 'backlog': 'todo',
+}
+
+const PRIORITY_MAP = {
+  'highest': 'urgent', 'blocker': 'urgent', 'critical': 'urgent',
+  'high': 'high', 'medium': 'medium', 'normal': 'medium',
+  'low': 'low', 'lowest': 'low', 'trivial': 'low',
+}
+
+function mapStatus(jiraStatus) {
+  const status = jiraStatus?.toLowerCase()?.trim() || ''
+  for (const [key, value] of Object.entries(STATUS_MAP)) {
+    if (status.includes(key)) return value
+  }
+  return 'todo'
+}
+
+function mapPriority(jiraPriority) {
+  const priority = jiraPriority?.toLowerCase()?.trim() || ''
+  for (const [key, value] of Object.entries(PRIORITY_MAP)) {
+    if (priority.includes(key)) return value
+  }
+  return 'medium'
+}
+
+function parseCSVLine(line) {
+  const result = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  result.push(current.trim())
+  return result
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -62,7 +127,7 @@ const itemVariants = {
 }
 
 export default function Admin() {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -74,6 +139,24 @@ export default function Admin() {
   const [editingClient, setEditingClient] = useState(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingClient, setDeletingClient] = useState(null)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  
+  // Invite form states
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [inviteRole, setInviteRole] = useState('team')
+  const [inviteSending, setInviteSending] = useState(false)
+  const [inviteLink, setInviteLink] = useState('')
+  
+  // JIRA Import states
+  const [importFile, setImportFile] = useState(null)
+  const [importData, setImportData] = useState(null)
+  const [importClient, setImportClient] = useState('')
+  const [importBoard, setImportBoard] = useState('')
+  const [newBoardName, setNewBoardName] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [boards, setBoards] = useState([])
   
   // Data states
   const [users, setUsers] = useState([])
@@ -104,6 +187,13 @@ export default function Admin() {
         .select('*')
         .order('created_at', { ascending: false })
 
+      // Fetch boards
+      const { data: boardsData } = await supabase
+        .from('boards')
+        .select('*, client:clients(name)')
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+
       // Fetch board count
       const { count: boardCount } = await supabase
         .from('boards')
@@ -116,6 +206,7 @@ export default function Admin() {
 
       setUsers(profilesData || [])
       setClients(clientsData || [])
+      setBoards(boardsData || [])
       setStats({
         totalUsers: profilesData?.length || 0,
         totalClients: clientsData?.length || 0,
@@ -135,6 +226,194 @@ export default function Admin() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Generate invite link
+  const handleInvite = async () => {
+    if (!inviteEmail) {
+      toast({ title: 'Please enter an email address', variant: 'destructive' })
+      return
+    }
+
+    setInviteSending(true)
+    
+    try {
+      // For now, we create a magic link URL that the user can share
+      // In production, you'd use supabase.auth.admin.inviteUserByEmail()
+      const signupUrl = `${window.location.origin}/login?invite=true&email=${encodeURIComponent(inviteEmail)}&role=${inviteRole}`
+      setInviteLink(signupUrl)
+      
+      toast({
+        title: '✉️ Invite link generated!',
+        description: 'Copy the link and send it to your team member.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Invite error:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to generate invite link.',
+        variant: 'destructive',
+      })
+    } finally {
+      setInviteSending(false)
+    }
+  }
+
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink)
+    toast({ title: 'Link copied to clipboard!' })
+  }
+
+  // Handle file upload for JIRA import
+  const handleFileUpload = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImportFile(file)
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      const content = e.target?.result
+      try {
+        let parsed
+        
+        if (file.name.endsWith('.json')) {
+          parsed = JSON.parse(content)
+          // Handle JIRA JSON export format
+          if (parsed.issues) {
+            parsed = parsed.issues.map(issue => ({
+              key: issue.key,
+              summary: issue.fields?.summary,
+              description: issue.fields?.description,
+              status: issue.fields?.status?.name,
+              priority: issue.fields?.priority?.name,
+              labels: issue.fields?.labels || [],
+              timeEstimate: issue.fields?.timeoriginalestimate,
+            }))
+          }
+        } else {
+          // Parse CSV
+          const lines = content.split('\n').filter(l => l.trim())
+          const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          parsed = lines.slice(1).map(line => {
+            const values = parseCSVLine(line)
+            const obj = {}
+            headers.forEach((h, i) => {
+              obj[h] = values[i] || ''
+            })
+            return obj
+          })
+        }
+
+        setImportData(parsed)
+        toast({
+          title: `📊 ${parsed.length} issues found`,
+          description: `Ready to import from ${file.name}`,
+        })
+      } catch (error) {
+        console.error('Parse error:', error)
+        toast({
+          title: 'Error parsing file',
+          description: 'Please check the file format.',
+          variant: 'destructive',
+        })
+      }
+    }
+
+    if (file.name.endsWith('.json')) {
+      reader.readAsText(file)
+    } else {
+      reader.readAsText(file)
+    }
+  }, [toast])
+
+  // Run import
+  const handleImport = async () => {
+    if (!importData || importData.length === 0) return
+    if (!importClient) {
+      toast({ title: 'Please select a client', variant: 'destructive' })
+      return
+    }
+
+    setImporting(true)
+    setImportProgress(0)
+
+    try {
+      // Get or create board
+      let boardId = importBoard
+      
+      if (!boardId && newBoardName) {
+        const { data: newBoard, error } = await supabase
+          .from('boards')
+          .insert({
+            name: newBoardName,
+            client_id: importClient,
+            created_by: user.id,
+          })
+          .select()
+          .single()
+        
+        if (error) throw error
+        boardId = newBoard.id
+      }
+
+      if (!boardId) {
+        toast({ title: 'Please select or create a board', variant: 'destructive' })
+        setImporting(false)
+        return
+      }
+
+      // Import tickets
+      const total = importData.length
+      let imported = 0
+      let errors = 0
+
+      for (const issue of importData) {
+        try {
+          const ticketData = {
+            title: issue.summary || issue.title || issue.Summary || 'Untitled',
+            description: issue.description || issue.Description || '',
+            status: mapStatus(issue.status || issue.Status || 'todo'),
+            priority: mapPriority(issue.priority || issue.Priority || 'medium'),
+            board_id: boardId,
+            client_id: importClient,
+            created_by: user.id,
+            tags: issue.labels || [],
+          }
+
+          const { error } = await supabase.from('tickets').insert(ticketData)
+          if (error) throw error
+          imported++
+        } catch (err) {
+          console.error('Ticket import error:', err)
+          errors++
+        }
+        
+        setImportProgress(Math.round(((imported + errors) / total) * 100))
+      }
+
+      toast({
+        title: '🎉 Import complete!',
+        description: `Imported ${imported} tickets${errors > 0 ? `, ${errors} failed` : ''}`,
+        variant: 'success',
+      })
+
+      // Reset
+      setImportFile(null)
+      setImportData(null)
+      setNewBoardName('')
+      fetchData(true)
+    } catch (error) {
+      console.error('Import error:', error)
+      toast({
+        title: 'Import failed',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
 
   // Handle opening edit dialog
   const handleEditClient = (client) => {
@@ -238,9 +517,9 @@ export default function Admin() {
               <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
               Refresh
             </Button>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setInviteDialogOpen(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
-              Invite User
+              Invite Team Member
             </Button>
           </div>
         </div>
@@ -346,6 +625,10 @@ export default function Admin() {
           <TabsTrigger value="clients" className="gap-2">
             <Building2 className="h-4 w-4" />
             Clients
+          </TabsTrigger>
+          <TabsTrigger value="import" className="gap-2">
+            <Upload className="h-4 w-4" />
+            Import
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -555,6 +838,203 @@ export default function Admin() {
           </motion.div>
         </TabsContent>
 
+        {/* Import Tab */}
+        <TabsContent value="import">
+          <motion.div variants={itemVariants}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  JIRA Import
+                </CardTitle>
+                <CardDescription>
+                  Import tickets from JIRA CSV or JSON exports
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* File Upload */}
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-2xl p-8 text-center transition-all",
+                    importFile 
+                      ? "border-green-500 bg-green-500/5" 
+                      : "border-muted-foreground/25 hover:border-brand-orange/50 hover:bg-muted/50"
+                  )}
+                >
+                  {importFile ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center gap-3">
+                        {importFile.name.endsWith('.json') ? (
+                          <FileJson className="h-10 w-10 text-green-500" />
+                        ) : (
+                          <FileSpreadsheet className="h-10 w-10 text-green-500" />
+                        )}
+                        <div className="text-left">
+                          <p className="font-medium">{importFile.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {importData?.length || 0} issues found
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setImportFile(null)
+                          setImportData(null)
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block">
+                      <input
+                        type="file"
+                        accept=".csv,.json"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                      <p className="font-medium mb-1">Drop your JIRA export here</p>
+                      <p className="text-sm text-muted-foreground">
+                        Supports CSV and JSON formats
+                      </p>
+                    </label>
+                  )}
+                </div>
+
+                {/* Import Settings */}
+                {importData && importData.length > 0 && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Select Client</Label>
+                      <Select value={importClient} onValueChange={setImportClient}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a client" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.filter(c => c.is_active).map(client => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Select or Create Board</Label>
+                      <Select 
+                        value={importBoard} 
+                        onValueChange={(v) => {
+                          setImportBoard(v)
+                          if (v !== 'new') setNewBoardName('')
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a board" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">+ Create New Board</SelectItem>
+                          {boards
+                            .filter(b => b.client_id === importClient)
+                            .map(board => (
+                              <SelectItem key={board.id} value={board.id}>
+                                {board.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {importBoard === 'new' && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>New Board Name</Label>
+                        <Input
+                          value={newBoardName}
+                          onChange={(e) => setNewBoardName(e.target.value)}
+                          placeholder="e.g., Q1 2024 Tasks"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Preview */}
+                {importData && importData.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-medium flex items-center gap-2">
+                      <Eye className="h-4 w-4" />
+                      Preview (first 5 issues)
+                    </h3>
+                    <div className="rounded-xl border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="text-left p-3">Title</th>
+                            <th className="text-left p-3">Status</th>
+                            <th className="text-left p-3">Priority</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importData.slice(0, 5).map((issue, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="p-3 truncate max-w-xs">
+                                {issue.summary || issue.title || issue.Summary || 'No title'}
+                              </td>
+                              <td className="p-3">
+                                <Badge variant="outline">
+                                  {mapStatus(issue.status || issue.Status)}
+                                </Badge>
+                              </td>
+                              <td className="p-3">
+                                <Badge variant="secondary">
+                                  {mapPriority(issue.priority || issue.Priority)}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Import Button */}
+                {importData && importData.length > 0 && (
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Ready to import <strong>{importData.length}</strong> tickets
+                    </p>
+                    <Button 
+                      onClick={handleImport}
+                      disabled={importing || !importClient || (!importBoard && !newBoardName)}
+                      className="gap-2"
+                    >
+                      {importing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Importing... {importProgress}%
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4" />
+                          Start Import
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {importing && (
+                  <Progress value={importProgress} className="h-2" />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
         {/* Analytics Tab */}
         <TabsContent value="analytics">
           <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-2">
@@ -655,6 +1135,139 @@ export default function Admin() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteClient}>
               Deactivate Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Team Member Dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={(open) => {
+        setInviteDialogOpen(open)
+        if (!open) {
+          setInviteEmail('')
+          setInviteName('')
+          setInviteRole('team')
+          setInviteLink('')
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-brand-orange" />
+              Invite Team Member
+            </DialogTitle>
+            <DialogDescription>
+              Send an invite to join your Brandastic PM workspace
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email Address</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="colleague@brandastic.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="invite-name">Name (optional)</Label>
+              <Input
+                id="invite-name"
+                placeholder="John Doe"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="team">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Team Member
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Admin
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {inviteRole === 'admin' 
+                  ? 'Admins can manage users, clients, and all settings'
+                  : 'Team members can view all clients and manage tasks'
+                }
+              </p>
+            </div>
+
+            {inviteLink && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 space-y-3"
+              >
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Invite Link Ready!</span>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    value={inviteLink} 
+                    readOnly 
+                    className="text-xs font-mono"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={copyInviteLink}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Share this link with your team member to let them sign up
+                </p>
+              </motion.div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleInvite}
+              disabled={inviteSending || !inviteEmail}
+              className="gap-2"
+            >
+              {inviteSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : inviteLink ? (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Link Generated
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Generate Invite Link
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
