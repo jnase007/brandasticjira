@@ -13,6 +13,7 @@ import TicketDetail from './pages/TicketDetail'
 import ClientPortal from './pages/ClientPortal'
 import Settings from './pages/Settings'
 import Admin from './pages/Admin'
+import TeamHub from './pages/TeamHub'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -295,6 +296,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <Settings />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/team"
+                element={
+                  <TeamRoute>
+                    <TeamHub />
                   </TeamRoute>
                 }
               />
