@@ -37,6 +37,7 @@ export default function Settings() {
   const fileInputRef = useRef(null)
 
   const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [tagline, setTagline] = useState(profile?.tagline || '')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
@@ -59,17 +60,23 @@ export default function Settings() {
     }
   }, [justLoggedIn, profileSynced, profile, clearLoginState, toast])
 
-  // Sync fullName when profile loads
+  // Sync profile data when it loads
   useEffect(() => {
     if (profile?.full_name) {
       setFullName(profile.full_name)
+    }
+    if (profile?.tagline !== undefined) {
+      setTagline(profile.tagline || '')
     }
   }, [profile])
 
   const handleSaveProfile = async () => {
     setSaving(true)
     try {
-      const { error } = await updateUserProfile({ full_name: fullName })
+      const { error } = await updateUserProfile({ 
+        full_name: fullName,
+        tagline: tagline 
+      })
       if (error) throw error
 
       toast({
@@ -262,6 +269,11 @@ export default function Settings() {
                     <div className="flex items-start justify-between">
                       <div>
                         <h2 className="text-2xl font-bold">{profile?.full_name || 'Your Name'}</h2>
+                        {profile?.tagline && (
+                          <p className="text-sm text-muted-foreground italic mt-0.5">
+                            "{profile.tagline}"
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <Mail className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm text-muted-foreground">{profile?.email}</span>
@@ -323,6 +335,21 @@ export default function Settings() {
                   </div>
                 </div>
 
+                <div>
+                  <Label htmlFor="tagline">Tagline / Fun Quote ✨</Label>
+                  <Input
+                    id="tagline"
+                    value={tagline}
+                    onChange={(e) => setTagline(e.target.value)}
+                    placeholder="e.g., Coffee-powered marketing wizard ☕"
+                    className="mt-1.5"
+                    maxLength={100}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    A fun line that shows up on your profile ({tagline.length}/100)
+                  </p>
+                </div>
+
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                   <div className="w-10 h-10 rounded-lg bg-brand-blue/10 flex items-center justify-center">
                     <Calendar className="h-5 w-5 text-brand-blue" />
@@ -338,7 +365,7 @@ export default function Settings() {
                 <div className="flex justify-end">
                   <Button 
                     onClick={handleSaveProfile} 
-                    disabled={saving || fullName === profile?.full_name}
+                    disabled={saving || (fullName === profile?.full_name && tagline === (profile?.tagline || ''))}
                     className="min-w-[140px]"
                   >
                     {saving ? (
