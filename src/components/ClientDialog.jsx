@@ -296,7 +296,12 @@ export default function ClientDialog({
         if (onSuccess) onSuccess(result.data)
       }
     } catch (error) {
-      toast({ title: 'Something went wrong', variant: 'destructive' })
+      console.error('Client creation error:', error)
+      toast({ 
+        title: 'Error creating client', 
+        description: error.message || 'Please try again',
+        variant: 'destructive' 
+      })
     } finally {
       setSaving(false)
     }
