@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, Coffee, Rocket, Zap, Heart, Star, Flame } from 'lucide-react'
 
+// Brandastic Logo Mark
+const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
+
 // Fun loading messages that rotate
 const LOADING_MESSAGES = [
   { text: "Brewing creativity...", icon: Coffee },
@@ -74,60 +77,72 @@ export default function LoadingScreen() {
       </div>
 
       <div className="relative text-center z-10">
-        {/* Fun animated icon */}
+        {/* Brandastic Logo with animation */}
         <motion.div
-          className="relative mx-auto mb-6 w-20 h-20"
-          animate={{ rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
+          className="relative mx-auto mb-6 w-24 h-24"
         >
-          {/* Outer ring */}
+          {/* Outer glowing ring */}
           <motion.div
-            className="absolute inset-0 rounded-full border-4 border-brand-orange/30"
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: 'conic-gradient(from 0deg, #F7931E, #FF6B6B, #6C5CE7, #4ECDC4, #F7931E)',
+            }}
             animate={{ rotate: 360 }}
             transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
           />
           
-          {/* Inner ring (opposite direction) */}
-          <motion.div
-            className="absolute inset-2 rounded-full border-4 border-dashed border-brand-coral/40"
-            animate={{ rotate: -360 }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          />
+          {/* Inner white/dark circle */}
+          <div className="absolute inset-1 rounded-full bg-background" />
           
-          {/* Center "B" logo */}
+          {/* Logo container */}
           <motion.div
-            className="absolute inset-4 rounded-xl bg-gradient-to-br from-brand-orange to-brand-coral flex items-center justify-center shadow-lg"
+            className="absolute inset-2 rounded-full overflow-hidden flex items-center justify-center"
             animate={{
-              scale: [1, 1.1, 1],
-              boxShadow: [
-                '0 4px 14px rgba(247, 147, 30, 0.3)',
-                '0 8px 25px rgba(247, 147, 30, 0.5)',
-                '0 4px 14px rgba(247, 147, 30, 0.3)',
-              ],
+              scale: [1, 1.05, 1],
             }}
-            transition={{ duration: 1.5, repeat: Infinity }}
+            transition={{ duration: 2, repeat: Infinity }}
           >
-            <span className="text-white font-bold text-xl">B</span>
+            <motion.img
+              src={LOGO_MARK}
+              alt="Brandastic"
+              className="w-full h-full object-contain p-1"
+              animate={{
+                filter: [
+                  'drop-shadow(0 0 8px rgba(247, 147, 30, 0.3))',
+                  'drop-shadow(0 0 20px rgba(247, 147, 30, 0.6))',
+                  'drop-shadow(0 0 8px rgba(247, 147, 30, 0.3))',
+                ],
+              }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
           </motion.div>
 
-          {/* Orbiting dots */}
-          {[0, 1, 2].map((i) => (
+          {/* Orbiting sparkles */}
+          {[0, 1, 2, 3].map((i) => (
             <motion.div
               key={i}
-              className="absolute w-2 h-2 rounded-full bg-brand-orange"
-              style={{ left: '50%', top: '50%' }}
+              className="absolute w-2 h-2"
+              style={{ 
+                left: '50%', 
+                top: '50%',
+                marginLeft: -4,
+                marginTop: -4,
+              }}
               animate={{
-                x: [0, 40, 0, -40, 0].map(v => v * Math.cos((i * 2 * Math.PI) / 3 + Math.PI / 6)),
-                y: [0, 40, 0, -40, 0].map(v => v * Math.sin((i * 2 * Math.PI) / 3 + Math.PI / 6)),
+                x: Math.cos((i * Math.PI) / 2) * 50,
+                y: Math.sin((i * Math.PI) / 2) * 50,
+                opacity: [0.4, 1, 0.4],
                 scale: [0.8, 1.2, 0.8],
               }}
               transition={{
                 duration: 2,
                 repeat: Infinity,
-                delay: i * 0.3,
+                delay: i * 0.25,
                 ease: "easeInOut",
               }}
-            />
+            >
+              <Sparkles className="w-full h-full text-brand-orange" />
+            </motion.div>
           ))}
         </motion.div>
 

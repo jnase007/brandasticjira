@@ -8,6 +8,9 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useToast } from '../hooks/useToast'
 
+// Brandastic Logo Mark
+const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
+
 // Team photos from Supabase Storage - rotating backgrounds
 const TEAM_PHOTOS = [
   'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/C_DSC03021_Edited%20(4).jpg',
@@ -200,13 +203,17 @@ export default function Login() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <motion.img 
-                  src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
-                  alt="Brandastic" 
-                  className="h-12 w-auto object-contain mx-auto mb-6"
-                  whileHover={{ scale: 1.05 }}
+                <motion.div
+                  className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
                   transition={{ type: "spring", stiffness: 300 }}
-                />
+                >
+                  <img 
+                    src={LOGO_MARK}
+                    alt="Brandastic" 
+                    className="w-full h-full object-contain"
+                  />
+                </motion.div>
                 <h2 className="text-2xl font-display font-bold text-white">
                   {mode === 'login' ? 'Welcome back' : 'Create an account'}
                 </h2>

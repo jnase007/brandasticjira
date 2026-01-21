@@ -29,6 +29,7 @@ import DailyChallenges from './DailyChallenges'
 
 const LOGO_WHITE = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png'
 const LOGO_ICON = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png'
+const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
@@ -79,9 +80,14 @@ export default function Sidebar({
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="w-10 h-10 rounded-lg bg-brand-orange flex items-center justify-center"
+              className="w-10 h-10 rounded-lg overflow-hidden"
+              data-logo
             >
-              <span className="text-white font-bold text-xl">B</span>
+              <img 
+                src={LOGO_MARK} 
+                alt="Brandastic" 
+                className="w-full h-full object-contain"
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -90,9 +96,14 @@ export default function Sidebar({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               className="flex items-center gap-2"
+              data-logo
             >
-              <div className="w-8 h-8 rounded-lg bg-brand-orange flex items-center justify-center">
-                <span className="text-white font-bold text-lg">B</span>
+              <div className="w-9 h-9 rounded-lg overflow-hidden">
+                <img 
+                  src={LOGO_MARK} 
+                  alt="Brandastic" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <span className="font-bold text-lg">Brandastic</span>
             </motion.div>
