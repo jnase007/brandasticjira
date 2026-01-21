@@ -1,22 +1,70 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { User, Bell, Shield, Palette, Save, Upload } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  User, Bell, Shield, Palette, Save, Upload, Camera, Check, 
+  Sparkles, Mail, Clock, Calendar, Trophy, X, Loader2
+} from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { cn, getInitials } from '../lib/utils'
+import { useGamification } from '../contexts/GamificationContext'
+import { cn, getInitials, formatDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Badge } from '../components/ui/badge'
+import { Progress } from '../components/ui/progress'
 import { useToast } from '../hooks/useToast'
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+}
+
 export default function Settings() {
-  const { profile, updateUserProfile } = useAuth()
+  const { user, profile, updateUserProfile, uploadAvatar, justLoggedIn, profileSynced, clearLoginState } = useAuth()
+  const { stats, getRank, getLevelProgress, achievements } = useGamification()
   const { toast } = useToast()
+  const fileInputRef = useRef(null)
 
   const [fullName, setFullName] = useState(profile?.full_name || '')
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(false)
+
+  // Show welcome toast when profile is synced from Google
+  useEffect(() => {
+    if (justLoggedIn && profileSynced && profile) {
+      setShowWelcome(true)
+      toast({
+        title: '👋 Welcome!',
+        description: `Your profile has been synced from Google. Looking good, ${profile.full_name?.split(' ')[0]}!`,
+        variant: 'success',
+      })
+      
+      // Clear the login state after showing
+      setTimeout(() => {
+        clearLoginState()
+        setShowWelcome(false)
+      }, 3000)
+    }
+  }, [justLoggedIn, profileSynced, profile, clearLoginState, toast])
+
+  // Sync fullName when profile loads
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name)
+    }
+  }, [profile])
 
   const handleSaveProfile = async () => {
     setSaving(true)
@@ -25,8 +73,8 @@ export default function Settings() {
       if (error) throw error
 
       toast({
-        title: 'Profile updated',
-        description: 'Your profile has been saved.',
+        title: '✅ Profile updated',
+        description: 'Your changes have been saved successfully.',
         variant: 'success',
       })
     } catch (error) {
@@ -40,25 +88,114 @@ export default function Settings() {
     }
   }
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file',
+        description: 'Please select an image file.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please select an image under 2MB.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const { error, url } = await uploadAvatar(file)
+      if (error) throw error
+
+      toast({
+        title: '📸 Avatar updated!',
+        description: 'Your new profile picture looks great!',
+        variant: 'success',
+      })
+    } catch (error) {
+      toast({
+        title: 'Upload failed',
+        description: 'Could not upload your avatar. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  const rank = getRank(stats?.level || 1)
+  const progress = getLevelProgress(stats?.xp || 0)
+  const unlockedAchievements = stats?.achievements?.length || 0
+  const totalAchievements = achievements?.length || 0
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="p-6 max-w-4xl mx-auto"
+    >
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
+      <motion.div variants={itemVariants} className="mb-8">
         <h1 className="text-3xl font-display font-bold">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your account preferences
+          Manage your account and preferences
         </p>
       </motion.div>
+
+      {/* Profile Synced Banner */}
+      <AnimatePresence>
+        {showWelcome && profile && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="mb-6"
+          >
+            <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/5 border-green-500/30">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-green-700 dark:text-green-400">
+                    Profile synced from Google!
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Your name and picture have been imported. You can update them anytime.
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowWelcome(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList>
           <TabsTrigger value="profile">
             <User className="mr-2 h-4 w-4" />
             Profile
+          </TabsTrigger>
+          <TabsTrigger value="stats">
+            <Trophy className="mr-2 h-4 w-4" />
+            Stats
           </TabsTrigger>
           <TabsTrigger value="notifications">
             <Bell className="mr-2 h-4 w-4" />
@@ -68,46 +205,94 @@ export default function Settings() {
             <Palette className="mr-2 h-4 w-4" />
             Appearance
           </TabsTrigger>
-          <TabsTrigger value="security">
-            <Shield className="mr-2 h-4 w-4" />
-            Security
-          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
         <TabsContent value="profile">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <motion.div variants={itemVariants} className="space-y-6">
+            {/* Profile Card */}
+            <Card className="overflow-hidden">
+              {/* Header Banner */}
+              <div className="h-24 bg-gradient-to-r from-brand-orange via-brand-coral to-brand-purple relative">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
+              </div>
+              
+              <CardContent className="relative pt-0 pb-6 px-6">
+                {/* Avatar Section */}
+                <div className="flex flex-col sm:flex-row items-start gap-6">
+                  <div className="-mt-12 relative group">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleAvatarClick}
+                      className="relative cursor-pointer"
+                    >
+                      <Avatar className="h-28 w-28 border-4 border-background shadow-xl">
+                        <AvatarImage src={profile?.avatar_url} />
+                        <AvatarFallback className="text-3xl bg-brand-orange text-white">
+                          {getInitials(profile?.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      {/* Upload Overlay */}
+                      <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        {uploadingAvatar ? (
+                          <Loader2 className="h-8 w-8 text-white animate-spin" />
+                        ) : (
+                          <Camera className="h-8 w-8 text-white" />
+                        )}
+                      </div>
+                      
+                      {/* Online indicator */}
+                      <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-2 border-background rounded-full" />
+                    </motion.div>
+                    <p className="text-xs text-center text-muted-foreground mt-2">
+                      Click to change
+                    </p>
+                  </div>
+
+                  <div className="flex-1 pt-2 sm:pt-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h2 className="text-2xl font-bold">{profile?.full_name || 'Your Name'}</h2>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{profile?.email}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-3">
+                          <Badge 
+                            className="capitalize"
+                            style={{ backgroundColor: rank?.color || '#F7931E' }}
+                          >
+                            {rank?.title || 'Rookie'} • Level {stats?.level || 1}
+                          </Badge>
+                          <Badge variant="outline" className="capitalize">
+                            {profile?.role || 'team'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Edit Profile Form */}
             <Card>
               <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
+                <CardTitle>Edit Profile</CardTitle>
                 <CardDescription>
                   Update your personal information
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Avatar */}
-                <div className="flex items-center gap-6">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={profile?.avatar_url} />
-                    <AvatarFallback className="text-2xl">
-                      {getInitials(profile?.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <Button variant="outline" size="sm">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Change Avatar
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      JPG, PNG or GIF. Max 2MB.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Form */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <Label htmlFor="fullName">Full Name</Label>
@@ -115,37 +300,151 @@ export default function Settings() {
                       id="fullName"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Enter your full name"
                       className="mt-1.5"
                     />
                   </div>
                   <div>
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      value={profile?.email || ''}
-                      disabled
-                      className="mt-1.5"
-                    />
+                    <div className="relative mt-1.5">
+                      <Input
+                        id="email"
+                        value={profile?.email || ''}
+                        disabled
+                        className="pr-10"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Check className="h-4 w-4 text-green-500" />
+                      </div>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Email cannot be changed
+                      Verified via Google
                     </p>
                   </div>
                 </div>
 
-                <div>
-                  <Label>Role</Label>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <span className="text-sm capitalize px-3 py-1 rounded-full bg-primary/10 text-primary">
-                      {profile?.role || 'team'}
-                    </span>
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+                  <div className="w-10 h-10 rounded-lg bg-brand-blue/10 flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-brand-blue" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Member since</p>
+                    <p className="text-xs text-muted-foreground">
+                      {profile?.created_at ? formatDate(profile.created_at) : 'Recently joined'}
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSaveProfile} disabled={saving}>
-                    <Save className="mr-2 h-4 w-4" />
-                    {saving ? 'Saving...' : 'Save Changes'}
+                  <Button 
+                    onClick={handleSaveProfile} 
+                    disabled={saving || fullName === profile?.full_name}
+                    className="min-w-[140px]"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* Stats Tab */}
+        <TabsContent value="stats">
+          <motion.div variants={itemVariants} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  Your Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Level Progress */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-brand-orange/10 to-brand-coral/5 border border-brand-orange/20">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div 
+                        className="w-16 h-16 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-lg"
+                        style={{ backgroundColor: rank?.color || '#F7931E' }}
+                      >
+                        {stats?.level || 1}
+                      </div>
+                      <div>
+                        <p className="font-bold text-lg">{rank?.title || 'Rookie'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {(stats?.xp || 0).toLocaleString()} XP Total
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Progress to Level {(stats?.level || 1) + 1}</span>
+                        <span className="font-medium">{Math.round(progress)}%</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                    </div>
+                  </div>
+
+                  {/* Achievements */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-orange-500/5 border border-yellow-500/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold">Achievements</h4>
+                      <Badge variant="outline">
+                        {unlockedAchievements}/{totalAchievements}
+                      </Badge>
+                    </div>
+                    <Progress 
+                      value={(unlockedAchievements / totalAchievements) * 100} 
+                      className="h-2 mb-4" 
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {stats?.achievements?.slice(0, 6).map((achId) => {
+                        const ach = achievements?.find(a => a.id === achId)
+                        if (!ach) return null
+                        return (
+                          <div
+                            key={achId}
+                            className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center"
+                            title={ach.name}
+                          >
+                            <ach.icon className="h-4 w-4 text-white" />
+                          </div>
+                        )
+                      })}
+                      {unlockedAchievements > 6 && (
+                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-xs font-medium">
+                          +{unlockedAchievements - 6}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  <div className="text-center p-4 rounded-lg bg-muted/50">
+                    <p className="text-3xl font-bold">{stats?.ticketsCompleted || 0}</p>
+                    <p className="text-sm text-muted-foreground">Tickets Completed</p>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-muted/50">
+                    <p className="text-3xl font-bold">{Math.round(stats?.hoursLogged || 0)}</p>
+                    <p className="text-sm text-muted-foreground">Hours Logged</p>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-muted/50">
+                    <p className="text-3xl font-bold">{stats?.currentStreak || 0}</p>
+                    <p className="text-sm text-muted-foreground">Day Streak 🔥</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -154,10 +453,7 @@ export default function Settings() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <motion.div variants={itemVariants}>
             <Card>
               <CardHeader>
                 <CardTitle>Notification Preferences</CardTitle>
@@ -168,9 +464,26 @@ export default function Settings() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { label: 'Email notifications for new tickets', desc: 'Get notified when tickets are assigned to you' },
-                    { label: 'Email notifications for comments', desc: 'Get notified when someone comments on your tickets' },
-                    { label: 'Weekly summary', desc: 'Receive a weekly summary of your activity' },
+                    { 
+                      label: 'Email notifications for new tickets', 
+                      desc: 'Get notified when tickets are assigned to you',
+                      default: true
+                    },
+                    { 
+                      label: 'Email notifications for comments', 
+                      desc: 'Get notified when someone comments on your tickets',
+                      default: true
+                    },
+                    { 
+                      label: 'Achievement notifications', 
+                      desc: 'Get notified when you unlock new achievements',
+                      default: true
+                    },
+                    { 
+                      label: 'Weekly summary', 
+                      desc: 'Receive a weekly summary of your activity',
+                      default: false
+                    },
                   ].map((item, index) => (
                     <div key={index} className="flex items-start justify-between p-4 rounded-lg border">
                       <div>
@@ -178,8 +491,8 @@ export default function Settings() {
                         <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        <input type="checkbox" className="sr-only peer" defaultChecked={item.default} />
+                        <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-orange"></div>
                       </label>
                     </div>
                   ))}
@@ -191,10 +504,7 @@ export default function Settings() {
 
         {/* Appearance Tab */}
         <TabsContent value="appearance">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <motion.div variants={itemVariants}>
             <Card>
               <CardHeader>
                 <CardTitle>Appearance</CardTitle>
@@ -227,18 +537,10 @@ export default function Settings() {
                   </div>
 
                   <div>
-                    <Label className="mb-3 block">Accent Color</Label>
+                    <Label className="mb-3 block">Sidebar</Label>
                     <div className="flex gap-3">
-                      {['#FF6B6B', '#4ECDC4', '#6C5CE7', '#FFD93D', '#A8E6CF', '#FF8B94'].map((color) => (
-                        <button
-                          key={color}
-                          className={cn(
-                            "w-10 h-10 rounded-full transition-transform hover:scale-110",
-                            color === '#FF6B6B' && "ring-2 ring-offset-2 ring-primary"
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                      <Button variant="outline" size="sm">Expanded</Button>
+                      <Button variant="ghost" size="sm">Collapsed</Button>
                     </div>
                   </div>
                 </div>
@@ -246,46 +548,7 @@ export default function Settings() {
             </Card>
           </motion.div>
         </TabsContent>
-
-        {/* Security Tab */}
-        <TabsContent value="security">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>Security</CardTitle>
-                <CardDescription>
-                  Manage your account security settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <Label>Change Password</Label>
-                  <p className="text-sm text-muted-foreground mt-1 mb-4">
-                    Update your password to keep your account secure
-                  </p>
-                  <div className="space-y-4 max-w-md">
-                    <Input type="password" placeholder="Current password" />
-                    <Input type="password" placeholder="New password" />
-                    <Input type="password" placeholder="Confirm new password" />
-                    <Button>Update Password</Button>
-                  </div>
-                </div>
-
-                <div className="border-t pt-6">
-                  <Label className="text-destructive">Danger Zone</Label>
-                  <p className="text-sm text-muted-foreground mt-1 mb-4">
-                    Permanently delete your account and all associated data
-                  </p>
-                  <Button variant="destructive">Delete Account</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </TabsContent>
       </Tabs>
-    </div>
+    </motion.div>
   )
 }

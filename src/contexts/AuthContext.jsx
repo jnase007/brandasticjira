@@ -1,7 +1,10 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase, getProfile } from '../lib/supabase'
 
 const AuthContext = createContext({})
+
+// Event for profile sync notification
+const profileSyncEvent = new CustomEvent('profileSynced', { detail: {} })
 
 export function useAuth() {
   const context = useContext(AuthContext)
@@ -15,6 +18,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [justLoggedIn, setJustLoggedIn] = useState(false)
+  const [profileSynced, setProfileSynced] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -50,6 +55,12 @@ export function AuthProvider({ children }) {
             // Check and create profile if needed
             const { data: existingProfile } = await getProfile(session.user.id)
             
+            // Get Google metadata
+            const googleName = session.user.user_metadata?.full_name || 
+                               session.user.user_metadata?.name || ''
+            const googleAvatar = session.user.user_metadata?.avatar_url || 
+                                 session.user.user_metadata?.picture || null
+            
             if (!existingProfile) {
               // Create profile for OAuth users or if somehow missing
               await supabase
@@ -57,16 +68,41 @@ export function AuthProvider({ children }) {
                 .upsert({
                   id: session.user.id,
                   email: session.user.email,
-                  full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+                  full_name: googleName,
                   role: 'team',
-                  avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
+                  avatar_url: googleAvatar,
                 }, { onConflict: 'id' })
               
               // Fetch the newly created profile
               const { data: newProfile } = await getProfile(session.user.id)
               setProfile(newProfile)
+              setJustLoggedIn(true)
+              setProfileSynced(true)
             } else {
-              setProfile(existingProfile)
+              // Update existing profile with latest Google data if they're using OAuth
+              // but only if the existing fields are empty
+              const updates = {}
+              if (!existingProfile.full_name && googleName) {
+                updates.full_name = googleName
+              }
+              if (!existingProfile.avatar_url && googleAvatar) {
+                updates.avatar_url = googleAvatar
+              }
+              
+              if (Object.keys(updates).length > 0) {
+                await supabase
+                  .from('profiles')
+                  .update(updates)
+                  .eq('id', session.user.id)
+                
+                // Fetch updated profile
+                const { data: updatedProfile } = await getProfile(session.user.id)
+                setProfile(updatedProfile)
+                setProfileSynced(true)
+              } else {
+                setProfile(existingProfile)
+              }
+              setJustLoggedIn(true)
             }
           } else {
             // Just fetch existing profile
@@ -183,6 +219,47 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
+  // Upload avatar
+  const uploadAvatar = async (file) => {
+    if (!user) return { error: new Error('Not authenticated') }
+
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath)
+
+      // Update profile with new avatar URL
+      const { data, error } = await updateUserProfile({ avatar_url: publicUrl })
+      
+      return { data, error, url: publicUrl }
+    } catch (error) {
+      console.error('Avatar upload error:', error)
+      return { error }
+    }
+  }
+
+  // Clear login state (call after showing welcome message)
+  const clearLoginState = useCallback(() => {
+    setJustLoggedIn(false)
+    setProfileSynced(false)
+  }, [])
+
   // Refresh profile
   const refreshProfile = async () => {
     if (!user) return
@@ -201,7 +278,11 @@ export function AuthProvider({ children }) {
     signInWithGoogle,
     signOut,
     updateUserProfile,
+    uploadAvatar,
     refreshProfile,
+    justLoggedIn,
+    profileSynced,
+    clearLoginState,
     isTeam: profile?.role === 'team' || profile?.role === 'admin',
     isAdmin: profile?.role === 'admin',
     isClient: profile?.role === 'client',
