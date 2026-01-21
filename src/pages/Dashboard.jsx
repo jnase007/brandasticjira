@@ -56,13 +56,10 @@ const itemVariants = {
   },
 }
 
-// Greeting based on time of day
-function getGreeting() {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
-}
+import { getGreeting as getFunGreeting, getFunFact } from '../lib/funMessages'
+import EmptyState from '../components/EmptyState'
+
+// Greeting based on time of day (now uses fun messages)
 
 // Sample sparkline data generator
 function generateSparklineData() {
@@ -204,7 +201,7 @@ export default function Dashboard({ onConfetti }) {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-4xl font-display font-bold mb-2 flex items-center gap-3">
-              {getGreeting()}, {profile?.full_name?.split(' ')[0] || 'there'}!
+              {getFunGreeting(profile?.full_name)}
               <motion.span
                 animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
                 transition={{ duration: 2.5, delay: 0.5 }}
@@ -214,7 +211,7 @@ export default function Dashboard({ onConfetti }) {
               </motion.span>
             </h1>
             <p className="text-lg text-muted-foreground">
-              Here's what's happening across your clients this month.
+              {getFunFact()}
             </p>
           </div>
           <Button

@@ -18,6 +18,7 @@ import TeamHub from './pages/TeamHub'
 import JiraImport from './pages/JiraImport'
 import LeaderboardPage from './pages/LeaderboardPage'
 import TimeTracking from './pages/TimeTracking'
+import NotFound from './pages/NotFound'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -26,6 +27,7 @@ import CommandPalette from './components/CommandPalette'
 import FloatingTimer from './components/FloatingTimer'
 import ActivityFeed from './components/ActivityFeed'
 import Confetti, { useConfetti } from './components/Confetti'
+import EasterEggs from './components/EasterEggs'
 
 // Protected Route wrapper
 function ProtectedRoute({ children, allowedRoles = ['team', 'admin', 'client'] }) {
@@ -258,6 +260,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background">
       {confetti}
+      <EasterEggs />
       {user ? (
         <GamificationProvider>
           <MainLayout>
@@ -359,7 +362,7 @@ function App() {
 
               {/* Default redirect */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
             </AnimatePresence>
           </MainLayout>
