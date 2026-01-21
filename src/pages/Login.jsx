@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Play } from 'lucide-react'
@@ -8,8 +8,13 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useToast } from '../hooks/useToast'
 
-// Background image from Supabase Storage
-const BG_IMAGE = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/C_DSC03021_Edited%20(4).jpg'
+// Team photos from Supabase Storage - rotating backgrounds
+const TEAM_PHOTOS = [
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/C_DSC03021_Edited%20(4).jpg',
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC02954%20(1).jpg',
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC03001.jpg',
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC03013.jpg',
+]
 
 export default function Login() {
   const navigate = useNavigate()
@@ -23,6 +28,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
+  // Rotate background images every 8 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % TEAM_PHOTOS.length)
+    }, 8000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -68,24 +82,28 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Image Background with Ken Burns effect */}
+      {/* Image Background with Ken Burns effect and rotation */}
       <div className="absolute inset-0 z-0">
-        {/* Actual background image */}
-        <motion.img
-          src={BG_IMAGE}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-          initial={{ scale: 1.1, opacity: 0 }}
-          animate={{ 
-            scale: imageLoaded ? [1.1, 1.15, 1.1] : 1.1,
-            opacity: imageLoaded ? 1 : 0 
-          }}
-          transition={{ 
-            scale: { duration: 20, repeat: Infinity, ease: "easeInOut" },
-            opacity: { duration: 1 }
-          }}
-          onLoad={() => setImageLoaded(true)}
-        />
+        {/* Rotating background images */}
+        <AnimatePresence mode="sync">
+          <motion.img
+            key={currentImageIndex}
+            src={TEAM_PHOTOS[currentImageIndex]}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            initial={{ scale: 1.1, opacity: 0 }}
+            animate={{ 
+              scale: [1.1, 1.15, 1.1],
+              opacity: 1
+            }}
+            exit={{ opacity: 0 }}
+            transition={{ 
+              scale: { duration: 20, repeat: Infinity, ease: "easeInOut" },
+              opacity: { duration: 1.5 }
+            }}
+            onLoad={() => setImageLoaded(true)}
+          />
+        </AnimatePresence>
         
         {/* Animated Gradient Fallback (shows while image loads) */}
         <div className={`absolute inset-0 transition-opacity duration-1000 ${imageLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
