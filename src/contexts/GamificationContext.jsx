@@ -118,28 +118,48 @@ export function GamificationProvider({ children }) {
     if (!user) return
 
     try {
-      // Get user's gamification data
-      const { data: gamData } = await supabase
-        .from('user_gamification')
+      // Get user's gamification data from correct table
+      const { data: gamData, error } = await supabase
+        .from('user_gamification_stats')
         .select('*')
         .eq('user_id', user.id)
         .single()
 
-      if (gamData) {
+      if (gamData && !error) {
         setStats({
           xp: gamData.xp || 0,
           level: getLevel(gamData.xp || 0),
           ticketsCompleted: gamData.tickets_completed || 0,
-          hoursLogged: gamData.hours_logged || 0,
+          hoursLogged: parseFloat(gamData.hours_logged) || 0,
           commentsCount: gamData.comments_count || 0,
           currentStreak: gamData.current_streak || 0,
           longestStreak: gamData.longest_streak || 0,
           achievements: gamData.achievements || [],
         })
+      } else if (error?.code === 'PGRST116') {
+        // No row exists yet - create initial stats
+        const { data: newStats } = await supabase
+          .from('user_gamification_stats')
+          .insert({ user_id: user.id })
+          .select()
+          .single()
+        
+        if (newStats) {
+          setStats({
+            xp: 0,
+            level: 1,
+            ticketsCompleted: 0,
+            hoursLogged: 0,
+            commentsCount: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            achievements: [],
+          })
+        }
       }
     } catch (error) {
       // Table might not exist yet, that's ok
-      console.log('Gamification not initialized yet')
+      console.log('Gamification not initialized yet:', error)
     } finally {
       setLoading(false)
     }
@@ -168,7 +188,7 @@ export function GamificationProvider({ children }) {
     // Update in database
     try {
       await supabase
-        .from('user_gamification')
+        .from('user_gamification_stats')
         .upsert({
           user_id: user.id,
           xp: newXP,
@@ -201,7 +221,7 @@ export function GamificationProvider({ children }) {
     // Update in database
     try {
       await supabase
-        .from('user_gamification')
+        .from('user_gamification_stats')
         .upsert({
           user_id: user.id,
           achievements: newAchievements,
@@ -237,7 +257,7 @@ export function GamificationProvider({ children }) {
     // Update database
     try {
       await supabase
-        .from('user_gamification')
+        .from('user_gamification_stats')
         .upsert({
           user_id: user.id,
           tickets_completed: newCount,
@@ -272,7 +292,7 @@ export function GamificationProvider({ children }) {
     // Update database
     try {
       await supabase
-        .from('user_gamification')
+        .from('user_gamification_stats')
         .upsert({
           user_id: user.id,
           hours_logged: newTotal,
@@ -301,7 +321,7 @@ export function GamificationProvider({ children }) {
     // Update database
     try {
       await supabase
-        .from('user_gamification')
+        .from('user_gamification_stats')
         .upsert({
           user_id: user.id,
           comments_count: newCount,
