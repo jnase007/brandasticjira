@@ -113,7 +113,7 @@ export async function getClient(clientId) {
   return { data, error }
 }
 
-export async function createClient(clientData) {
+export async function addClient(clientData) {
   const { data, error } = await supabase
     .from('clients')
     .insert(clientData)
