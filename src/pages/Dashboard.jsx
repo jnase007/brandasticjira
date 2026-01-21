@@ -18,6 +18,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Progress } from '../components/ui/progress'
 import { Badge } from '../components/ui/badge'
+import { Skeleton, SkeletonStats } from '../components/ui/skeleton'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -81,17 +82,64 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto animate-fade-in-up">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <Skeleton className="h-9 w-64 mb-2" />
+          <Skeleton className="h-5 w-80" />
+        </div>
+        
+        {/* Stats Skeleton */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} className="shimmer h-32" />
+            <SkeletonStats key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }} />
           ))}
         </div>
+        
+        {/* Main Content Skeleton */}
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <Card className="shimmer h-96" />
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-9 w-64 rounded-lg" />
+              </div>
+              <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="p-4 rounded-xl border animate-fade-in-up" style={{ animationDelay: `${(i + 4) * 100}ms` }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-3 w-3 rounded-full" />
+                        <Skeleton className="h-5 w-32" />
+                      </div>
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                    <Skeleton className="h-2 w-full rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
-          <Card className="shimmer h-96" />
+          <div className="space-y-6">
+            <Card className="p-6">
+              <Skeleton className="h-6 w-32 mb-4" />
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full rounded-lg" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </Card>
+            <Card className="p-6">
+              <Skeleton className="h-6 w-32 mb-4" />
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-4 flex-1" />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
         </div>
       </div>
     )
@@ -121,15 +169,15 @@ export default function Dashboard() {
         className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8"
       >
         <motion.div variants={itemVariants}>
-          <Card className="card-hover">
+          <Card className="card-hover group cursor-pointer">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active Clients</p>
-                  <p className="text-3xl font-display font-bold mt-1">{totalClients}</p>
+                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-orange transition-colors">{totalClients}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-coral/10">
-                  <Users className="h-6 w-6 text-brand-coral" />
+                <div className="p-3 rounded-xl bg-brand-orange/10 group-hover:bg-brand-orange/20 group-hover:scale-110 transition-all duration-300">
+                  <Users className="h-6 w-6 text-brand-orange" />
                 </div>
               </div>
             </CardContent>
@@ -137,15 +185,15 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="card-hover">
+          <Card className="card-hover group cursor-pointer">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Boards</p>
-                  <p className="text-3xl font-display font-bold mt-1">{totalBoards}</p>
+                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-blue transition-colors">{totalBoards}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-teal/10">
-                  <Kanban className="h-6 w-6 text-brand-teal" />
+                <div className="p-3 rounded-xl bg-brand-blue/10 group-hover:bg-brand-blue/20 group-hover:scale-110 transition-all duration-300">
+                  <Kanban className="h-6 w-6 text-brand-blue" />
                 </div>
               </div>
             </CardContent>
@@ -153,19 +201,19 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="card-hover">
+          <Card className="card-hover group cursor-pointer">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Hours Used</p>
-                  <p className="text-3xl font-display font-bold mt-1">
+                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-purple transition-colors">
                     {Math.round(totalHoursUsed)}
                     <span className="text-lg text-muted-foreground font-normal">
                       /{totalHoursAvailable}
                     </span>
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-purple/10">
+                <div className="p-3 rounded-xl bg-brand-purple/10 group-hover:bg-brand-purple/20 group-hover:scale-110 transition-all duration-300">
                   <Clock className="h-6 w-6 text-brand-purple" />
                 </div>
               </div>
@@ -174,19 +222,19 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="card-hover">
+          <Card className="card-hover group cursor-pointer">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Utilization</p>
-                  <p className="text-3xl font-display font-bold mt-1">
+                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-teal transition-colors">
                     {totalHoursAvailable > 0
                       ? Math.round((totalHoursUsed / totalHoursAvailable) * 100)
                       : 0}%
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-gold/10">
-                  <TrendingUp className="h-6 w-6 text-brand-gold" />
+                <div className="p-3 rounded-xl bg-brand-teal/10 group-hover:bg-brand-teal/20 group-hover:scale-110 transition-all duration-300">
+                  <TrendingUp className="h-6 w-6 text-brand-teal" />
                 </div>
               </div>
             </CardContent>

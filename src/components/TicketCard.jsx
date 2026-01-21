@@ -25,11 +25,15 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       className={cn(
-        "group relative rounded-xl border bg-card p-4 shadow-sm transition-all duration-200",
-        "hover:shadow-md hover:border-primary/20",
-        isDragging && "shadow-lg ring-2 ring-primary/20 rotate-2 scale-105"
+        "group relative rounded-xl border bg-card p-4 shadow-sm transition-all duration-300",
+        "hover:shadow-xl hover:shadow-brand-orange/10 hover:border-brand-orange/30",
+        "before:absolute before:inset-0 before:rounded-xl before:opacity-0 before:transition-opacity before:duration-500",
+        "before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
+        "hover:before:opacity-100 hover:before:animate-gleam",
+        isDragging && "shadow-2xl ring-2 ring-brand-orange/40 rotate-2 scale-105 z-50"
       )}
     >
       {/* Priority indicator strip */}
@@ -52,7 +56,7 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
         </div>
 
         {/* Title */}
-        <h4 className="font-medium text-sm leading-snug mb-3 line-clamp-2 group-hover:text-primary transition-colors">
+        <h4 className="font-medium text-sm leading-snug mb-3 line-clamp-2 group-hover:text-brand-orange transition-colors duration-300">
           {ticket.title}
         </h4>
 

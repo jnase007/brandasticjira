@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu'
 import { useToast } from '../hooks/useToast'
+import { Skeleton, SkeletonBoard } from '../components/ui/skeleton'
 
 export default function Boards() {
   const { user } = useAuth()
@@ -151,14 +152,34 @@ export default function Boards() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="h-8 w-32 bg-muted rounded shimmer" />
-          <div className="h-10 w-32 bg-muted rounded shimmer" />
+      <div className="p-6 max-w-7xl mx-auto animate-fade-in-up">
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <Skeleton className="h-9 w-32 mb-2" />
+            <Skeleton className="h-5 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32 rounded-lg" />
         </div>
+        
+        {/* Filters Skeleton */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-6">
+          <Skeleton className="h-10 flex-1 max-w-md rounded-lg" />
+          <Skeleton className="h-10 w-48 rounded-lg" />
+          <Skeleton className="h-10 w-20 rounded-lg" />
+        </div>
+        
+        {/* Grid Skeleton */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <Card key={i} className="shimmer h-48" />
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+            >
+              <SkeletonBoard />
+            </motion.div>
           ))}
         </div>
       </div>
@@ -270,18 +291,18 @@ export default function Boards() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className="group card-hover overflow-hidden">
+                <Card className="group card-hover overflow-hidden cursor-pointer">
                   <Link to={`/boards/${board.id}`}>
-                    {/* Color bar */}
+                    {/* Color bar with animation */}
                     <div
-                      className="h-2"
-                      style={{ backgroundColor: board.client?.color || '#94A3B8' }}
+                      className="h-2 transition-all duration-300 group-hover:h-3"
+                      style={{ backgroundColor: board.client?.color || '#F7931E' }}
                     />
                     <CardContent className={cn("pt-4", viewMode === 'list' && 'flex items-center gap-4')}>
                       <div className={cn("flex-1", viewMode === 'list' && 'flex items-center gap-4')}>
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <h3 className="font-display font-semibold text-lg group-hover:text-primary transition-colors">
+                            <h3 className="font-display font-semibold text-lg group-hover:text-brand-orange transition-colors duration-300">
                               {board.name}
                             </h3>
                             <p className="text-sm text-muted-foreground">

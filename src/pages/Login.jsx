@@ -66,11 +66,32 @@ export default function Login() {
     <div className="min-h-screen flex">
       {/* Left side - branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-dark relative overflow-hidden">
-        {/* Decorative background */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-brand-coral/30 rounded-full blur-3xl" />
-          <div className="absolute bottom-32 right-20 w-96 h-96 bg-brand-purple/30 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-brand-teal/20 rounded-full blur-3xl" />
+        {/* Animated decorative background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-20 left-20 w-72 h-72 bg-brand-orange/30 rounded-full blur-3xl"
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+            }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-32 right-20 w-96 h-96 bg-brand-blue/30 rounded-full blur-3xl"
+            animate={{ 
+              scale: [1.2, 1, 1.2],
+              opacity: [0.3, 0.5, 0.3],
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-brand-coral/20 rounded-full blur-3xl"
+            animate={{ 
+              scale: [1, 1.3, 1],
+              x: ["-50%", "-40%", "-50%"],
+            }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
 
         {/* Content */}
@@ -113,10 +134,20 @@ export default function Login() {
               'Real-time collaboration',
               'Beautiful client portals',
             ].map((feature, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-brand-coral" />
-                <span className="text-white/80">{feature}</span>
-              </div>
+              <motion.div 
+                key={index} 
+                className="flex items-center gap-3 group cursor-default"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 + index * 0.1 }}
+                whileHover={{ x: 5 }}
+              >
+                <motion.div 
+                  className="w-2 h-2 rounded-full bg-brand-orange"
+                  whileHover={{ scale: 1.5, backgroundColor: "#00AEEF" }}
+                />
+                <span className="text-white/80 group-hover:text-white transition-colors">{feature}</span>
+              </motion.div>
             ))}
           </motion.div>
         </div>
@@ -216,7 +247,7 @@ export default function Login() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full group"
               size="lg"
               disabled={loading}
             >
@@ -225,7 +256,7 @@ export default function Login() {
               ) : (
                 <>
                   {mode === 'login' ? 'Sign In' : 'Create Account'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </Button>

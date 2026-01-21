@@ -13,10 +13,12 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 354 70% 54%;
+    /* Brandastic Orange as primary */
+    --primary: 28 94% 54%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 174 54% 56%;
+    /* Brandastic Blue as secondary */
+    --secondary: 195 100% 47%;
     --secondary-foreground: 222 47% 11%;
 
     --muted: 210 40% 96%;
@@ -30,7 +32,7 @@
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 354 70% 54%;
+    --ring: 28 94% 54%;
 
     --radius: 0.75rem;
   }
@@ -45,10 +47,12 @@
     --popover: 222 47% 14%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 354 70% 54%;
+    /* Brandastic Orange as primary */
+    --primary: 28 94% 54%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 174 54% 56%;
+    /* Brandastic Blue as secondary */
+    --secondary: 195 100% 47%;
     --secondary-foreground: 222 47% 11%;
 
     --muted: 217 33% 17%;
@@ -62,7 +66,7 @@
 
     --border: 217 33% 20%;
     --input: 217 33% 20%;
-    --ring: 354 70% 54%;
+    --ring: 28 94% 54%;
   }
 }
 
@@ -102,14 +106,87 @@
     @apply bg-white/80 dark:bg-card/80 backdrop-blur-xl border border-white/20;
   }
 
-  /* Gradient text */
+  /* Gradient text - Brandastic colors */
   .gradient-text {
-    @apply bg-gradient-to-r from-brand-coral via-brand-purple to-brand-teal bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand-orange via-brand-coral to-brand-blue bg-clip-text text-transparent;
   }
 
-  /* Card hover effect */
+  /* Card hover effect with gleam */
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5;
+    @apply relative overflow-hidden transition-all duration-300;
+    @apply hover:shadow-xl hover:shadow-brand-orange/10 hover:-translate-y-1;
+    @apply hover:border-brand-orange/30;
+  }
+
+  .card-hover::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500;
+    background: linear-gradient(
+      110deg,
+      transparent 25%,
+      rgba(247, 147, 30, 0.08) 50%,
+      transparent 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  .card-hover:hover::before {
+    @apply opacity-100;
+    animation: gleam 1.5s ease-in-out;
+  }
+
+  /* Gleam button effect */
+  .btn-gleam {
+    @apply relative overflow-hidden;
+  }
+
+  .btn-gleam::after {
+    content: '';
+    @apply absolute inset-0 opacity-0;
+    background: linear-gradient(
+      110deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 80%
+    );
+    background-size: 200% 100%;
+    transition: opacity 0.3s;
+  }
+
+  .btn-gleam:hover::after {
+    @apply opacity-100;
+    animation: gleam 0.8s ease-in-out;
+  }
+
+  /* Glow border effect */
+  .glow-border {
+    @apply relative;
+  }
+
+  .glow-border::before {
+    content: '';
+    @apply absolute -inset-0.5 rounded-xl opacity-0 blur transition-opacity duration-300;
+    background: linear-gradient(135deg, #F7931E, #00AEEF);
+  }
+
+  .glow-border:hover::before {
+    @apply opacity-75;
+  }
+
+  /* Interactive card with depth */
+  .interactive-card {
+    @apply relative bg-card rounded-xl border transition-all duration-300 ease-out;
+    @apply hover:shadow-2xl hover:shadow-brand-orange/20;
+    transform-style: preserve-3d;
+  }
+
+  .interactive-card:hover {
+    transform: translateY(-4px) scale(1.01);
+  }
+
+  /* Floating animation for hero elements */
+  .float-animation {
+    animation: float 3s ease-in-out infinite;
   }
 
   /* Status badges */
@@ -159,9 +236,9 @@
     @apply absolute inset-0 rounded-full bg-brand-coral/30 animate-ping;
   }
 
-  /* Shimmer loading effect */
+  /* Shimmer loading effect - enhanced */
   .shimmer {
-    @apply relative overflow-hidden bg-muted;
+    @apply relative overflow-hidden bg-muted/60 rounded-lg;
   }
 
   .shimmer::after {
@@ -170,10 +247,67 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(255, 255, 255, 0.1),
+      rgba(247, 147, 30, 0.1),
+      rgba(0, 174, 239, 0.1),
       transparent
     );
     animation: shimmer 2s infinite;
+  }
+
+  /* Skeleton pulse with brand colors */
+  .skeleton-pulse {
+    @apply relative overflow-hidden bg-gradient-to-r from-muted via-muted/80 to-muted;
+    background-size: 200% 100%;
+    animation: border-flow 2s ease infinite;
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+    @apply hover:-translate-y-2 hover:shadow-xl hover:shadow-brand-orange/15;
+  }
+
+  /* Magnetic hover (subtle pull effect) */
+  .magnetic-hover {
+    @apply transition-transform duration-200 ease-out;
+  }
+
+  .magnetic-hover:hover {
+    @apply scale-[1.02];
+  }
+
+  /* Badge glow */
+  .badge-glow {
+    @apply relative;
+    box-shadow: 0 0 0 0 currentColor;
+    animation: pulse-glow 2s infinite;
+  }
+
+  /* Progress bar animated */
+  .progress-animated {
+    @apply relative overflow-hidden;
+  }
+
+  .progress-animated::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  /* Tooltip with brand styling */
+  .tooltip-brand {
+    @apply bg-brand-dark text-white border-brand-orange/20;
+  }
+
+  /* Focus ring with brand color */
+  .focus-brand {
+    @apply focus:ring-2 focus:ring-brand-orange/50 focus:ring-offset-2;
   }
 }
 

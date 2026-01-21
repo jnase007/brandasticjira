@@ -2,7 +2,7 @@ import * as React from "react"
 import * as ProgressPrimitive from "@radix-ui/react-progress"
 import { cn } from "@/lib/utils"
 
-const Progress = React.forwardRef(({ className, value, indicatorClassName, ...props }, ref) => (
+const Progress = React.forwardRef(({ className, value, indicatorClassName, animated = true, ...props }, ref) => (
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(
@@ -13,7 +13,8 @@ const Progress = React.forwardRef(({ className, value, indicatorClassName, ...pr
   >
     <ProgressPrimitive.Indicator
       className={cn(
-        "h-full w-full flex-1 bg-primary transition-all duration-500 ease-out",
+        "h-full w-full flex-1 bg-gradient-to-r from-brand-orange to-brand-blue transition-all duration-700 ease-out relative",
+        animated && "after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:animate-shimmer",
         indicatorClassName
       )}
       style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
