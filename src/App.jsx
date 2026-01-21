@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext'
 
 // Pages
 import Login from './pages/Login'
+import Demo from './pages/Demo'
 import Dashboard from './pages/Dashboard'
 import Boards from './pages/Boards'
 import BoardDetail from './pages/BoardDetail'
@@ -74,6 +75,7 @@ function App() {
             path="/login" 
             element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
           />
+          <Route path="/demo" element={<Demo />} />
 
           {/* Team routes */}
           <Route
