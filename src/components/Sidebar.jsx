@@ -17,10 +17,14 @@ import {
   Shield,
   Users2,
   Upload,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from './ui/button'
+import XPBar from './XPBar'
+import { AchievementMini } from './AchievementShowcase'
+import DailyChallenges from './DailyChallenges'
 
 const LOGO_WHITE = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png'
 const LOGO_ICON = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png'
@@ -29,6 +33,7 @@ const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
   { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G T' },
+  { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
 ]
 
@@ -106,8 +111,17 @@ export default function Sidebar({
         </Button>
       </div>
 
-      {/* Quick Actions */}
-      <div className="p-3 space-y-2">
+      {/* XP Bar & Gamification */}
+      <div className="p-3 space-y-3">
+        <XPBar collapsed={collapsed} />
+        
+        {!collapsed && (
+          <>
+            <DailyChallenges compact />
+            <AchievementMini />
+          </>
+        )}
+        
         <Button
           variant="outline"
           size={collapsed ? "icon" : "default"}

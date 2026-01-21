@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from './contexts/AuthContext'
+import { GamificationProvider } from './contexts/GamificationContext'
 
 // Pages
 import Login from './pages/Login'
@@ -15,6 +16,7 @@ import Settings from './pages/Settings'
 import Admin from './pages/Admin'
 import TeamHub from './pages/TeamHub'
 import JiraImport from './pages/JiraImport'
+import LeaderboardPage from './pages/LeaderboardPage'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -256,8 +258,9 @@ function App() {
     <div className="min-h-screen bg-background">
       {confetti}
       {user ? (
-        <MainLayout>
-          <AnimatePresence mode="wait">
+        <GamificationProvider>
+          <MainLayout>
+            <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               {/* Team routes */}
               <Route
@@ -309,6 +312,14 @@ function App() {
                 }
               />
               <Route
+                path="/leaderboard"
+                element={
+                  <TeamRoute>
+                    <LeaderboardPage />
+                  </TeamRoute>
+                }
+              />
+              <Route
                 path="/import"
                 element={
                   <AdminRoute>
@@ -341,8 +352,9 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
-          </AnimatePresence>
-        </MainLayout>
+            </AnimatePresence>
+          </MainLayout>
+        </GamificationProvider>
       ) : (
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
