@@ -1,21 +1,20 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Play, Pause, Volume2, VolumeX } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Play } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useToast } from '../hooks/useToast'
 
-// Video background URL - Upload your video to Supabase Storage and put the URL here
-const VIDEO_URL = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/videos/brandastic-bg.mp4'
+// Background image from Supabase Storage
+const BG_IMAGE = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/C_DSC03021_Edited%20(4).jpg'
 
 export default function Login() {
   const navigate = useNavigate()
   const { signIn, signUp, signInWithGoogle } = useAuth()
   const { toast } = useToast()
-  const videoRef = useRef(null)
 
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
@@ -23,36 +22,7 @@ export default function Login() {
   const [fullName, setFullName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [videoLoaded, setVideoLoaded] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [isMuted, setIsMuted] = useState(true)
-
-  useEffect(() => {
-    // Auto-play video when loaded
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Autoplay blocked, that's okay
-      })
-    }
-  }, [])
-
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause()
-      } else {
-        videoRef.current.play()
-      }
-      setIsPlaying(!isPlaying)
-    }
-  }
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted
-      setIsMuted(!isMuted)
-    }
-  }
+  const [imageLoaded, setImageLoaded] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -98,23 +68,27 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Video Background */}
+      {/* Image Background with Ken Burns effect */}
       <div className="absolute inset-0 z-0">
-        <video
-          ref={videoRef}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
-          autoPlay
-          loop
-          muted={isMuted}
-          playsInline
-          onLoadedData={() => setVideoLoaded(true)}
-          onError={() => setVideoLoaded(false)}
-        >
-          <source src={VIDEO_URL} type="video/mp4" />
-        </video>
+        {/* Actual background image */}
+        <motion.img
+          src={BG_IMAGE}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+          initial={{ scale: 1.1, opacity: 0 }}
+          animate={{ 
+            scale: imageLoaded ? [1.1, 1.15, 1.1] : 1.1,
+            opacity: imageLoaded ? 1 : 0 
+          }}
+          transition={{ 
+            scale: { duration: 20, repeat: Infinity, ease: "easeInOut" },
+            opacity: { duration: 1 }
+          }}
+          onLoad={() => setImageLoaded(true)}
+        />
         
-        {/* Animated Gradient Fallback (shows when video not loaded) */}
-        <div className={`absolute inset-0 transition-opacity duration-1000 ${videoLoaded ? 'opacity-0' : 'opacity-100'}`}>
+        {/* Animated Gradient Fallback (shows while image loads) */}
+        <div className={`absolute inset-0 transition-opacity duration-1000 ${imageLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           {/* Base gradient */}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-dark via-[#0a1628] to-brand-dark" />
           
@@ -147,7 +121,7 @@ export default function Login() {
           />
           
           {/* Floating particles */}
-          {[...Array(20)].map((_, i) => (
+          {[...Array(15)].map((_, i) => (
             <motion.div
               key={i}
               className="absolute w-1 h-1 bg-white/30 rounded-full"
@@ -169,33 +143,14 @@ export default function Login() {
         </div>
         
         {/* Dark overlay for readability */}
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-black/50" />
         
         {/* Gradient overlay at bottom */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        
+        {/* Subtle vignette effect */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
       </div>
-
-      {/* Video Controls */}
-      {videoLoaded && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="absolute bottom-6 left-6 z-20 flex items-center gap-2"
-        >
-          <button
-            onClick={togglePlay}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all"
-          >
-            {isPlaying ? <Pause className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 text-white" />}
-          </button>
-          <button
-            onClick={toggleMute}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all"
-          >
-            {isMuted ? <VolumeX className="h-4 w-4 text-white" /> : <Volume2 className="h-4 w-4 text-white" />}
-          </button>
-        </motion.div>
-      )}
 
       {/* Main Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4 sm:p-8">
@@ -208,7 +163,15 @@ export default function Login() {
           {/* Glass Card */}
           <div className="relative backdrop-blur-xl bg-white/10 rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
             {/* Gleam effect on card */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+            <motion.div 
+              className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none"
+              initial={{ opacity: 0, x: -100 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.8 }}
+            />
+            
+            {/* Subtle animated border glow */}
+            <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-brand-orange/50 via-transparent to-brand-blue/50 opacity-50 blur-sm pointer-events-none" />
             
             {/* Card content */}
             <div className="relative p-8 sm:p-10">
