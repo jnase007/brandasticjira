@@ -230,16 +230,16 @@ export default function LoadingScreen({ onRetry, error }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-6"
+              className="mt-6 px-4"
             >
               <button
                 onClick={handleRefresh}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange/90 rounded-lg transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange/90 rounded-xl transition-colors shadow-lg shadow-brand-orange/25 active:scale-95"
               >
-                <RefreshCw className="h-4 w-4" />
-                Refresh & Try Again
+                <RefreshCw className="h-5 w-5 flex-shrink-0" strokeWidth={2.5} />
+                <span>Refresh & Try Again</span>
               </button>
-              <p className="mt-2 text-[10px] text-muted-foreground/70">
+              <p className="mt-3 text-xs text-muted-foreground/70">
                 Taking too long? Click to reload!
               </p>
             </motion.div>
