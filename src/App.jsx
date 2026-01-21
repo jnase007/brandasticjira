@@ -17,6 +17,7 @@ import Admin from './pages/Admin'
 import TeamHub from './pages/TeamHub'
 import JiraImport from './pages/JiraImport'
 import LeaderboardPage from './pages/LeaderboardPage'
+import TimeTracking from './pages/TimeTracking'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -316,6 +317,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <LeaderboardPage />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/time"
+                element={
+                  <TeamRoute>
+                    <TimeTracking />
                   </TeamRoute>
                 }
               />

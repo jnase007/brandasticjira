@@ -18,6 +18,7 @@ import {
   Users2,
   Upload,
   Trophy,
+  Clock,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -32,6 +33,7 @@ const LOGO_ICON = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
   { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },
+  { path: '/time', icon: Clock, label: 'Time & Profit', shortcut: 'G P' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G T' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },

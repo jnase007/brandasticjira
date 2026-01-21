@@ -1,0 +1,1152 @@
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Clock, Users, DollarSign, TrendingUp, TrendingDown, Target,
+  Plus, Calendar, Building2, ChevronLeft, ChevronRight, Edit2,
+  Trash2, Check, X, AlertCircle, Zap, BarChart3, PieChart,
+  Download, Filter, RefreshCw, ArrowUpRight, ArrowDownRight
+} from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import { cn, formatDate, getInitials } from '../lib/utils'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Badge } from '../components/ui/badge'
+import { Progress } from '../components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
+import { Skeleton } from '../components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog'
+import { useToast } from '../hooks/useToast'
+import AnimatedCounter from '../components/AnimatedCounter'
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+}
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
+
+function formatCurrency(value) {
+  if (!value && value !== 0) return '$0'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+function formatHours(minutes) {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (mins === 0) return `${hours}h`
+  return `${hours}h ${mins}m`
+}
+
+function getEfficiencyColor(ratio) {
+  if (ratio >= 90) return 'text-green-500'
+  if (ratio >= 70) return 'text-yellow-500'
+  if (ratio >= 50) return 'text-orange-500'
+  return 'text-red-500'
+}
+
+function getEfficiencyBg(ratio) {
+  if (ratio >= 90) return 'bg-green-500'
+  if (ratio >= 70) return 'bg-yellow-500'
+  if (ratio >= 50) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
+function getProfitColor(profit) {
+  if (profit > 0) return 'text-green-500'
+  if (profit < 0) return 'text-red-500'
+  return 'text-muted-foreground'
+}
+
+export default function TimeTracking() {
+  const { user, profile, isAdmin } = useAuth()
+  const { toast } = useToast()
+  
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  
+  // Data
+  const [employees, setEmployees] = useState([])
+  const [clients, setClients] = useState([])
+  const [clientRates, setClientRates] = useState([])
+  const [timeEntries, setTimeEntries] = useState([])
+  const [myTimeEntries, setMyTimeEntries] = useState([])
+  
+  // Selected month/year
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  
+  // Dialogs
+  const [addTimeDialogOpen, setAddTimeDialogOpen] = useState(false)
+  const [editEmployeeDialogOpen, setEditEmployeeDialogOpen] = useState(false)
+  const [editClientRateDialogOpen, setEditClientRateDialogOpen] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState(null)
+  const [selectedClient, setSelectedClient] = useState(null)
+  
+  // Time entry form
+  const [timeEntry, setTimeEntry] = useState({
+    client_id: '',
+    description: '',
+    hours: '',
+    minutes: '',
+    date: new Date().toISOString().split('T')[0],
+    billable: true,
+  })
+
+  // Fetch all data
+  const fetchData = async (showRefresh = false) => {
+    if (showRefresh) setRefreshing(true)
+    else setLoading(true)
+
+    try {
+      const [employeesRes, clientsRes, clientRatesRes, timeEntriesRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .in('role', ['team', 'admin'])
+          .order('full_name'),
+        supabase
+          .from('clients')
+          .select('*')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('client_rates')
+          .select('*'),
+        supabase
+          .from('time_entries')
+          .select('*, client:clients(name, color), user:profiles(full_name, avatar_url, hourly_cost)')
+          .gte('date', `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`)
+          .lt('date', selectedMonth === 12 
+            ? `${selectedYear + 1}-01-01` 
+            : `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`)
+          .order('date', { ascending: false }),
+      ])
+
+      setEmployees(employeesRes.data || [])
+      setClients(clientsRes.data || [])
+      setClientRates(clientRatesRes.data || [])
+      setTimeEntries(timeEntriesRes.data || [])
+      setMyTimeEntries((timeEntriesRes.data || []).filter(te => te.user_id === user?.id))
+    } catch (error) {
+      console.error('Error fetching time tracking data:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load data',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [selectedMonth, selectedYear])
+
+  // Calculate employee stats
+  const getEmployeeStats = (employeeId) => {
+    const entries = timeEntries.filter(te => te.user_id === employeeId)
+    const employee = employees.find(e => e.id === employeeId)
+    
+    const totalMinutes = entries.reduce((sum, te) => sum + te.minutes, 0)
+    const billableMinutes = entries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
+    const targetMinutes = (employee?.target_hours_monthly || 120) * 60
+    const efficiency = targetMinutes > 0 ? (totalMinutes / targetMinutes) * 100 : 0
+    const cost = (totalMinutes / 60) * (employee?.hourly_cost || 0)
+    
+    return {
+      totalHours: totalMinutes / 60,
+      billableHours: billableMinutes / 60,
+      targetHours: employee?.target_hours_monthly || 120,
+      efficiency: Math.round(efficiency),
+      cost,
+      entriesCount: entries.length,
+    }
+  }
+
+  // Calculate client stats
+  const getClientStats = (clientId) => {
+    const entries = timeEntries.filter(te => te.client_id === clientId)
+    const client = clients.find(c => c.id === clientId)
+    const rate = clientRates.find(cr => cr.client_id === clientId)?.hourly_rate || 75
+    
+    const totalMinutes = entries.reduce((sum, te) => sum + te.minutes, 0)
+    const billableMinutes = entries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
+    const revenue = (billableMinutes / 60) * rate
+    const cost = entries.reduce((sum, te) => sum + (te.minutes / 60) * (te.user?.hourly_cost || 0), 0)
+    const profit = revenue - cost
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0
+    
+    return {
+      totalHours: totalMinutes / 60,
+      billableHours: billableMinutes / 60,
+      budgetedHours: client?.monthly_hours || 0,
+      billingRate: rate,
+      revenue,
+      cost,
+      profit,
+      margin: Math.round(margin),
+    }
+  }
+
+  // Add time entry
+  const handleAddTimeEntry = async () => {
+    if (!timeEntry.client_id) {
+      toast({ title: 'Select a client', variant: 'destructive' })
+      return
+    }
+
+    const totalMinutes = (parseInt(timeEntry.hours) || 0) * 60 + (parseInt(timeEntry.minutes) || 0)
+    if (totalMinutes <= 0) {
+      toast({ title: 'Enter valid time', variant: 'destructive' })
+      return
+    }
+
+    try {
+      await supabase.from('time_entries').insert({
+        user_id: user.id,
+        client_id: timeEntry.client_id,
+        description: timeEntry.description,
+        minutes: totalMinutes,
+        date: timeEntry.date,
+        billable: timeEntry.billable,
+      })
+
+      toast({ title: 'Time logged!', variant: 'success' })
+      setAddTimeDialogOpen(false)
+      setTimeEntry({
+        client_id: '',
+        description: '',
+        hours: '',
+        minutes: '',
+        date: new Date().toISOString().split('T')[0],
+        billable: true,
+      })
+      fetchData(true)
+    } catch (error) {
+      toast({ title: 'Error logging time', variant: 'destructive' })
+    }
+  }
+
+  // Update employee settings (admin only)
+  const handleUpdateEmployee = async () => {
+    if (!selectedEmployee) return
+
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          hourly_cost: selectedEmployee.hourly_cost,
+          target_hours_monthly: selectedEmployee.target_hours_monthly,
+        })
+        .eq('id', selectedEmployee.id)
+
+      toast({ title: 'Employee updated', variant: 'success' })
+      setEditEmployeeDialogOpen(false)
+      fetchData(true)
+    } catch (error) {
+      toast({ title: 'Error updating employee', variant: 'destructive' })
+    }
+  }
+
+  // Update client rate (admin only)
+  const handleUpdateClientRate = async () => {
+    if (!selectedClient) return
+
+    try {
+      const existing = clientRates.find(cr => cr.client_id === selectedClient.id)
+      
+      if (existing) {
+        await supabase
+          .from('client_rates')
+          .update({ hourly_rate: selectedClient.hourly_rate })
+          .eq('id', existing.id)
+      } else {
+        await supabase
+          .from('client_rates')
+          .insert({
+            client_id: selectedClient.id,
+            hourly_rate: selectedClient.hourly_rate,
+          })
+      }
+
+      toast({ title: 'Client rate updated', variant: 'success' })
+      setEditClientRateDialogOpen(false)
+      fetchData(true)
+    } catch (error) {
+      toast({ title: 'Error updating rate', variant: 'destructive' })
+    }
+  }
+
+  // Calculate totals
+  const totalTrackedHours = timeEntries.reduce((sum, te) => sum + te.minutes, 0) / 60
+  const totalBillableHours = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0) / 60
+  const totalRevenue = clients.reduce((sum, c) => sum + getClientStats(c.id).revenue, 0)
+  const totalCost = clients.reduce((sum, c) => sum + getClientStats(c.id).cost, 0)
+  const totalProfit = totalRevenue - totalCost
+  const avgEfficiency = employees.length > 0
+    ? employees.reduce((sum, e) => sum + getEmployeeStats(e.id).efficiency, 0) / employees.length
+    : 0
+
+  // My stats
+  const myStats = getEmployeeStats(user?.id)
+
+  if (loading) {
+    return (
+      <div className="p-8 max-w-[1600px] mx-auto">
+        <div className="mb-8">
+          <Skeleton className="h-10 w-64 mb-3" />
+          <Skeleton className="h-6 w-96" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-4 mb-8">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    )
+  }
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="p-8 max-w-[1600px] mx-auto"
+    >
+      {/* Header */}
+      <motion.div variants={itemVariants} className="mb-8">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-brand-blue to-brand-teal">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-4xl font-display font-bold">Time Tracking</h1>
+            </div>
+            <p className="text-lg text-muted-foreground">
+              Track time, monitor efficiency, and analyze profitability
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button onClick={() => setAddTimeDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Log Time
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Month Selector */}
+      <motion.div variants={itemVariants} className="flex items-center gap-4 mb-8">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            if (selectedMonth === 1) {
+              setSelectedMonth(12)
+              setSelectedYear(y => y - 1)
+            } else {
+              setSelectedMonth(m => m - 1)
+            }
+          }}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-2">
+          <Select
+            value={selectedMonth.toString()}
+            onValueChange={(v) => setSelectedMonth(parseInt(v))}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS.map((m, i) => (
+                <SelectItem key={i} value={(i + 1).toString()}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={selectedYear.toString()}
+            onValueChange={(v) => setSelectedYear(parseInt(v))}
+          >
+            <SelectTrigger className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[2024, 2025, 2026, 2027].map(y => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            if (selectedMonth === 12) {
+              setSelectedMonth(1)
+              setSelectedYear(y => y + 1)
+            } else {
+              setSelectedMonth(m => m + 1)
+            }
+          }}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </motion.div>
+
+      {/* My Stats Card (for team members) */}
+      <motion.div variants={itemVariants} className="mb-8">
+        <Card className="bg-gradient-to-r from-brand-orange/10 via-brand-coral/5 to-transparent border-brand-orange/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-6">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={profile?.avatar_url} />
+                <AvatarFallback className="text-lg bg-brand-orange text-white">
+                  {getInitials(profile?.full_name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold">{profile?.full_name}'s Time This Month</h3>
+                <p className="text-sm text-muted-foreground">
+                  Target: {myStats.targetHours}h/month
+                </p>
+              </div>
+              <div className="flex items-center gap-8">
+                <div className="text-center">
+                  <p className="text-3xl font-bold">
+                    <AnimatedCounter value={Math.round(myStats.totalHours * 10) / 10} decimals={1} />h
+                  </p>
+                  <p className="text-sm text-muted-foreground">Tracked</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold">
+                    <AnimatedCounter value={Math.round(myStats.billableHours * 10) / 10} decimals={1} />h
+                  </p>
+                  <p className="text-sm text-muted-foreground">Billable</p>
+                </div>
+                <div className="text-center">
+                  <div className={cn("text-3xl font-bold", getEfficiencyColor(myStats.efficiency))}>
+                    <AnimatedCounter value={myStats.efficiency} />%
+                  </div>
+                  <p className="text-sm text-muted-foreground">Efficiency</p>
+                </div>
+                <div className="w-32">
+                  <Progress value={Math.min(100, myStats.efficiency)} className="h-3" />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Quick Stats */}
+      <motion.div
+        variants={containerVariants}
+        className="grid gap-4 md:grid-cols-5 mb-8"
+      >
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Hours</p>
+                  <p className="text-2xl font-bold mt-1">
+                    <AnimatedCounter value={Math.round(totalTrackedHours)} />h
+                  </p>
+                </div>
+                <Clock className="h-8 w-8 text-brand-blue/50" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Billable Hours</p>
+                  <p className="text-2xl font-bold mt-1">
+                    <AnimatedCounter value={Math.round(totalBillableHours)} />h
+                  </p>
+                </div>
+                <Target className="h-8 w-8 text-green-500/50" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Revenue</p>
+                  <p className="text-2xl font-bold mt-1 text-green-600">
+                    {formatCurrency(totalRevenue)}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-500/50" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Profit</p>
+                  <p className={cn("text-2xl font-bold mt-1", getProfitColor(totalProfit))}>
+                    {formatCurrency(totalProfit)}
+                  </p>
+                </div>
+                {totalProfit >= 0 ? (
+                  <TrendingUp className="h-8 w-8 text-green-500/50" />
+                ) : (
+                  <TrendingDown className="h-8 w-8 text-red-500/50" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Avg Efficiency</p>
+                  <p className={cn("text-2xl font-bold mt-1", getEfficiencyColor(avgEfficiency))}>
+                    <AnimatedCounter value={Math.round(avgEfficiency)} />%
+                  </p>
+                </div>
+                <Zap className="h-8 w-8 text-yellow-500/50" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* Main Tabs */}
+      <Tabs defaultValue="employees" className="space-y-6">
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="employees" className="gap-2">
+            <Users className="h-4 w-4" />
+            Team Efficiency
+          </TabsTrigger>
+          <TabsTrigger value="clients" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            Client Profitability
+          </TabsTrigger>
+          <TabsTrigger value="entries" className="gap-2">
+            <Clock className="h-4 w-4" />
+            Time Entries
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Team Efficiency Tab */}
+        <TabsContent value="employees">
+          <motion.div variants={itemVariants}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">Employee Efficiency Ratio</CardTitle>
+                  {isAdmin && (
+                    <p className="text-sm text-muted-foreground">
+                      Click on an employee to edit their rate & target
+                    </p>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-brand-blue text-white">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium">Employee</th>
+                        <th className="text-right py-3 px-4 font-medium">Hourly Cost</th>
+                        <th className="text-right py-3 px-4 font-medium">Target Hours</th>
+                        <th className="text-right py-3 px-4 font-medium">Tracked Hours</th>
+                        <th className="text-right py-3 px-4 font-medium">Billable Hours</th>
+                        <th className="text-center py-3 px-4 font-medium">Efficiency</th>
+                        <th className="text-right py-3 px-4 font-medium">Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employees.map((employee, index) => {
+                        const stats = getEmployeeStats(employee.id)
+                        
+                        return (
+                          <motion.tr
+                            key={employee.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.03 }}
+                            onClick={() => {
+                              if (isAdmin) {
+                                setSelectedEmployee({
+                                  ...employee,
+                                  hourly_cost: employee.hourly_cost || 0,
+                                  target_hours_monthly: employee.target_hours_monthly || 120,
+                                })
+                                setEditEmployeeDialogOpen(true)
+                              }
+                            }}
+                            className={cn(
+                              "border-b hover:bg-muted/30 transition-colors",
+                              isAdmin && "cursor-pointer",
+                              index % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
+                            )}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9">
+                                  <AvatarImage src={employee.avatar_url} />
+                                  <AvatarFallback className="text-xs">
+                                    {getInitials(employee.full_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{employee.full_name}</p>
+                                  <p className="text-xs text-muted-foreground capitalize">{employee.role}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono">
+                              {formatCurrency(employee.hourly_cost || 0)}/hr
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {stats.targetHours}h
+                            </td>
+                            <td className="py-3 px-4 text-right font-medium">
+                              {Math.round(stats.totalHours * 10) / 10}h
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {Math.round(stats.billableHours * 10) / 10}h
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-20">
+                                  <Progress 
+                                    value={Math.min(100, stats.efficiency)} 
+                                    className={cn("h-2", getEfficiencyBg(stats.efficiency))}
+                                  />
+                                </div>
+                                <span className={cn("font-bold", getEfficiencyColor(stats.efficiency))}>
+                                  {stats.efficiency}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-red-500">
+                              {formatCurrency(stats.cost)}
+                            </td>
+                          </motion.tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* Client Profitability Tab */}
+        <TabsContent value="clients">
+          <motion.div variants={itemVariants}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">Client Profitability Analysis</CardTitle>
+                  {isAdmin && (
+                    <p className="text-sm text-muted-foreground">
+                      Click on a client to edit their billing rate
+                    </p>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-brand-purple text-white">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium">Client</th>
+                        <th className="text-right py-3 px-4 font-medium">Billing Rate</th>
+                        <th className="text-right py-3 px-4 font-medium">Budget Hours</th>
+                        <th className="text-right py-3 px-4 font-medium">Worked Hours</th>
+                        <th className="text-right py-3 px-4 font-medium text-green-200">Revenue</th>
+                        <th className="text-right py-3 px-4 font-medium text-red-200">Cost</th>
+                        <th className="text-right py-3 px-4 font-medium">Profit</th>
+                        <th className="text-center py-3 px-4 font-medium">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clients.map((client, index) => {
+                        const stats = getClientStats(client.id)
+                        
+                        return (
+                          <motion.tr
+                            key={client.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.03 }}
+                            onClick={() => {
+                              if (isAdmin) {
+                                setSelectedClient({
+                                  ...client,
+                                  hourly_rate: stats.billingRate,
+                                })
+                                setEditClientRateDialogOpen(true)
+                              }
+                            }}
+                            className={cn(
+                              "border-b hover:bg-muted/30 transition-colors",
+                              isAdmin && "cursor-pointer",
+                              index % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
+                            )}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: client.color || '#F7931E' }}
+                                />
+                                <span className="font-medium">{client.name}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono">
+                              {formatCurrency(stats.billingRate)}/hr
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {stats.budgetedHours}h
+                            </td>
+                            <td className="py-3 px-4 text-right font-medium">
+                              {Math.round(stats.totalHours * 10) / 10}h
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-green-600">
+                              {formatCurrency(stats.revenue)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-red-500">
+                              {formatCurrency(stats.cost)}
+                            </td>
+                            <td className={cn("py-3 px-4 text-right font-mono font-bold", getProfitColor(stats.profit))}>
+                              {formatCurrency(stats.profit)}
+                              {stats.profit >= 0 ? (
+                                <ArrowUpRight className="inline h-4 w-4 ml-1" />
+                              ) : (
+                                <ArrowDownRight className="inline h-4 w-4 ml-1" />
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-center">
+                                <Badge className={cn(
+                                  stats.margin >= 30 ? "bg-green-500" :
+                                  stats.margin >= 15 ? "bg-yellow-500" :
+                                  stats.margin >= 0 ? "bg-orange-500" : "bg-red-500"
+                                )}>
+                                  {stats.margin}%
+                                </Badge>
+                              </div>
+                            </td>
+                          </motion.tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot className="bg-muted/50 font-bold">
+                      <tr>
+                        <td className="py-3 px-4">TOTALS</td>
+                        <td className="py-3 px-4"></td>
+                        <td className="py-3 px-4"></td>
+                        <td className="py-3 px-4 text-right">{Math.round(totalTrackedHours)}h</td>
+                        <td className="py-3 px-4 text-right text-green-600">{formatCurrency(totalRevenue)}</td>
+                        <td className="py-3 px-4 text-right text-red-500">{formatCurrency(totalCost)}</td>
+                        <td className={cn("py-3 px-4 text-right", getProfitColor(totalProfit))}>
+                          {formatCurrency(totalProfit)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0}%
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* Time Entries Tab */}
+        <TabsContent value="entries">
+          <motion.div variants={itemVariants}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">Time Entries</CardTitle>
+                  <Badge variant="outline">
+                    {timeEntries.length} entries
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium">Date</th>
+                        <th className="text-left py-3 px-4 font-medium">Employee</th>
+                        <th className="text-left py-3 px-4 font-medium">Client</th>
+                        <th className="text-left py-3 px-4 font-medium">Description</th>
+                        <th className="text-right py-3 px-4 font-medium">Duration</th>
+                        <th className="text-center py-3 px-4 font-medium">Billable</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeEntries.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                            No time entries for this month
+                          </td>
+                        </tr>
+                      ) : (
+                        timeEntries.map((entry, index) => (
+                          <motion.tr
+                            key={entry.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.02 }}
+                            className={cn(
+                              "border-b hover:bg-muted/30 transition-colors",
+                              index % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
+                            )}
+                          >
+                            <td className="py-3 px-4 text-sm">
+                              {formatDate(entry.date)}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-7 w-7">
+                                  <AvatarImage src={entry.user?.avatar_url} />
+                                  <AvatarFallback className="text-xs">
+                                    {getInitials(entry.user?.full_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{entry.user?.full_name}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: entry.client?.color || '#ccc' }}
+                                />
+                                <span className="text-sm">{entry.client?.name || '-'}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">
+                              {entry.description || '-'}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-medium">
+                              {formatHours(entry.minutes)}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              {entry.billable ? (
+                                <Check className="h-4 w-4 text-green-500 mx-auto" />
+                              ) : (
+                                <X className="h-4 w-4 text-muted-foreground mx-auto" />
+                              )}
+                            </td>
+                          </motion.tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Add Time Entry Dialog */}
+      <Dialog open={addTimeDialogOpen} onOpenChange={setAddTimeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-brand-orange" />
+              Log Time
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Client *</Label>
+              <Select
+                value={timeEntry.client_id}
+                onValueChange={(v) => setTimeEntry(e => ({ ...e, client_id: v }))}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: c.color || '#F7931E' }}
+                        />
+                        {c.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={timeEntry.date}
+                onChange={(e) => setTimeEntry(t => ({ ...t, date: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label>Duration *</Label>
+              <div className="flex gap-2 mt-1.5">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    placeholder="Hours"
+                    value={timeEntry.hours}
+                    onChange={(e) => setTimeEntry(t => ({ ...t, hours: e.target.value }))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    placeholder="Minutes"
+                    max={59}
+                    value={timeEntry.minutes}
+                    onChange={(e) => setTimeEntry(t => ({ ...t, minutes: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={timeEntry.description}
+                onChange={(e) => setTimeEntry(t => ({ ...t, description: e.target.value }))}
+                placeholder="What did you work on?"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="billable"
+                checked={timeEntry.billable}
+                onChange={(e) => setTimeEntry(t => ({ ...t, billable: e.target.checked }))}
+                className="rounded"
+              />
+              <Label htmlFor="billable" className="cursor-pointer">Billable time</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddTimeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddTimeEntry}>
+              <Check className="h-4 w-4 mr-2" />
+              Log Time
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Employee Dialog (Admin) */}
+      <Dialog open={editEmployeeDialogOpen} onOpenChange={setEditEmployeeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-brand-blue" />
+              Edit Employee Settings
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEmployee && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Avatar>
+                  <AvatarImage src={selectedEmployee.avatar_url} />
+                  <AvatarFallback>{getInitials(selectedEmployee.full_name)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{selectedEmployee.full_name}</p>
+                  <p className="text-sm text-muted-foreground capitalize">{selectedEmployee.role}</p>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Hourly Cost Rate ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={selectedEmployee.hourly_cost}
+                  onChange={(e) => setSelectedEmployee(emp => ({ 
+                    ...emp, 
+                    hourly_cost: parseFloat(e.target.value) || 0 
+                  }))}
+                  className="mt-1.5"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  What you pay this employee per hour
+                </p>
+              </div>
+
+              <div>
+                <Label>Target Hours / Month</Label>
+                <Input
+                  type="number"
+                  value={selectedEmployee.target_hours_monthly}
+                  onChange={(e) => setSelectedEmployee(emp => ({ 
+                    ...emp, 
+                    target_hours_monthly: parseInt(e.target.value) || 0 
+                  }))}
+                  className="mt-1.5"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Expected billable hours per month
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditEmployeeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateEmployee}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Client Rate Dialog (Admin) */}
+      <Dialog open={editClientRateDialogOpen} onOpenChange={setEditClientRateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-500" />
+              Edit Client Billing Rate
+            </DialogTitle>
+          </DialogHeader>
+          {selectedClient && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
+                  style={{ backgroundColor: selectedClient.color || '#F7931E' }}
+                >
+                  {selectedClient.name?.[0]}
+                </div>
+                <div>
+                  <p className="font-medium">{selectedClient.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Budget: {selectedClient.monthly_hours || 0} hrs/month
+                  </p>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Hourly Billing Rate ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={selectedClient.hourly_rate}
+                  onChange={(e) => setSelectedClient(c => ({ 
+                    ...c, 
+                    hourly_rate: parseFloat(e.target.value) || 0 
+                  }))}
+                  className="mt-1.5"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  What you charge this client per hour
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200">
+                <p className="text-sm">
+                  <strong>Monthly Revenue:</strong>{' '}
+                  <span className="text-green-600">
+                    {formatCurrency((selectedClient.monthly_hours || 0) * (selectedClient.hourly_rate || 0))}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditClientRateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateClientRate}>
+              Save Rate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
+  )
+}
