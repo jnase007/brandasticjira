@@ -84,32 +84,16 @@ function MainLayout({ children }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
-  const [timerState, setTimerState] = useState({
-    isRunning: false,
-    startTime: null,
-    ticketId: null,
-    ticketTitle: null,
-    showWidget: false
-  })
+  const [timerVisible, setTimerVisible] = useState(false)
 
   // Handle command actions
   const handleCommandAction = useCallback((actionId) => {
     switch (actionId) {
       case 'start-timer':
-        setTimerState(prev => ({
-          ...prev,
-          isRunning: true,
-          startTime: new Date().toISOString(),
-          showWidget: true
-        }))
+        setTimerVisible(true)
         break
       case 'stop-timer':
-        setTimerState(prev => ({
-          ...prev,
-          isRunning: false,
-          startTime: null,
-          showWidget: true
-        }))
+        setTimerVisible(true)
         break
       case 'logout':
         // Handle in context
@@ -124,7 +108,7 @@ function MainLayout({ children }) {
         onCollapse={setSidebarCollapsed}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onOpenActivity={() => setActivityOpen(true)}
-        onOpenTimer={() => setTimerState(prev => ({ ...prev, showWidget: true }))}
+        onOpenTimer={() => setTimerVisible(true)}
       />
       
       {/* Main content */}
@@ -150,26 +134,11 @@ function MainLayout({ children }) {
         onClose={() => setActivityOpen(false)}
       />
 
-      {/* Floating Timer */}
-      {timerState.showWidget && (
-        <FloatingTimer
-          isRunning={timerState.isRunning}
-          startTime={timerState.startTime}
-          ticketId={timerState.ticketId}
-          ticketTitle={timerState.ticketTitle}
-          onStart={() => setTimerState(prev => ({
-            ...prev,
-            isRunning: true,
-            startTime: new Date().toISOString()
-          }))}
-          onStop={() => setTimerState(prev => ({
-            ...prev,
-            isRunning: false,
-            startTime: null
-          }))}
-          onClose={() => setTimerState(prev => ({ ...prev, showWidget: false }))}
-        />
-      )}
+      {/* Floating Timer - Toggl-style */}
+      <FloatingTimer
+        isVisible={timerVisible}
+        onClose={() => setTimerVisible(false)}
+      />
     </div>
   )
 }
