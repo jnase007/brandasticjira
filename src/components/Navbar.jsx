@@ -87,12 +87,16 @@ export default function Navbar() {
             {/* Logo */}
             <div className="flex items-center gap-8">
               <Link to="/dashboard" className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-brand flex items-center justify-center">
-                  <span className="text-lg font-display font-bold text-white">B</span>
-                </div>
-                <span className="hidden sm:block font-display font-semibold text-lg">
-                  Brandastic
-                </span>
+                <img 
+                  src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png" 
+                  alt="Brandastic" 
+                  className="h-8 w-auto dark:hidden"
+                />
+                <img 
+                  src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
+                  alt="Brandastic" 
+                  className="h-8 w-auto hidden dark:block"
+                />
               </Link>
 
               {/* Desktop Navigation */}

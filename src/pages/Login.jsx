@@ -76,11 +76,12 @@ export default function Login() {
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           <div>
-            <div className="flex items-center gap-3 mb-16">
-              <div className="w-12 h-12 rounded-xl bg-gradient-brand flex items-center justify-center">
-                <span className="text-2xl font-display font-bold">B</span>
-              </div>
-              <span className="font-display font-semibold text-2xl">Brandastic PM</span>
+            <div className="mb-16">
+              <img 
+                src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
+                alt="Brandastic" 
+                className="h-12 w-auto"
+              />
             </div>
 
             <motion.div
@@ -89,12 +90,12 @@ export default function Login() {
               transition={{ delay: 0.2 }}
             >
               <h1 className="text-4xl font-display font-bold leading-tight mb-6">
-                Project management,
+                Your projects,
                 <br />
-                <span className="gradient-text">simplified.</span>
+                <span className="gradient-text">beautifully managed.</span>
               </h1>
               <p className="text-lg text-white/70 max-w-md">
-                Track your client hours, manage projects, and keep your team aligned—all in one beautiful workspace.
+                Track client hours, manage projects, and keep your team aligned—powered by Brandastic.
               </p>
             </motion.div>
           </div>
@@ -130,10 +131,16 @@ export default function Login() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 text-center">
-            <div className="w-14 h-14 rounded-xl bg-gradient-brand flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-display font-bold text-white">B</span>
-            </div>
-            <h2 className="font-display font-semibold text-xl">Brandastic PM</h2>
+            <img 
+              src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png" 
+              alt="Brandastic" 
+              className="h-12 w-auto mx-auto mb-4 dark:hidden"
+            />
+            <img 
+              src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
+              alt="Brandastic" 
+              className="h-12 w-auto mx-auto mb-4 hidden dark:block"
+            />
           </div>
 
           <div className="text-center mb-8">

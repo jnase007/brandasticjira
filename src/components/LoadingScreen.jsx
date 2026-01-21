@@ -6,10 +6,10 @@ export default function LoadingScreen() {
       <div className="text-center">
         {/* Animated Logo */}
         <motion.div
-          className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-brand flex items-center justify-center"
+          className="mx-auto mb-6"
           animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, 5, -5, 0],
+            scale: [1, 1.05, 1],
+            opacity: [0.8, 1, 0.8],
           }}
           transition={{
             duration: 2,
@@ -17,7 +17,16 @@ export default function LoadingScreen() {
             ease: "easeInOut",
           }}
         >
-          <span className="text-3xl font-display font-bold text-white">B</span>
+          <img 
+            src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png" 
+            alt="Brandastic" 
+            className="h-16 w-auto dark:hidden"
+          />
+          <img 
+            src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
+            alt="Brandastic" 
+            className="h-16 w-auto hidden dark:block"
+          />
         </motion.div>
 
         {/* Loading dots */}
@@ -45,7 +54,7 @@ export default function LoadingScreen() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          Loading Brandastic PM...
+          Loading...
         </motion.p>
       </div>
     </div>
