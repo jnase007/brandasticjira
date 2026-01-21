@@ -80,7 +80,7 @@ export default function Login() {
               <img 
                 src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
                 alt="Brandastic" 
-                className="h-12 w-auto"
+                className="h-10 w-auto object-contain"
               />
             </div>
 
@@ -134,12 +134,12 @@ export default function Login() {
             <img 
               src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png" 
               alt="Brandastic" 
-              className="h-12 w-auto mx-auto mb-4 dark:hidden"
+              className="h-10 w-auto object-contain mx-auto mb-4 dark:hidden"
             />
             <img 
               src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
               alt="Brandastic" 
-              className="h-12 w-auto mx-auto mb-4 hidden dark:block"
+              className="h-10 w-auto object-contain mx-auto mb-4 hidden dark:block"
             />
           </div>
 

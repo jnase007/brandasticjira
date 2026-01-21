@@ -90,12 +90,12 @@ export default function Navbar() {
                 <img 
                   src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png" 
                   alt="Brandastic" 
-                  className="h-8 w-auto dark:hidden"
+                  className="h-7 w-auto object-contain dark:hidden"
                 />
                 <img 
                   src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png" 
                   alt="Brandastic" 
-                  className="h-8 w-auto hidden dark:block"
+                  className="h-7 w-auto object-contain hidden dark:block"
                 />
               </Link>
 
