@@ -44,9 +44,35 @@ export function AuthProvider({ children }) {
         
         if (session?.user) {
           setUser(session.user)
-          // Fetch user profile
-          const { data: profileData } = await getProfile(session.user.id)
-          setProfile(profileData)
+          
+          // For new signups or OAuth logins, ensure profile exists
+          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+            // Check and create profile if needed
+            const { data: existingProfile } = await getProfile(session.user.id)
+            
+            if (!existingProfile) {
+              // Create profile for OAuth users or if somehow missing
+              await supabase
+                .from('profiles')
+                .upsert({
+                  id: session.user.id,
+                  email: session.user.email,
+                  full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+                  role: 'team',
+                  avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
+                }, { onConflict: 'id' })
+              
+              // Fetch the newly created profile
+              const { data: newProfile } = await getProfile(session.user.id)
+              setProfile(newProfile)
+            } else {
+              setProfile(existingProfile)
+            }
+          } else {
+            // Just fetch existing profile
+            const { data: profileData } = await getProfile(session.user.id)
+            setProfile(profileData)
+          }
         } else {
           setUser(null)
           setProfile(null)
@@ -79,7 +105,44 @@ export function AuthProvider({ children }) {
         data: metadata,
       },
     })
+    
+    // If signup successful, create profile
+    if (data?.user && !error) {
+      await createProfileIfNotExists(data.user, metadata)
+    }
+    
     return { data, error }
+  }
+  
+  // Create profile if it doesn't exist
+  const createProfileIfNotExists = async (user, metadata = {}) => {
+    try {
+      // Check if profile exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+      
+      if (!existingProfile) {
+        // Create new profile
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name: metadata.full_name || user.user_metadata?.full_name || '',
+            role: 'team', // Default role
+            avatar_url: user.user_metadata?.avatar_url || null,
+          })
+        
+        if (insertError) {
+          console.error('Error creating profile:', insertError)
+        }
+      }
+    } catch (err) {
+      console.error('Error checking/creating profile:', err)
+    }
   }
 
   // Sign in with Google

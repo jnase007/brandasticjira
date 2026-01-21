@@ -366,8 +366,8 @@ export default function Login() {
                 )}
               </p>
 
-              {/* Demo Button */}
-              <div className="mt-6 pt-6 border-t border-white/10">
+              {/* Demo Buttons */}
+              <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -383,7 +383,7 @@ export default function Login() {
                     <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                   </Button>
                 </motion.div>
-                <p className="text-center text-white/40 text-xs mt-2">
+                <p className="text-center text-white/40 text-xs">
                   Explore the app with sample data
                 </p>
               </div>

@@ -14,6 +14,7 @@ import {
   Command,
   Users,
   BarChart3,
+  Shield,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,6 +29,10 @@ const navItems = [
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
 ]
 
+const adminNavItems = [
+  { path: '/admin', icon: Shield, label: 'Admin', shortcut: 'G A' },
+]
+
 export default function Sidebar({ 
   collapsed, 
   onCollapse, 
@@ -37,7 +42,7 @@ export default function Sidebar({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { signOut, isAdmin } = useAuth()
 
   const handleSignOut = async () => {
     await signOut()
@@ -154,6 +159,45 @@ export default function Sidebar({
             </Link>
           )
         })}
+
+        {/* Admin Navigation - only for admins */}
+        {isAdmin && (
+          <>
+            <div className="pt-4 border-t mt-4">
+              <p className={cn(
+                "text-xs text-muted-foreground uppercase tracking-wider mb-2",
+                collapsed ? "text-center" : "px-3"
+              )}>
+                {collapsed ? "⚡" : "Admin"}
+              </p>
+              {adminNavItems.map((item) => {
+                const isActive = location.pathname === item.path
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all relative group",
+                      collapsed && "justify-center px-0",
+                      isActive
+                        ? "bg-brand-purple text-white"
+                        : "hover:bg-brand-purple/10 text-brand-purple hover:text-brand-purple"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                    
+                    {collapsed && (
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-foreground text-background text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                        {item.label}
+                      </div>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
 
         <div className="pt-4 border-t mt-4">
           <p className={cn(

@@ -12,6 +12,7 @@ import BoardDetail from './pages/BoardDetail'
 import TicketDetail from './pages/TicketDetail'
 import ClientPortal from './pages/ClientPortal'
 import Settings from './pages/Settings'
+import Admin from './pages/Admin'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -57,6 +58,15 @@ function TeamRoute({ children }) {
 function ClientRoute({ children }) {
   return (
     <ProtectedRoute allowedRoles={['client']}>
+      {children}
+    </ProtectedRoute>
+  )
+}
+
+// Admin-only route
+function AdminRoute({ children }) {
+  return (
+    <ProtectedRoute allowedRoles={['admin']}>
       {children}
     </ProtectedRoute>
   )
@@ -296,6 +306,16 @@ function App() {
                   <ClientRoute>
                     <ClientPortal />
                   </ClientRoute>
+                }
+              />
+
+              {/* Admin route */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <Admin />
+                  </AdminRoute>
                 }
               />
 
