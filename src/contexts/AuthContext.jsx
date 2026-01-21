@@ -21,6 +21,11 @@ export function AuthProvider({ children }) {
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [profileSynced, setProfileSynced] = useState(false)
   const [authError, setAuthError] = useState(null)
+  
+  // View mode toggle (admin can switch between admin and team view)
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('viewMode') || 'default'
+  })
 
   useEffect(() => {
     // Safety timeout - if loading takes too long, stop it
@@ -308,6 +313,22 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Toggle view mode (for admins to see team view)
+  const toggleViewMode = useCallback(() => {
+    setViewMode(prev => {
+      const newMode = prev === 'team' ? 'default' : 'team'
+      localStorage.setItem('viewMode', newMode)
+      return newMode
+    })
+  }, [])
+
+  // Actual role from database
+  const actualRole = profile?.role
+  const isActualAdmin = actualRole === 'admin'
+  
+  // Effective role (considering view mode toggle)
+  const effectiveIsAdmin = isActualAdmin && viewMode !== 'team'
+  
   const value = {
     user,
     profile,
@@ -324,9 +345,12 @@ export function AuthProvider({ children }) {
     justLoggedIn,
     profileSynced,
     clearLoginState,
-    isTeam: profile?.role === 'team' || profile?.role === 'admin',
-    isAdmin: profile?.role === 'admin',
-    isClient: profile?.role === 'client',
+    isTeam: actualRole === 'team' || actualRole === 'admin',
+    isAdmin: effectiveIsAdmin, // Respects view mode toggle
+    isActualAdmin, // Always true if user is actually admin
+    isClient: actualRole === 'client',
+    viewMode,
+    toggleViewMode,
   }
 
   return (

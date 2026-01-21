@@ -19,6 +19,8 @@ import {
   Upload,
   Trophy,
   Clock,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -54,7 +56,7 @@ export default function Sidebar({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { signOut, isAdmin } = useAuth()
+  const { signOut, isAdmin, isActualAdmin, viewMode, toggleViewMode } = useAuth()
 
   const handleSignOut = async () => {
     await signOut()
@@ -192,16 +194,44 @@ export default function Sidebar({
         })}
 
         {/* Admin Navigation - only for admins */}
-        {isAdmin && (
+        {isActualAdmin && (
           <>
             <div className="pt-4 border-t mt-4">
-              <p className={cn(
-                "text-xs text-muted-foreground uppercase tracking-wider mb-2",
-                collapsed ? "text-center" : "px-3"
+              <div className={cn(
+                "flex items-center justify-between mb-2",
+                collapsed ? "justify-center" : "px-3"
               )}>
-                {collapsed ? "⚡" : "Admin"}
-              </p>
-              {adminNavItems.map((item) => {
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  {collapsed ? "⚡" : "Admin"}
+                </p>
+                {!collapsed && (
+                  <button
+                    onClick={toggleViewMode}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all",
+                      viewMode === 'team'
+                        ? "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                        : "bg-brand-purple/10 text-brand-purple hover:bg-brand-purple/20"
+                    )}
+                    title={viewMode === 'team' ? 'Viewing as Team Member' : 'Viewing as Admin'}
+                  >
+                    {viewMode === 'team' ? (
+                      <>
+                        <Eye className="h-3 w-3" />
+                        Team View
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-3 w-3" />
+                        Admin View
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              
+              {/* Only show admin nav items when in admin view mode */}
+              {viewMode !== 'team' && adminNavItems.map((item) => {
                 const isActive = location.pathname === item.path
                 return (
                   <Link
@@ -226,6 +256,26 @@ export default function Sidebar({
                   </Link>
                 )
               })}
+              
+              {/* When in team view mode, show a compact toggle */}
+              {collapsed && (
+                <button
+                  onClick={toggleViewMode}
+                  className={cn(
+                    "w-full flex items-center justify-center p-2.5 rounded-lg font-medium transition-all",
+                    viewMode === 'team'
+                      ? "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                      : "bg-brand-purple/10 text-brand-purple hover:bg-brand-purple/20"
+                  )}
+                  title={viewMode === 'team' ? 'Switch to Admin View' : 'Switch to Team View'}
+                >
+                  {viewMode === 'team' ? (
+                    <Eye className="h-5 w-5" />
+                  ) : (
+                    <EyeOff className="h-5 w-5" />
+                  )}
+                </button>
+              )}
             </div>
           </>
         )}
