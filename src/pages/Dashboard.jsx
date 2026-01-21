@@ -410,15 +410,23 @@ export default function Dashboard({ onConfetti }) {
                         >
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-4">
-                              <div
-                                className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg transition-transform group-hover:scale-110"
-                                style={{ 
-                                  backgroundColor: clients.find(c => c.id === client.client_id)?.color || '#F7931E',
-                                  boxShadow: `0 4px 14px ${clients.find(c => c.id === client.client_id)?.color || '#F7931E'}40`
-                                }}
-                              >
-                                {client.client_name?.charAt(0) || 'C'}
-                              </div>
+                              {clients.find(c => c.id === client.client_id)?.logo_url ? (
+                                <img
+                                  src={clients.find(c => c.id === client.client_id)?.logo_url}
+                                  alt={client.client_name}
+                                  className="w-12 h-12 rounded-xl object-contain bg-white border shadow-lg transition-transform group-hover:scale-110"
+                                />
+                              ) : (
+                                <div
+                                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg transition-transform group-hover:scale-110"
+                                  style={{ 
+                                    backgroundColor: clients.find(c => c.id === client.client_id)?.color || '#F7931E',
+                                    boxShadow: `0 4px 14px ${clients.find(c => c.id === client.client_id)?.color || '#F7931E'}40`
+                                  }}
+                                >
+                                  {client.client_name?.charAt(0) || 'C'}
+                                </div>
+                              )}
                               <div>
                                 <h3 className="font-semibold text-lg group-hover:text-brand-orange transition-colors">
                                   {client.client_name}

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Building2, Palette, Clock, Mail, User, Calendar, FileText } from 'lucide-react'
+import { Building2, Palette, Clock, Mail, User, Calendar, FileText, Upload, X, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, slugify } from '../lib/utils'
 import { Button } from './ui/button'
@@ -40,6 +40,8 @@ export default function ClientDialog({
 }) {
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const fileInputRef = useRef(null)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -51,6 +53,7 @@ export default function ClientDialog({
     renewal_date: '',
     account_services: '',
     is_active: true,
+    logo_url: '',
   })
 
   // Reset form when dialog opens/closes or client changes
@@ -70,6 +73,7 @@ export default function ClientDialog({
             ? client.account_services.join(', ') 
             : client.account_services || '',
           is_active: client.is_active !== false,
+          logo_url: client.logo_url || '',
         })
       } else {
         // New client
@@ -83,10 +87,79 @@ export default function ClientDialog({
           renewal_date: '',
           account_services: '',
           is_active: true,
+          logo_url: '',
         })
       }
     }
   }, [open, client])
+
+  // Handle logo upload
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload an image file (PNG, JPG, etc.)',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload an image under 2MB',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUploadingLogo(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `client-logos/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+
+      const { data, error } = await supabase.storage
+        .from('images')
+        .upload(fileName, file, { upsert: true })
+
+      if (error) throw error
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(fileName)
+
+      setFormData(prev => ({ ...prev, logo_url: urlData.publicUrl }))
+      
+      toast({
+        title: 'Logo uploaded',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Logo upload error:', error)
+      toast({
+        title: 'Upload failed',
+        description: 'Could not upload logo. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingLogo(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Remove logo
+  const handleRemoveLogo = () => {
+    setFormData(prev => ({ ...prev, logo_url: '' }))
+  }
 
   // Auto-generate slug from name
   const handleNameChange = (name) => {
@@ -133,6 +206,7 @@ export default function ClientDialog({
           ? formData.account_services.split(',').map(s => s.trim()).filter(Boolean)
           : null,
         is_active: formData.is_active,
+        logo_url: formData.logo_url || null,
       }
 
       let result
@@ -206,6 +280,64 @@ export default function ClientDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Logo Upload */}
+          <div className="space-y-2">
+            <Label>
+              <ImageIcon className="h-3 w-3 inline mr-1" />
+              Client Logo
+            </Label>
+            <div className="flex items-center gap-4">
+              {formData.logo_url ? (
+                <div className="relative group">
+                  <img 
+                    src={formData.logo_url} 
+                    alt="Client logo" 
+                    className="w-16 h-16 rounded-xl object-contain bg-muted border"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  className="w-16 h-16 rounded-xl border-2 border-dashed flex items-center justify-center text-muted-foreground hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadingLogo ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Upload className="h-5 w-5" />
+                  )}
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                >
+                  {uploadingLogo ? 'Uploading...' : formData.logo_url ? 'Change Logo' : 'Upload Logo'}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  PNG, JPG up to 2MB
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Client Name */}
           <div className="space-y-2">
             <Label htmlFor="name">Client Name *</Label>
@@ -337,12 +469,20 @@ export default function ClientDialog({
           <div className="pt-4 border-t">
             <Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                style={{ backgroundColor: formData.color }}
-              >
-                {formData.name?.charAt(0)?.toUpperCase() || 'C'}
-              </div>
+              {formData.logo_url ? (
+                <img 
+                  src={formData.logo_url} 
+                  alt="" 
+                  className="w-12 h-12 rounded-xl object-contain bg-white border"
+                />
+              ) : (
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                  style={{ backgroundColor: formData.color }}
+                >
+                  {formData.name?.charAt(0)?.toUpperCase() || 'C'}
+                </div>
+              )}
               <div>
                 <p className="font-semibold">{formData.name || 'Client Name'}</p>
                 <p className="text-sm text-muted-foreground">

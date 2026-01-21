@@ -493,12 +493,20 @@ export default function Admin() {
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div
-                              className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
-                              style={{ backgroundColor: client.color || '#F7931E' }}
-                            >
-                              {client.name?.charAt(0) || 'C'}
-                            </div>
+                            {client.logo_url ? (
+                              <img
+                                src={client.logo_url}
+                                alt={client.name}
+                                className="w-12 h-12 rounded-xl object-contain bg-white border shadow-lg"
+                              />
+                            ) : (
+                              <div
+                                className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
+                                style={{ backgroundColor: client.color || '#F7931E' }}
+                              >
+                                {client.name?.charAt(0) || 'C'}
+                              </div>
+                            )}
                             <div>
                               <h3 className="font-semibold group-hover:text-brand-orange transition-colors">
                                 {client.name}
