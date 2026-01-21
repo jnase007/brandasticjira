@@ -23,10 +23,21 @@ import {
   Download,
   Settings,
   BarChart3,
+  AlertTriangle,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, getInitials } from '../lib/utils'
+import ClientDialog from '../components/ClientDialog'
+import { useToast } from '../hooks/useToast'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '../components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -53,9 +64,16 @@ const itemVariants = {
 export default function Admin() {
   const { profile, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Dialog states
+  const [clientDialogOpen, setClientDialogOpen] = useState(false)
+  const [editingClient, setEditingClient] = useState(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingClient, setDeletingClient] = useState(null)
   
   // Data states
   const [users, setUsers] = useState([])
@@ -117,6 +135,48 @@ export default function Admin() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Handle opening edit dialog
+  const handleEditClient = (client) => {
+    setEditingClient(client)
+    setClientDialogOpen(true)
+  }
+
+  // Handle opening add dialog
+  const handleAddClient = () => {
+    setEditingClient(null)
+    setClientDialogOpen(true)
+  }
+
+  // Handle delete client
+  const handleDeleteClient = async () => {
+    if (!deletingClient) return
+    
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_active: false })
+        .eq('id', deletingClient.id)
+      
+      if (error) throw error
+      
+      toast({
+        title: 'Client deactivated',
+        description: `${deletingClient.name} has been deactivated.`,
+        variant: 'success',
+      })
+      
+      setDeleteDialogOpen(false)
+      setDeletingClient(null)
+      fetchData(true)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to deactivate client.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Filter users
   const filteredUsers = users.filter(user =>
@@ -410,7 +470,7 @@ export default function Admin() {
                     <CardTitle className="text-xl">Client Management</CardTitle>
                     <CardDescription>Manage all client accounts</CardDescription>
                   </div>
-                  <Button size="sm">
+                  <Button size="sm" onClick={handleAddClient}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Client
                   </Button>
@@ -457,9 +517,26 @@ export default function Admin() {
                             <Mail className="h-3 w-3 inline mr-1" />
                             {client.contact_email || 'No email'}
                           </span>
-                          <Button variant="ghost" size="icon-sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon-sm"
+                              onClick={() => handleEditClient(client)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon-sm"
+                              onClick={() => {
+                                setDeletingClient(client)
+                                setDeleteDialogOpen(true)
+                              }}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </motion.div>
                     ))
@@ -539,6 +616,41 @@ export default function Admin() {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Client Dialog */}
+      <ClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        client={editingClient}
+        onSuccess={() => {
+          fetchData(true)
+          setEditingClient(null)
+        }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Deactivate Client
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to deactivate <strong>{deletingClient?.name}</strong>? 
+              This will hide the client from active lists but preserve all data.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteClient}>
+              Deactivate Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

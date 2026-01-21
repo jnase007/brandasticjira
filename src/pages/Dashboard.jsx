@@ -17,8 +17,10 @@ import {
   ChevronRight,
   Sparkles,
   RefreshCw,
+  Building2,
 } from 'lucide-react'
 import { getClients, getBoards, getClientHoursSummary, getTickets } from '../lib/supabase'
+import ClientDialog from '../components/ClientDialog'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDuration, calculateProgress, getProgressColor, formatRelativeDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -87,6 +89,7 @@ export default function Dashboard({ onConfetti }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [clientDialogOpen, setClientDialogOpen] = useState(false)
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
@@ -373,10 +376,15 @@ export default function Dashboard({ onConfetti }) {
                       className="text-center py-12"
                     >
                       <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-                        <Users className="h-8 w-8 text-muted-foreground" />
+                        <Building2 className="h-8 w-8 text-muted-foreground" />
                       </div>
                       <p className="text-muted-foreground">No clients found</p>
-                      <Button variant="outline" size="sm" className="mt-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4"
+                        onClick={() => setClientDialogOpen(true)}
+                      >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Your First Client
                       </Button>
@@ -622,6 +630,13 @@ export default function Dashboard({ onConfetti }) {
           </Card>
         </motion.div>
       </div>
+
+      {/* Client Dialog */}
+      <ClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        onSuccess={() => fetchData(true)}
+      />
     </motion.div>
   )
 }
