@@ -37,6 +37,7 @@ const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
   { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },
   { path: '/time', icon: Clock, label: 'Time & Profit', shortcut: 'G P' },
+  { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G T' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
