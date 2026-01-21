@@ -1,10 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FF6B6B"/>
-      <stop offset="100%" style="stop-color:#6C5CE7"/>
+    <!-- Brandastic gradient -->
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F7931E"/>
+      <stop offset="100%" style="stop-color:#00AEEF"/>
     </linearGradient>
+    <!-- Glow effect -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#F7931E" flood-opacity="0.3"/>
+    </filter>
   </defs>
-  <rect width="100" height="100" rx="20" fill="url(#grad)"/>
-  <text x="50" y="65" font-family="system-ui" font-size="50" font-weight="bold" fill="white" text-anchor="middle">B</text>
+  
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#brandGradient)"/>
+  
+  <!-- Inner subtle gradient overlay -->
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#brandGradient)" opacity="0.1"/>
+  
+  <!-- Bold B letter -->
+  <text 
+    x="256" 
+    y="380" 
+    font-family="Helvetica Neue, Helvetica, Arial, sans-serif" 
+    font-size="360" 
+    font-weight="bold" 
+    fill="white" 
+    text-anchor="middle"
+    filter="url(#shadow)"
+  >B</text>
 </svg>
