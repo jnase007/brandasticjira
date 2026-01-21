@@ -77,9 +77,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["'DM Sans'", "system-ui", "sans-serif"],
-        display: ["'Syne'", "sans-serif"],
-        mono: ["'JetBrains Mono'", "monospace"],
+        sans: ["Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
+        display: ["Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
+        mono: ["'SF Mono'", "Monaco", "Consolas", "monospace"],
       },
       keyframes: {
         "accordion-down": {
