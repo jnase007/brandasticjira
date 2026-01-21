@@ -204,14 +204,16 @@ export default function Login() {
                 transition={{ delay: 0.2 }}
               >
                 <motion.div
-                  className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden"
+                  className="w-24 h-24 mx-auto mb-4 relative"
                   whileHover={{ scale: 1.1, rotate: 5 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
+                  {/* Glow effect behind logo */}
+                  <div className="absolute inset-0 bg-blue-500/30 blur-xl rounded-full" />
                   <img 
                     src={LOGO_MARK}
                     alt="Brandastic" 
-                    className="w-full h-full object-contain"
+                    className="relative w-full h-full object-contain drop-shadow-2xl"
                   />
                 </motion.div>
                 <h2 className="text-2xl font-display font-bold text-white">
