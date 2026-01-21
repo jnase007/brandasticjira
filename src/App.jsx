@@ -163,15 +163,18 @@ function App() {
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
 
-  // Initialize dark mode from system preference or localStorage
+  // Initialize theme from localStorage - default to LIGHT mode
   useEffect(() => {
     const stored = localStorage.getItem('theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const shouldBeDark = stored === 'dark' || (!stored && prefersDark)
+    // Only enable dark mode if explicitly set to 'dark' in localStorage
+    const shouldBeDark = stored === 'dark'
     
     setIsDark(shouldBeDark)
     if (shouldBeDark) {
       document.documentElement.classList.add('dark')
+    } else {
+      // Ensure we're in light mode by default
+      document.documentElement.classList.remove('dark')
     }
   }, [])
 
