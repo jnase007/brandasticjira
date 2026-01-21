@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Building2, Palette, Clock, Mail, User, Calendar, FileText, 
+  Building2, Palette, Clock, Mail, User, FileText, 
   Upload, X, Image as ImageIcon, Check, ChevronRight, ChevronLeft,
   Sparkles, Plus, Kanban, ArrowRight, Zap
 } from 'lucide-react'
@@ -43,11 +43,18 @@ const COLORS = [
 ]
 
 const HOUR_OPTIONS = [
-  { value: 20, label: '20 hours', desc: 'Starter' },
-  { value: 30, label: '30 hours', desc: 'Growth' },
-  { value: 40, label: '40 hours', desc: 'Standard', popular: true },
-  { value: 50, label: '50 hours', desc: 'Professional' },
-  { value: 60, label: '60 hours', desc: 'Enterprise' },
+  { value: 5, label: '5' },
+  { value: 10, label: '10' },
+  { value: 15, label: '15' },
+  { value: 20, label: '20' },
+  { value: 25, label: '25' },
+  { value: 30, label: '30' },
+  { value: 40, label: '40', popular: true },
+  { value: 50, label: '50' },
+  { value: 60, label: '60' },
+  { value: 80, label: '80' },
+  { value: 100, label: '100' },
+  { value: 120, label: '120' },
 ]
 
 const STEPS = [
@@ -77,9 +84,8 @@ export default function ClientDialog({
     slug: '',
     contact_name: '',
     contact_email: '',
-    monthly_hours: 40,
+    monthly_hours: 30,
     color: '#F7931E',
-    renewal_date: '',
     account_services: '',
     is_active: true,
     logo_url: '',
@@ -106,9 +112,8 @@ export default function ClientDialog({
           slug: client.slug || '',
           contact_name: client.contact_name || '',
           contact_email: client.contact_email || '',
-          monthly_hours: client.monthly_hours || 40,
+          monthly_hours: client.monthly_hours || 30,
           color: client.color || '#F7931E',
-          renewal_date: client.renewal_date || '',
           account_services: Array.isArray(client.account_services) 
             ? client.account_services.join(', ') 
             : client.account_services || '',
@@ -122,9 +127,8 @@ export default function ClientDialog({
           slug: '',
           contact_name: '',
           contact_email: '',
-          monthly_hours: 40,
+          monthly_hours: 30,
           color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
-          renewal_date: '',
           account_services: '',
           is_active: true,
           logo_url: '',
@@ -244,9 +248,8 @@ export default function ClientDialog({
         slug: formData.slug.trim().toLowerCase(),
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
-        monthly_hours: parseInt(formData.monthly_hours) || 40,
+        monthly_hours: parseInt(formData.monthly_hours) || 30,
         color: formData.color,
-        renewal_date: formData.renewal_date || null,
         account_services: formData.account_services 
           ? formData.account_services.split(',').map(s => s.trim()).filter(Boolean)
           : null,
@@ -387,9 +390,8 @@ export default function ClientDialog({
                         slug: '',
                         contact_name: '',
                         contact_email: '',
-                        monthly_hours: 40,
+                        monthly_hours: 30,
                         color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
-                        renewal_date: '',
                         account_services: '',
                         is_active: true,
                         logo_url: '',
@@ -576,40 +578,47 @@ export default function ClientDialog({
                         </div>
 
                         <div>
-                          <Label className="text-sm font-medium mb-3 block">Monthly Hours</Label>
-                          <div className="grid grid-cols-5 gap-2">
-                            {HOUR_OPTIONS.map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, monthly_hours: opt.value }))}
-                                className={cn(
-                                  "relative p-3 rounded-xl border-2 transition-all text-center",
-                                  formData.monthly_hours === opt.value
-                                    ? "border-brand-orange bg-brand-orange/5"
-                                    : "border-muted hover:border-brand-orange/50"
-                                )}
-                              >
-                                {opt.popular && (
-                                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-brand-orange text-white text-[10px] rounded-full">
-                                    Popular
-                                  </span>
-                                )}
-                                <p className="text-lg font-bold">{opt.value}</p>
-                                <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
-                              </button>
-                            ))}
+                          <Label className="text-sm font-medium mb-3 block">
+                            Monthly Hours
+                            <span className="ml-2 text-brand-orange font-bold">{formData.monthly_hours}h</span>
+                          </Label>
+                          <div className="space-y-3">
+                            {/* Quick Select Grid */}
+                            <div className="grid grid-cols-6 gap-1.5">
+                              {HOUR_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, monthly_hours: opt.value }))}
+                                  className={cn(
+                                    "relative py-2 px-1 rounded-lg border-2 transition-all text-center font-semibold",
+                                    formData.monthly_hours === opt.value
+                                      ? "border-brand-orange bg-brand-orange text-white"
+                                      : "border-muted hover:border-brand-orange/50 hover:bg-brand-orange/5"
+                                  )}
+                                >
+                                  {opt.popular && (
+                                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-brand-orange rounded-full" />
+                                  )}
+                                  {opt.value}
+                                </button>
+                              ))}
+                            </div>
+                            
+                            {/* Custom Input */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Or custom:</span>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={200}
+                                value={formData.monthly_hours}
+                                onChange={(e) => setFormData(prev => ({ ...prev, monthly_hours: parseInt(e.target.value) || 0 }))}
+                                className="w-24 h-9 text-center font-bold"
+                              />
+                              <span className="text-sm text-muted-foreground">hours/month</span>
+                            </div>
                           </div>
-                        </div>
-
-                        <div>
-                          <Label className="text-sm font-medium">Renewal Date</Label>
-                          <Input
-                            type="date"
-                            value={formData.renewal_date}
-                            onChange={(e) => setFormData(prev => ({ ...prev, renewal_date: e.target.value }))}
-                            className="mt-1.5 h-11"
-                          />
                         </div>
                       </motion.div>
                     )}
