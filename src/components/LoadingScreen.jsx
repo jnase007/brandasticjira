@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Coffee, Rocket, Zap, Heart, Star, Flame } from 'lucide-react'
+import { Sparkles, Coffee, Rocket, Zap, Heart, Star, Flame, RefreshCw } from 'lucide-react'
 
 // Brandastic Logo Mark
 const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
@@ -38,8 +38,9 @@ const BouncingLetter = ({ letter, index }) => (
   </motion.span>
 )
 
-export default function LoadingScreen() {
+export default function LoadingScreen({ onRetry, error }) {
   const [messageIndex, setMessageIndex] = useState(0)
+  const [showRefresh, setShowRefresh] = useState(false)
   const currentMessage = LOADING_MESSAGES[messageIndex]
   const IconComponent = currentMessage.icon
 
@@ -50,6 +51,23 @@ export default function LoadingScreen() {
     }, 2000)
     return () => clearInterval(interval)
   }, [])
+
+  // Show refresh button after 5 seconds
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setShowRefresh(true)
+    }, 5000)
+    return () => clearTimeout(timeout)
+  }, [])
+
+  // Handle refresh
+  const handleRefresh = () => {
+    if (onRetry) {
+      onRetry()
+    } else {
+      window.location.reload()
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-brand-orange/5 flex items-center justify-center overflow-hidden">
@@ -194,15 +212,51 @@ export default function LoadingScreen() {
           </div>
         </div>
 
-        {/* Tiny footer joke */}
-        <motion.p
-          className="mt-8 text-[10px] text-muted-foreground/50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 3 }}
-        >
-          (If this takes too long, try turning it off and on again 😉)
-        </motion.p>
+        {/* Error message */}
+        {error && (
+          <motion.p
+            className="mt-4 text-sm text-red-500"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            Oops! {error}
+          </motion.p>
+        )}
+
+        {/* Refresh button - appears after timeout */}
+        <AnimatePresence>
+          {showRefresh && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mt-6"
+            >
+              <button
+                onClick={handleRefresh}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange/90 rounded-lg transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh & Try Again
+              </button>
+              <p className="mt-2 text-[10px] text-muted-foreground/70">
+                Taking too long? Click to reload!
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Tiny footer joke - only show when not showing refresh */}
+        {!showRefresh && (
+          <motion.p
+            className="mt-8 text-[10px] text-muted-foreground/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 3 }}
+          >
+            (If this takes too long, try turning it off and on again 😉)
+          </motion.p>
+        )}
       </div>
     </div>
   )

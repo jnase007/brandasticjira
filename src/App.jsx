@@ -175,7 +175,7 @@ function MainLayout({ children }) {
 }
 
 function App() {
-  const { user, loading } = useAuth()
+  const { user, loading, authError, retryAuth } = useAuth()
   const location = useLocation()
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
@@ -225,7 +225,7 @@ function App() {
   }, [toggleDarkMode])
 
   if (loading) {
-    return <LoadingScreen />
+    return <LoadingScreen onRetry={retryAuth} error={authError} />
   }
 
   // Confetti component

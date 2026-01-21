@@ -20,12 +20,28 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [profileSynced, setProfileSynced] = useState(false)
+  const [authError, setAuthError] = useState(null)
 
   useEffect(() => {
+    // Safety timeout - if loading takes too long, stop it
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth loading timeout - forcing complete')
+        setLoading(false)
+      }
+    }, 10000) // 10 second max wait
+
     // Get initial session
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Session error:', error)
+          setAuthError(error.message)
+          setLoading(false)
+          return
+        }
         
         if (session?.user) {
           setUser(session.user)
@@ -35,12 +51,15 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         console.error('Auth init error:', error)
+        setAuthError(error.message)
       } finally {
         setLoading(false)
       }
     }
 
     initAuth()
+    
+    return () => clearTimeout(safetyTimeout)
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -269,10 +288,32 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Retry auth (for when stuck on loading)
+  const retryAuth = useCallback(async () => {
+    setLoading(true)
+    setAuthError(null)
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) {
+        setAuthError(error.message)
+      } else if (session?.user) {
+        setUser(session.user)
+        const { data: profileData } = await getProfile(session.user.id)
+        setProfile(profileData)
+      }
+    } catch (error) {
+      setAuthError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const value = {
     user,
     profile,
     loading,
+    authError,
+    retryAuth,
     signIn,
     signUp,
     signInWithGoogle,
