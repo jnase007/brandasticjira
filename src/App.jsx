@@ -14,6 +14,7 @@ import ClientPortal from './pages/ClientPortal'
 import Settings from './pages/Settings'
 import Admin from './pages/Admin'
 import TeamHub from './pages/TeamHub'
+import JiraImport from './pages/JiraImport'
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -304,6 +305,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <TeamHub />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/import"
+                element={
+                  <TeamRoute>
+                    <JiraImport />
                   </TeamRoute>
                 }
               />
