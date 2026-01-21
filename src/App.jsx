@@ -85,6 +85,23 @@ function MainLayout({ children }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   const [timerVisible, setTimerVisible] = useState(false)
+  const [timerInitialClient, setTimerInitialClient] = useState(null)
+  const [timerInitialDescription, setTimerInitialDescription] = useState('')
+
+  // Function to open timer with a pre-selected client (called from boards)
+  const openTimerWithClient = useCallback((client, description = '') => {
+    setTimerInitialClient(client)
+    setTimerInitialDescription(description)
+    setTimerVisible(true)
+  }, [])
+
+  // Expose timer function globally so boards can access it
+  useEffect(() => {
+    window.openTimerWithClient = openTimerWithClient
+    return () => {
+      delete window.openTimerWithClient
+    }
+  }, [openTimerWithClient])
 
   // Handle command actions
   const handleCommandAction = useCallback((actionId) => {
@@ -137,7 +154,13 @@ function MainLayout({ children }) {
       {/* Floating Timer - Toggl-style */}
       <FloatingTimer
         isVisible={timerVisible}
-        onClose={() => setTimerVisible(false)}
+        onClose={() => {
+          setTimerVisible(false)
+          setTimerInitialClient(null)
+          setTimerInitialDescription('')
+        }}
+        initialClient={timerInitialClient}
+        initialDescription={timerInitialDescription}
       />
     </div>
   )

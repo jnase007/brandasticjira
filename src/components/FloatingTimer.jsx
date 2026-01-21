@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Play, Square, Clock, X, Minimize2, ChevronDown, 
-  Building2, FileText, Check, Zap
+  Building2, FileText, Check, Zap, Search
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -19,7 +19,9 @@ function formatTime(seconds) {
 
 export default function FloatingTimer({ 
   isVisible,
-  onClose 
+  onClose,
+  initialClient = null, // Pre-select a client when opening from a board/project
+  initialDescription = '' // Pre-fill description
 }) {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -34,11 +36,14 @@ export default function FloatingTimer({
   const [selectedClient, setSelectedClient] = useState(null)
   const [showClientPicker, setShowClientPicker] = useState(false)
   const [clients, setClients] = useState([])
+  const [clientSearch, setClientSearch] = useState('')
   const [isBillable, setIsBillable] = useState(true)
+  const [recentClients, setRecentClients] = useState([])
   
   const inputRef = useRef(null)
+  const searchInputRef = useRef(null)
 
-  // Load clients
+  // Load clients and recent selections
   useEffect(() => {
     const loadClients = async () => {
       const { data } = await supabase
@@ -47,9 +52,52 @@ export default function FloatingTimer({
         .eq('is_active', true)
         .order('name')
       if (data) setClients(data)
+      
+      // Load recent clients from localStorage
+      const recent = JSON.parse(localStorage.getItem('recentTimerClients') || '[]')
+      if (recent.length > 0 && data) {
+        const recentWithData = recent
+          .map(id => data.find(c => c.id === id))
+          .filter(Boolean)
+          .slice(0, 3)
+        setRecentClients(recentWithData)
+      }
     }
     loadClients()
   }, [])
+
+  // Save to recent clients when one is selected
+  const selectClient = (client) => {
+    setSelectedClient(client)
+    setShowClientPicker(false)
+    setClientSearch('')
+    
+    // Update recent clients
+    const recent = JSON.parse(localStorage.getItem('recentTimerClients') || '[]')
+    const updated = [client.id, ...recent.filter(id => id !== client.id)].slice(0, 5)
+    localStorage.setItem('recentTimerClients', JSON.stringify(updated))
+    setRecentClients(prev => {
+      const newRecent = [client, ...prev.filter(c => c.id !== client.id)].slice(0, 3)
+      return newRecent
+    })
+  }
+
+  // Filter clients by search
+  const filteredClients = clientSearch.trim()
+    ? clients.filter(c => 
+        c.name.toLowerCase().includes(clientSearch.toLowerCase())
+      )
+    : clients
+
+  // Apply initial client/description when provided
+  useEffect(() => {
+    if (initialClient && !isRunning && !selectedClient) {
+      setSelectedClient(initialClient)
+    }
+    if (initialDescription && !isRunning) {
+      setDescription(initialDescription)
+    }
+  }, [initialClient, initialDescription, isRunning])
 
   // Timer tick
   useEffect(() => {
@@ -283,14 +331,20 @@ export default function FloatingTimer({
                 />
               </div>
 
-              {/* Client Picker */}
+              {/* Client/Project Picker */}
               <div className="relative">
                 <button
-                  onClick={() => !isRunning && setShowClientPicker(!showClientPicker)}
+                  onClick={() => {
+                    if (!isRunning) {
+                      setShowClientPicker(!showClientPicker)
+                      setTimeout(() => searchInputRef.current?.focus(), 100)
+                    }
+                  }}
                   disabled={isRunning}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors",
-                    isRunning ? "opacity-60 cursor-not-allowed" : "hover:bg-muted/50"
+                    isRunning ? "opacity-60 cursor-not-allowed" : "hover:bg-muted/50",
+                    !selectedClient && !isRunning && "border-dashed border-brand-orange/50 bg-brand-orange/5"
                   )}
                 >
                   {selectedClient ? (
@@ -303,8 +357,8 @@ export default function FloatingTimer({
                     </>
                   ) : (
                     <>
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="flex-1 text-muted-foreground">Select client...</span>
+                      <Search className="h-4 w-4 text-brand-orange" />
+                      <span className="flex-1 text-brand-orange font-medium">Search & select project...</span>
                     </>
                   )}
                   <ChevronDown className={cn(
@@ -313,43 +367,88 @@ export default function FloatingTimer({
                   )} />
                 </button>
 
-                {/* Client Dropdown */}
+                {/* Client Dropdown with Search */}
                 <AnimatePresence>
                   {showClientPicker && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto"
+                      className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-xl shadow-2xl z-10 overflow-hidden"
                     >
-                      {clients.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-muted-foreground">
-                          No clients found
+                      {/* Search Input */}
+                      <div className="p-2 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <input
+                            ref={searchInputRef}
+                            type="text"
+                            value={clientSearch}
+                            onChange={(e) => setClientSearch(e.target.value)}
+                            placeholder="Search projects..."
+                            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border bg-muted/50 focus:outline-none focus:ring-2 focus:ring-brand-orange/50"
+                            autoFocus
+                          />
                         </div>
-                      ) : (
-                        clients.map(client => (
-                          <button
-                            key={client.id}
-                            onClick={() => {
-                              setSelectedClient(client)
-                              setShowClientPicker(false)
-                            }}
-                            className={cn(
-                              "w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors",
-                              selectedClient?.id === client.id && "bg-brand-orange/10"
-                            )}
-                          >
-                            <div 
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: client.color || '#F7931E' }}
-                            />
-                            <span className="flex-1 text-left font-medium">{client.name}</span>
-                            {selectedClient?.id === client.id && (
-                              <Check className="h-4 w-4 text-brand-orange" />
-                            )}
-                          </button>
-                        ))
+                      </div>
+
+                      {/* Recent Clients */}
+                      {!clientSearch && recentClients.length > 0 && (
+                        <div className="p-2 border-b">
+                          <p className="text-xs text-muted-foreground px-2 mb-1">Recent</p>
+                          <div className="flex flex-wrap gap-1">
+                            {recentClients.map(client => (
+                              <button
+                                key={client.id}
+                                onClick={() => selectClient(client)}
+                                className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-muted hover:bg-brand-orange/10 transition-colors"
+                              >
+                                <div 
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: client.color || '#F7931E' }}
+                                />
+                                {client.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
+
+                      {/* Client List */}
+                      <div className="max-h-48 overflow-y-auto">
+                        {filteredClients.length === 0 ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            {clientSearch ? `No projects matching "${clientSearch}"` : 'No projects found'}
+                          </div>
+                        ) : (
+                          filteredClients.map(client => (
+                            <button
+                              key={client.id}
+                              onClick={() => selectClient(client)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors",
+                                selectedClient?.id === client.id && "bg-brand-orange/10"
+                              )}
+                            >
+                              <div 
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: client.color || '#F7931E' }}
+                              />
+                              <span className="flex-1 text-left font-medium">{client.name}</span>
+                              {selectedClient?.id === client.id && (
+                                <Check className="h-4 w-4 text-brand-orange" />
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Keyboard hint */}
+                      <div className="p-2 border-t bg-muted/30">
+                        <p className="text-[10px] text-muted-foreground text-center">
+                          Type to search • Click to select
+                        </p>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

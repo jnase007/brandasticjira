@@ -9,6 +9,8 @@ import {
   Filter,
   Search,
   X,
+  Clock,
+  Play,
 } from 'lucide-react'
 import { 
   getBoard, 
@@ -294,6 +296,21 @@ export default function BoardDetail() {
               </button>
             )}
           </div>
+          <Button 
+            variant="outline"
+            onClick={() => {
+              if (window.openTimerWithClient && board?.client) {
+                window.openTimerWithClient(
+                  { id: board.client.id, name: board.client.name, color: board.client.color },
+                  `Working on ${board.name}`
+                )
+              }
+            }}
+            className="gap-2"
+          >
+            <Play className="h-4 w-4 text-green-500 fill-green-500" />
+            Start Timer
+          </Button>
           <Button onClick={() => setCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Ticket
