@@ -29,12 +29,12 @@ const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
   { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G T' },
-  { path: '/import', icon: Upload, label: 'Import', shortcut: 'G I' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
 ]
 
 const adminNavItems = [
   { path: '/admin', icon: Shield, label: 'Admin', shortcut: 'G A' },
+  { path: '/import', icon: Upload, label: 'JIRA Import', shortcut: 'G I' },
 ]
 
 export default function Sidebar({ 

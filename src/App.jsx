@@ -311,9 +311,9 @@ function App() {
               <Route
                 path="/import"
                 element={
-                  <TeamRoute>
+                  <AdminRoute>
                     <JiraImport />
-                  </TeamRoute>
+                  </AdminRoute>
                 }
               />
 
