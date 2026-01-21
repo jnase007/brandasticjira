@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
   Clock,
@@ -9,63 +9,110 @@ import {
   ArrowUpRight,
   Plus,
   Search,
+  BarChart3,
+  Calendar,
+  Zap,
+  Target,
+  Award,
+  ChevronRight,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react'
 import { getClients, getBoards, getClientHoursSummary, getTickets } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { cn, formatDuration, calculateProgress, getProgressColor } from '../lib/utils'
+import { cn, formatDuration, calculateProgress, getProgressColor, formatRelativeDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Progress } from '../components/ui/progress'
 import { Badge } from '../components/ui/badge'
 import { Skeleton, SkeletonStats } from '../components/ui/skeleton'
+import AnimatedCounter, { PercentageCounter, HoursCounter } from '../components/AnimatedCounter'
+import { DonutChart, AreaChart, ProgressList, Sparkline } from '../components/Charts'
 
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.08,
     },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: {
+      type: 'spring',
+      damping: 20,
+      stiffness: 300
+    }
+  },
 }
 
-export default function Dashboard() {
+// Greeting based on time of day
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+// Sample sparkline data generator
+function generateSparklineData() {
+  return Array.from({ length: 7 }, () => Math.floor(Math.random() * 100) + 20)
+}
+
+// Sample hours trend data
+const HOURS_TREND = [
+  { label: 'Mon', value: 28 },
+  { label: 'Tue', value: 35 },
+  { label: 'Wed', value: 42 },
+  { label: 'Thu', value: 38 },
+  { label: 'Fri', value: 45 },
+  { label: 'Sat', value: 12 },
+  { label: 'Sun', value: 8 },
+]
+
+export default function Dashboard({ onConfetti }) {
   const { profile } = useAuth()
   const [clients, setClients] = useState([])
   const [boards, setBoards] = useState([])
   const [hoursSummary, setHoursSummary] = useState([])
   const [recentTickets, setRecentTickets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.all([
-          getClients(),
-          getBoards(),
-          getClientHoursSummary(),
-          getTickets(),
-        ])
+  const fetchData = async (showRefresh = false) => {
+    if (showRefresh) setRefreshing(true)
+    else setLoading(true)
+    
+    try {
+      const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.all([
+        getClients(),
+        getBoards(),
+        getClientHoursSummary(),
+        getTickets(),
+      ])
 
-        setClients(clientsRes.data || [])
-        setBoards(boardsRes.data || [])
-        setHoursSummary(hoursRes.data || [])
-        setRecentTickets((ticketsRes.data || []).slice(0, 5))
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error)
-      } finally {
-        setLoading(false)
-      }
+      setClients(clientsRes.data || [])
+      setBoards(boardsRes.data || [])
+      setHoursSummary(hoursRes.data || [])
+      setRecentTickets((ticketsRes.data || []).slice(0, 5))
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
+  }
 
+  useEffect(() => {
     fetchData()
   }, [])
 
@@ -74,19 +121,23 @@ export default function Dashboard() {
   const totalBoards = boards.length
   const totalHoursUsed = hoursSummary.reduce((sum, c) => sum + (c.hours_used || 0), 0)
   const totalHoursAvailable = hoursSummary.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)
+  const utilization = totalHoursAvailable > 0 ? Math.round((totalHoursUsed / totalHoursAvailable) * 100) : 0
 
   // Filter clients by search
   const filteredHoursSummary = hoursSummary.filter((client) =>
-    client.client_name.toLowerCase().includes(searchQuery.toLowerCase())
+    client.client_name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Completed tickets count
+  const completedTickets = recentTickets.filter(t => t.status === 'done').length
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto animate-fade-in-up">
+      <div className="p-8 max-w-7xl mx-auto animate-fade-in-up">
         {/* Header Skeleton */}
-        <div className="mb-8">
-          <Skeleton className="h-9 w-64 mb-2" />
-          <Skeleton className="h-5 w-80" />
+        <div className="mb-10">
+          <Skeleton className="h-10 w-80 mb-3" />
+          <Skeleton className="h-6 w-96" />
         </div>
         
         {/* Stats Skeleton */}
@@ -101,20 +152,23 @@ export default function Dashboard() {
           <div className="lg:col-span-2">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-9 w-64 rounded-lg" />
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-10 w-64 rounded-xl" />
               </div>
               <div className="space-y-4">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="p-4 rounded-xl border animate-fade-in-up" style={{ animationDelay: `${(i + 4) * 100}ms` }}>
-                    <div className="flex items-center justify-between mb-3">
+                  <div key={i} className="p-5 rounded-2xl border animate-fade-in-up" style={{ animationDelay: `${(i + 4) * 100}ms` }}>
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <Skeleton className="h-3 w-3 rounded-full" />
-                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-10 w-10 rounded-xl" />
+                        <div>
+                          <Skeleton className="h-5 w-32 mb-1" />
+                          <Skeleton className="h-3 w-20" />
+                        </div>
                       </div>
-                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-6 w-24 rounded-full" />
                     </div>
-                    <Skeleton className="h-2 w-full rounded-full" />
+                    <Skeleton className="h-3 w-full rounded-full" />
                   </div>
                 ))}
               </div>
@@ -123,21 +177,8 @@ export default function Dashboard() {
           <div className="space-y-6">
             <Card className="p-6">
               <Skeleton className="h-6 w-32 mb-4" />
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full rounded-lg" />
-                <Skeleton className="h-10 w-full rounded-lg" />
-              </div>
-            </Card>
-            <Card className="p-6">
-              <Skeleton className="h-6 w-32 mb-4" />
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-4 flex-1" />
-                  </div>
-                ))}
-              </div>
+              <Skeleton className="h-32 w-32 rounded-full mx-auto mb-4" />
+              <Skeleton className="h-4 w-full" />
             </Card>
           </div>
         </div>
@@ -146,239 +187,434 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <motion.div 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="p-8 max-w-7xl mx-auto"
+    >
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        variants={itemVariants}
+        className="mb-10"
       >
-        <h1 className="text-3xl font-display font-bold mb-2">
-          Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
-        </h1>
-        <p className="text-muted-foreground">
-          Here's what's happening across your clients this month.
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-display font-bold mb-2 flex items-center gap-3">
+              {getGreeting()}, {profile?.full_name?.split(' ')[0] || 'there'}!
+              <motion.span
+                animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                transition={{ duration: 2.5, delay: 0.5 }}
+                className="inline-block origin-bottom-right"
+              >
+                👋
+              </motion.span>
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Here's what's happening across your clients this month.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
       </motion.div>
 
       {/* Stats Grid */}
       <motion.div
         variants={containerVariants}
-        initial="hidden"
-        animate="visible"
         className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8"
       >
         <motion.div variants={itemVariants}>
-          <Card className="card-hover group cursor-pointer">
+          <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active Clients</p>
-                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-orange transition-colors">{totalClients}</p>
+                  <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-orange transition-colors">
+                    <AnimatedCounter value={totalClients} />
+                  </p>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>+2 this month</span>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-orange/10 group-hover:bg-brand-orange/20 group-hover:scale-110 transition-all duration-300">
-                  <Users className="h-6 w-6 text-brand-orange" />
+                <div className="relative">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-orange/20 to-brand-coral/10 group-hover:scale-110 transition-transform duration-300">
+                    <Users className="h-7 w-7 text-brand-orange" />
+                  </div>
+                  <Sparkline data={generateSparklineData()} className="absolute -bottom-2 -right-2 opacity-50" />
                 </div>
               </div>
             </CardContent>
+            {/* Decorative gradient */}
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-orange/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </Card>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="card-hover group cursor-pointer">
+          <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Boards</p>
-                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-blue transition-colors">{totalBoards}</p>
+                  <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
+                    <AnimatedCounter value={totalBoards} />
+                  </p>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <Kanban className="h-3 w-3" />
+                    <span>{boards.filter(b => b.type === 'kanban').length} kanban</span>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-blue/10 group-hover:bg-brand-blue/20 group-hover:scale-110 transition-all duration-300">
-                  <Kanban className="h-6 w-6 text-brand-blue" />
+                <div className="relative">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-blue/20 to-cyan-500/10 group-hover:scale-110 transition-transform duration-300">
+                    <Kanban className="h-7 w-7 text-brand-blue" />
+                  </div>
                 </div>
               </div>
             </CardContent>
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </Card>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="card-hover group cursor-pointer">
+          <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Hours Used</p>
-                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-purple transition-colors">
-                    {Math.round(totalHoursUsed)}
-                    <span className="text-lg text-muted-foreground font-normal">
+                  <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-purple transition-colors">
+                    <AnimatedCounter value={Math.round(totalHoursUsed)} />
+                    <span className="text-lg text-muted-foreground font-normal ml-1">
                       /{totalHoursAvailable}
                     </span>
                   </p>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>{Math.round(totalHoursAvailable - totalHoursUsed)}h remaining</span>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-purple/10 group-hover:bg-brand-purple/20 group-hover:scale-110 transition-all duration-300">
-                  <Clock className="h-6 w-6 text-brand-purple" />
+                <div className="relative">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-purple/20 to-purple-500/10 group-hover:scale-110 transition-transform duration-300">
+                    <Clock className="h-7 w-7 text-brand-purple" />
+                  </div>
                 </div>
               </div>
             </CardContent>
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </Card>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="card-hover group cursor-pointer">
+          <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Utilization</p>
-                  <p className="text-3xl font-display font-bold mt-1 group-hover:text-brand-teal transition-colors">
-                    {totalHoursAvailable > 0
-                      ? Math.round((totalHoursUsed / totalHoursAvailable) * 100)
-                      : 0}%
+                  <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-teal transition-colors">
+                    <PercentageCounter value={utilization} />
                   </p>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                    <Target className="h-3 w-3" />
+                    <span>On track</span>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-brand-teal/10 group-hover:bg-brand-teal/20 group-hover:scale-110 transition-all duration-300">
-                  <TrendingUp className="h-6 w-6 text-brand-teal" />
+                <div className="relative">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-teal/20 to-teal-500/10 group-hover:scale-110 transition-transform duration-300">
+                    <TrendingUp className="h-7 w-7 text-brand-teal" />
+                  </div>
                 </div>
               </div>
             </CardContent>
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-teal/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </Card>
         </motion.div>
       </motion.div>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Client Hours */}
+        {/* Client Hours - Left Column */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="lg:col-span-2"
+          variants={itemVariants}
+          className="lg:col-span-2 space-y-6"
         >
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Client Hours This Month</CardTitle>
-              <div className="relative w-64">
+          {/* Client Hours Card */}
+          <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-xl">Client Hours</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Monthly hour allocation by client</p>
+              </div>
+              <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search clients..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9"
+                  className="pl-9 h-10 rounded-xl bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-brand-orange/20"
                 />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {filteredHoursSummary.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No clients found
-                  </p>
-                ) : (
-                  filteredHoursSummary.map((client, index) => {
-                    const progress = calculateProgress(client.hours_used, client.monthly_hours)
-                    const progressColor = getProgressColor(progress)
-                    
-                    return (
-                      <motion.div
-                        key={client.client_id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="p-4 rounded-xl border bg-card hover:shadow-sm transition-shadow"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: clients.find(c => c.id === client.client_id)?.color || '#94A3B8' }}
-                            />
-                            <span className="font-medium">{client.client_name}</span>
+              <AnimatePresence mode="popLayout">
+                <div className="space-y-4">
+                  {filteredHoursSummary.length === 0 ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-center py-12"
+                    >
+                      <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground">No clients found</p>
+                      <Button variant="outline" size="sm" className="mt-4">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Your First Client
+                      </Button>
+                    </motion.div>
+                  ) : (
+                    filteredHoursSummary.map((client, index) => {
+                      const progress = calculateProgress(client.hours_used, client.monthly_hours)
+                      const isOverBudget = progress > 100
+                      const isNearLimit = progress >= 90 && progress <= 100
+                      
+                      return (
+                        <motion.div
+                          key={client.client_id}
+                          layout
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ delay: index * 0.05 }}
+                          className={cn(
+                            "p-5 rounded-2xl border bg-card transition-all duration-300",
+                            "hover:shadow-md hover:border-brand-orange/30 cursor-pointer group"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4">
+                              <div
+                                className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg transition-transform group-hover:scale-110"
+                                style={{ 
+                                  backgroundColor: clients.find(c => c.id === client.client_id)?.color || '#F7931E',
+                                  boxShadow: `0 4px 14px ${clients.find(c => c.id === client.client_id)?.color || '#F7931E'}40`
+                                }}
+                              >
+                                {client.client_name?.charAt(0) || 'C'}
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-lg group-hover:text-brand-orange transition-colors">
+                                  {client.client_name}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {Math.round(client.hours_remaining || 0)}h remaining
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="font-bold text-lg">
+                                  <AnimatedCounter value={Math.round(client.hours_used || 0)} />
+                                  <span className="text-muted-foreground font-normal text-sm">
+                                    /{client.monthly_hours}h
+                                  </span>
+                                </p>
+                              </div>
+                              <Badge
+                                variant={isOverBudget ? 'destructive' : isNearLimit ? 'high' : 'secondary'}
+                                className={cn(
+                                  "px-3 py-1 font-medium",
+                                  !isOverBudget && !isNearLimit && "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                                )}
+                              >
+                                {Math.round(progress)}%
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">{Math.round(client.hours_used || 0)}</span>
-                            {' / '}{client.monthly_hours}h
+                          
+                          <div className="relative h-3 bg-muted rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(progress, 100)}%` }}
+                              transition={{ duration: 1, delay: index * 0.1, ease: 'easeOut' }}
+                              className={cn(
+                                "absolute inset-y-0 left-0 rounded-full",
+                                isOverBudget 
+                                  ? "bg-gradient-to-r from-red-500 to-red-600" 
+                                  : isNearLimit 
+                                    ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                                    : "bg-gradient-to-r from-brand-orange to-brand-coral"
+                              )}
+                            >
+                              {/* Shine effect */}
+                              <motion.div
+                                initial={{ x: '-100%' }}
+                                animate={{ x: '200%' }}
+                                transition={{ delay: index * 0.1 + 0.5, duration: 1, ease: 'easeOut' }}
+                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12"
+                              />
+                            </motion.div>
                           </div>
-                        </div>
-                        <Progress
-                          value={progress}
-                          className="h-2"
-                          indicatorClassName={progressColor}
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-muted-foreground">
-                            {Math.round(client.hours_remaining || 0)}h remaining
-                          </span>
-                          <Badge
-                            variant={progress >= 90 ? 'destructive' : progress >= 75 ? 'high' : 'outline'}
-                            className="text-xs"
-                          >
-                            {progress}% used
-                          </Badge>
-                        </div>
-                      </motion.div>
-                    )
-                  })
-                )}
+                        </motion.div>
+                      )
+                    })
+                  )}
+                </div>
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+
+          {/* Hours Trend Chart */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">Hours Trend</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Hours logged this week</p>
+                </div>
+                <Badge variant="outline" className="font-normal">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  This Week
+                </Badge>
               </div>
+            </CardHeader>
+            <CardContent>
+              <AreaChart data={HOURS_TREND} height={180} />
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Quick Actions & Recent */}
+        {/* Right Column */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          variants={itemVariants}
           className="space-y-6"
         >
+          {/* Utilization Donut */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Overall Utilization</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center">
+              <DonutChart 
+                value={totalHoursUsed} 
+                total={totalHoursAvailable} 
+                size={160}
+                strokeWidth={16}
+                label="of hours used"
+              />
+              <div className="mt-6 w-full grid grid-cols-2 gap-4">
+                <div className="text-center p-3 rounded-xl bg-muted/50">
+                  <p className="text-2xl font-bold text-brand-orange">
+                    <AnimatedCounter value={Math.round(totalHoursUsed)} />h
+                  </p>
+                  <p className="text-xs text-muted-foreground">Used</p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-muted/50">
+                  <p className="text-2xl font-bold text-brand-blue">
+                    <AnimatedCounter value={Math.round(totalHoursAvailable - totalHoursUsed)} />h
+                  </p>
+                  <p className="text-xs text-muted-foreground">Remaining</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Zap className="h-5 w-5 text-brand-orange" />
+                Quick Actions
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button asChild variant="outline" className="w-full justify-start">
+              <Button asChild variant="outline" className="w-full justify-between h-12 rounded-xl group">
                 <Link to="/boards">
-                  <Kanban className="mr-2 h-4 w-4" />
-                  View All Boards
-                  <ArrowUpRight className="ml-auto h-4 w-4" />
+                  <span className="flex items-center">
+                    <Kanban className="mr-3 h-5 w-5 text-brand-blue" />
+                    View All Boards
+                  </span>
+                  <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
+              <Button asChild variant="outline" className="w-full justify-between h-12 rounded-xl group">
                 <Link to="/boards?new=true">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create New Board
-                  <ArrowUpRight className="ml-auto h-4 w-4" />
+                  <span className="flex items-center">
+                    <Plus className="mr-3 h-5 w-5 text-green-500" />
+                    Create New Board
+                  </span>
+                  <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                 </Link>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between h-12 rounded-xl group"
+                onClick={onConfetti}
+              >
+                <span className="flex items-center">
+                  <Sparkles className="mr-3 h-5 w-5 text-brand-purple" />
+                  Celebrate! 🎉
+                </span>
+                <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Button>
             </CardContent>
           </Card>
 
           {/* Recent Tickets */}
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Tickets</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-xl">Recent Tickets</CardTitle>
+              <Badge variant="outline" className="font-normal">
+                {completedTickets}/{recentTickets.length} done
+              </Badge>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {recentTickets.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No tickets yet
-                  </p>
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                      <Award className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No tickets yet</p>
+                  </div>
                 ) : (
-                  recentTickets.map((ticket) => (
-                    <Link
+                  recentTickets.map((ticket, index) => (
+                    <motion.div
                       key={ticket.id}
-                      to={`/tickets/${ticket.id}`}
-                      className="flex items-start gap-3 p-2 -mx-2 rounded-lg hover:bg-muted transition-colors"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
                     >
-                      <Badge variant={ticket.status} className="mt-0.5 text-[10px]">
-                        {ticket.status}
-                      </Badge>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{ticket.title}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {ticket.ticket_id}
-                        </p>
-                      </div>
-                    </Link>
+                      <Link
+                        to={`/tickets/${ticket.id}`}
+                        className="flex items-start gap-3 p-3 -mx-2 rounded-xl hover:bg-muted/50 transition-colors group"
+                      >
+                        <Badge 
+                          variant={ticket.status} 
+                          className="mt-0.5 text-[10px] uppercase tracking-wide"
+                        >
+                          {ticket.status === 'inprogress' ? 'WIP' : ticket.status}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate group-hover:text-brand-orange transition-colors">
+                            {ticket.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                            {ticket.ticket_id}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Link>
+                    </motion.div>
                   ))
                 )}
               </div>
@@ -386,6 +622,6 @@ export default function Dashboard() {
           </Card>
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

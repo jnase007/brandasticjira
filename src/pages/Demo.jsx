@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
@@ -16,6 +16,12 @@ import {
   Play,
   Square,
   X,
+  Zap,
+  ChevronRight,
+  Activity,
+  Sparkles,
+  Target,
+  Command,
 } from 'lucide-react'
 import { cn, formatDuration, calculateProgress, getProgressColor, getStatusInfo, getPriorityInfo, getInitials } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -24,7 +30,9 @@ import { Input } from '../components/ui/input'
 import { Progress } from '../components/ui/progress'
 import { Badge } from '../components/ui/badge'
 import { Avatar, AvatarFallback } from '../components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import AnimatedCounter, { PercentageCounter } from '../components/AnimatedCounter'
+import { DonutChart, AreaChart, Sparkline } from '../components/Charts'
+import Confetti, { useConfetti } from '../components/Confetti'
 
 // Demo data
 const DEMO_CLIENTS = [
@@ -51,6 +59,16 @@ const DEMO_TICKETS = {
   ],
 }
 
+const HOURS_TREND = [
+  { label: 'Mon', value: 28 },
+  { label: 'Tue', value: 35 },
+  { label: 'Wed', value: 42 },
+  { label: 'Thu', value: 38 },
+  { label: 'Fri', value: 45 },
+  { label: 'Sat', value: 12 },
+  { label: 'Sun', value: 8 },
+]
+
 const COLUMNS = [
   { id: 'todo', label: 'To Do', color: 'status-todo' },
   { id: 'inprogress', label: 'In Progress', color: 'status-inprogress' },
@@ -61,13 +79,26 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 },
+    transition: { staggerChildren: 0.08 },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: {
+      type: 'spring',
+      damping: 20,
+      stiffness: 300
+    }
+  },
+}
+
+function generateSparklineData() {
+  return Array.from({ length: 7 }, () => Math.floor(Math.random() * 100) + 20)
 }
 
 function DemoTicketCard({ ticket, index }) {
@@ -149,10 +180,12 @@ export default function Demo() {
   const [tickets, setTickets] = useState(DEMO_TICKETS)
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerTime, setTimerTime] = useState('00:12:34')
+  const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
 
   const totalClients = DEMO_CLIENTS.length
   const totalHoursUsed = DEMO_CLIENTS.reduce((sum, c) => sum + c.hours_used, 0)
   const totalHoursAvailable = DEMO_CLIENTS.reduce((sum, c) => sum + c.monthly_hours, 0)
+  const utilization = Math.round((totalHoursUsed / totalHoursAvailable) * 100)
 
   const handleDragEnd = (result) => {
     if (!result.destination) return
@@ -176,23 +209,39 @@ export default function Demo() {
       [source.droppableId]: sourceColumn,
       [destination.droppableId]: destColumn,
     })
+
+    // Fire confetti when moving to done
+    if (destination.droppableId === 'done' && source.droppableId !== 'done') {
+      fireConfetti()
+    }
   }
 
   return (
     <div className="min-h-screen bg-background">
+      <Confetti trigger={confettiTrigger} />
+      
       {/* Demo Banner */}
-      <div className="bg-gradient-to-r from-brand-orange to-brand-blue text-white py-2 px-4">
+      <motion.div 
+        initial={{ y: -50 }}
+        animate={{ y: 0 }}
+        className="bg-gradient-to-r from-brand-orange via-brand-coral to-brand-blue text-white py-2.5 px-4"
+      >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">🎉 You're viewing a demo with sample data</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-2 py-1 bg-white/20 rounded-full">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">DEMO</span>
+            </div>
+            <span className="text-sm font-medium">You're viewing a demo with sample data</span>
           </div>
           <Link to="/login">
-            <Button size="sm" variant="secondary" className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border-0">
+            <Button size="sm" className="h-8 bg-white text-brand-orange hover:bg-white/90 font-medium">
               Sign Up for Real
+              <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </Link>
         </div>
-      </div>
+      </motion.div>
 
       {/* Demo Navbar */}
       <nav className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
@@ -200,19 +249,20 @@ export default function Demo() {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
               <Link to="/login" className="flex items-center gap-3">
-                <img 
-                  src="https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png" 
-                  alt="Brandastic" 
-                  className="h-7 w-auto object-contain"
-                />
+                <div className="w-9 h-9 rounded-xl bg-brand-orange flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">B</span>
+                </div>
+                <span className="font-bold text-lg hidden sm:block">Brandastic</span>
               </Link>
 
               <div className="hidden md:flex items-center gap-1">
                 <button
                   onClick={() => setActiveTab('dashboard')}
                   className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                    activeTab === 'dashboard' ? "text-brand-orange bg-brand-orange/10" : "text-muted-foreground hover:text-foreground"
+                    "px-4 py-2 text-sm font-medium rounded-lg transition-all",
+                    activeTab === 'dashboard' 
+                      ? "text-white bg-brand-orange shadow-lg shadow-brand-orange/30" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
                 >
                   Dashboard
@@ -220,8 +270,10 @@ export default function Demo() {
                 <button
                   onClick={() => setActiveTab('board')}
                   className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                    activeTab === 'board' ? "text-brand-orange bg-brand-orange/10" : "text-muted-foreground hover:text-foreground"
+                    "px-4 py-2 text-sm font-medium rounded-lg transition-all",
+                    activeTab === 'board' 
+                      ? "text-white bg-brand-orange shadow-lg shadow-brand-orange/30" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
                 >
                   Kanban Board
@@ -230,8 +282,14 @@ export default function Demo() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-brand-orange/10 text-brand-orange">DU</AvatarFallback>
+              {/* Command palette hint */}
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/50">
+                <Command className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">K to search</span>
+              </div>
+              
+              <Avatar className="h-9 w-9 ring-2 ring-brand-orange/20">
+                <AvatarFallback className="bg-brand-orange/10 text-brand-orange font-medium">DU</AvatarFallback>
               </Avatar>
             </div>
           </div>
@@ -239,38 +297,57 @@ export default function Demo() {
       </nav>
 
       {/* Main Content */}
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
             <motion.div
               key="dashboard"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial="hidden"
+              animate="visible"
               exit={{ opacity: 0, y: -20 }}
+              variants={containerVariants}
             >
               {/* Header */}
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold mb-2">Welcome back, Demo User!</h1>
-                <p className="text-muted-foreground">Here's what's happening across your clients this month.</p>
-              </div>
+              <motion.div variants={itemVariants} className="mb-10">
+                <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
+                  Welcome to the Demo!
+                  <motion.span
+                    animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                    transition={{ duration: 2.5, delay: 0.5 }}
+                    className="inline-block"
+                  >
+                    🚀
+                  </motion.span>
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  Explore the dashboard with sample client data. Try dragging tickets!
+                </p>
+              </motion.div>
 
               {/* Stats */}
               <motion.div
                 variants={containerVariants}
-                initial="hidden"
-                animate="visible"
                 className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8"
               >
                 <motion.div variants={itemVariants}>
-                  <Card className="card-hover group cursor-pointer">
+                  <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Active Clients</p>
-                          <p className="text-3xl font-bold mt-1 group-hover:text-brand-orange transition-colors">{totalClients}</p>
+                          <p className="text-4xl font-bold mt-2 group-hover:text-brand-orange transition-colors">
+                            <AnimatedCounter value={totalClients} />
+                          </p>
+                          <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                            <TrendingUp className="h-3 w-3" />
+                            <span>+2 this month</span>
+                          </div>
                         </div>
-                        <div className="p-3 rounded-xl bg-brand-orange/10 group-hover:bg-brand-orange/20 group-hover:scale-110 transition-all">
-                          <Users className="h-6 w-6 text-brand-orange" />
+                        <div className="relative">
+                          <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-orange/20 to-brand-coral/10 group-hover:scale-110 transition-transform duration-300">
+                            <Users className="h-7 w-7 text-brand-orange" />
+                          </div>
+                          <Sparkline data={generateSparklineData()} className="absolute -bottom-2 -right-2 opacity-50" />
                         </div>
                       </div>
                     </CardContent>
@@ -278,15 +355,21 @@ export default function Demo() {
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <Card className="card-hover group cursor-pointer">
+                  <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Total Boards</p>
-                          <p className="text-3xl font-bold mt-1 group-hover:text-brand-blue transition-colors">8</p>
+                          <p className="text-4xl font-bold mt-2 group-hover:text-brand-blue transition-colors">
+                            <AnimatedCounter value={8} />
+                          </p>
+                          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                            <Kanban className="h-3 w-3" />
+                            <span>6 kanban</span>
+                          </div>
                         </div>
-                        <div className="p-3 rounded-xl bg-brand-blue/10 group-hover:bg-brand-blue/20 group-hover:scale-110 transition-all">
-                          <Kanban className="h-6 w-6 text-brand-blue" />
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-blue/20 to-cyan-500/10 group-hover:scale-110 transition-transform duration-300">
+                          <Kanban className="h-7 w-7 text-brand-blue" />
                         </div>
                       </div>
                     </CardContent>
@@ -294,18 +377,24 @@ export default function Demo() {
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <Card className="card-hover group cursor-pointer">
+                  <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Hours Used</p>
-                          <p className="text-3xl font-bold mt-1 group-hover:text-brand-purple transition-colors">
-                            {Math.round(totalHoursUsed)}
-                            <span className="text-lg text-muted-foreground font-normal">/{totalHoursAvailable}</span>
+                          <p className="text-4xl font-bold mt-2 group-hover:text-brand-purple transition-colors">
+                            <AnimatedCounter value={Math.round(totalHoursUsed)} />
+                            <span className="text-lg text-muted-foreground font-normal ml-1">
+                              /{totalHoursAvailable}
+                            </span>
                           </p>
+                          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span>{Math.round(totalHoursAvailable - totalHoursUsed)}h remaining</span>
+                          </div>
                         </div>
-                        <div className="p-3 rounded-xl bg-brand-purple/10 group-hover:bg-brand-purple/20 group-hover:scale-110 transition-all">
-                          <Clock className="h-6 w-6 text-brand-purple" />
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-purple/20 to-purple-500/10 group-hover:scale-110 transition-transform duration-300">
+                          <Clock className="h-7 w-7 text-brand-purple" />
                         </div>
                       </div>
                     </CardContent>
@@ -313,17 +402,21 @@ export default function Demo() {
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <Card className="card-hover group cursor-pointer">
+                  <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Utilization</p>
-                          <p className="text-3xl font-bold mt-1 group-hover:text-brand-teal transition-colors">
-                            {Math.round((totalHoursUsed / totalHoursAvailable) * 100)}%
+                          <p className="text-4xl font-bold mt-2 group-hover:text-green-500 transition-colors">
+                            <PercentageCounter value={utilization} />
                           </p>
+                          <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                            <Target className="h-3 w-3" />
+                            <span>On track</span>
+                          </div>
                         </div>
-                        <div className="p-3 rounded-xl bg-brand-teal/10 group-hover:bg-brand-teal/20 group-hover:scale-110 transition-all">
-                          <TrendingUp className="h-6 w-6 text-brand-teal" />
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/10 group-hover:scale-110 transition-transform duration-300">
+                          <TrendingUp className="h-7 w-7 text-green-500" />
                         </div>
                       </div>
                     </CardContent>
@@ -331,42 +424,83 @@ export default function Demo() {
                 </motion.div>
               </motion.div>
 
-              {/* Client Hours */}
+              {/* Main Grid */}
               <div className="grid gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-2">
+                <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+                  {/* Client Hours */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Client Hours This Month</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-xl">Client Hours</CardTitle>
+                          <p className="text-sm text-muted-foreground mt-1">Monthly hour allocation</p>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
                         {DEMO_CLIENTS.map((client, index) => {
                           const progress = calculateProgress(client.hours_used, client.monthly_hours)
+                          const isNearLimit = progress >= 90
+                          
                           return (
                             <motion.div
                               key={client.id}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.1 }}
-                              className="p-4 rounded-xl border bg-card hover:shadow-md hover:border-brand-orange/20 transition-all cursor-pointer"
+                              className="p-5 rounded-2xl border bg-card hover:shadow-md hover:border-brand-orange/30 transition-all cursor-pointer group"
                             >
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: client.color }} />
-                                  <span className="font-medium">{client.name}</span>
+                              <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                  <div
+                                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform"
+                                    style={{ backgroundColor: client.color }}
+                                  >
+                                    {client.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <h3 className="font-semibold text-lg group-hover:text-brand-orange transition-colors">
+                                      {client.name}
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                      {Math.round(client.monthly_hours - client.hours_used)}h remaining
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="text-sm text-muted-foreground">
-                                  <span className="font-medium text-foreground">{client.hours_used}</span> / {client.monthly_hours}h
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <p className="font-bold text-lg">
+                                      {client.hours_used}
+                                      <span className="text-muted-foreground font-normal text-sm">
+                                        /{client.monthly_hours}h
+                                      </span>
+                                    </p>
+                                  </div>
+                                  <Badge
+                                    variant={isNearLimit ? 'high' : 'secondary'}
+                                    className={cn(
+                                      "px-3 py-1 font-medium",
+                                      !isNearLimit && "bg-green-500/10 text-green-600"
+                                    )}
+                                  >
+                                    {Math.round(progress)}%
+                                  </Badge>
                                 </div>
                               </div>
-                              <Progress value={progress} className="h-2" />
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {Math.round(client.monthly_hours - client.hours_used)}h remaining
-                                </span>
-                                <Badge variant={progress >= 90 ? 'destructive' : 'outline'} className="text-xs">
-                                  {progress}% used
-                                </Badge>
+                              
+                              <div className="relative h-3 bg-muted rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${progress}%` }}
+                                  transition={{ duration: 1, delay: index * 0.1 }}
+                                  className={cn(
+                                    "absolute inset-y-0 left-0 rounded-full",
+                                    isNearLimit 
+                                      ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                                      : "bg-gradient-to-r from-brand-orange to-brand-coral"
+                                  )}
+                                />
                               </div>
                             </motion.div>
                           )
@@ -374,43 +508,134 @@ export default function Demo() {
                       </div>
                     </CardContent>
                   </Card>
-                </div>
 
-                {/* Time Tracker Demo */}
-                <div>
+                  {/* Hours Chart */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-xl">Hours Trend</CardTitle>
+                          <p className="text-sm text-muted-foreground mt-1">Hours logged this week</p>
+                        </div>
+                        <Badge variant="outline" className="font-normal">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          This Week
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <AreaChart data={HOURS_TREND} height={180} />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* Right Column */}
+                <motion.div variants={itemVariants} className="space-y-6">
+                  {/* Donut Chart */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-xl">Overall Utilization</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center">
+                      <DonutChart 
+                        value={totalHoursUsed} 
+                        total={totalHoursAvailable} 
+                        size={160}
+                        strokeWidth={16}
+                        label="of hours used"
+                      />
+                      <div className="mt-6 w-full grid grid-cols-2 gap-4">
+                        <div className="text-center p-3 rounded-xl bg-muted/50">
+                          <p className="text-2xl font-bold text-brand-orange">
+                            <AnimatedCounter value={Math.round(totalHoursUsed)} />h
+                          </p>
+                          <p className="text-xs text-muted-foreground">Used</p>
+                        </div>
+                        <div className="text-center p-3 rounded-xl bg-muted/50">
+                          <p className="text-2xl font-bold text-brand-blue">
+                            <AnimatedCounter value={Math.round(totalHoursAvailable - totalHoursUsed)} />h
+                          </p>
+                          <p className="text-xs text-muted-foreground">Remaining</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Timer Demo */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-xl">
+                        <Clock className="h-5 w-5 text-brand-orange" />
                         Time Tracker
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className={cn(
-                        "text-center py-6 rounded-xl font-mono text-3xl font-semibold mb-4",
+                        "text-center py-6 rounded-xl font-mono text-4xl font-bold mb-4 relative overflow-hidden",
                         timerRunning ? "bg-brand-orange/10 text-brand-orange" : "bg-muted text-muted-foreground"
                       )}>
-                        {timerTime}
+                        {timerRunning && (
+                          <motion.div
+                            className="absolute inset-0 bg-brand-orange/5"
+                            animate={{ opacity: [0.3, 0.6, 0.3] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                        )}
+                        <span className="relative z-10">{timerTime}</span>
                       </div>
                       <Button
                         onClick={() => setTimerRunning(!timerRunning)}
                         className={cn(
-                          "w-full h-12",
+                          "w-full h-12 text-base font-medium",
                           timerRunning ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
                         )}
                       >
                         {timerRunning ? (
-                          <><Square className="mr-2 h-5 w-5" /> Stop Timer</>
+                          <><Square className="mr-2 h-5 w-5 fill-current" /> Stop Timer</>
                         ) : (
-                          <><Play className="mr-2 h-5 w-5" /> Start Timer</>
+                          <><Play className="mr-2 h-5 w-5 fill-current" /> Start Timer</>
                         )}
                       </Button>
                       <p className="text-center text-xs text-muted-foreground mt-3">
-                        Currently tracking: TECH-98
+                        Currently tracking: <span className="font-mono text-brand-orange">TECH-98</span>
                       </p>
                     </CardContent>
                   </Card>
-                </div>
+
+                  {/* Quick Actions */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-xl">
+                        <Zap className="h-5 w-5 text-brand-orange" />
+                        Quick Actions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-between h-12 rounded-xl group"
+                        onClick={() => setActiveTab('board')}
+                      >
+                        <span className="flex items-center">
+                          <Kanban className="mr-3 h-5 w-5 text-brand-blue" />
+                          View Kanban Board
+                        </span>
+                        <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-between h-12 rounded-xl group"
+                        onClick={fireConfetti}
+                      >
+                        <span className="flex items-center">
+                          <Sparkles className="mr-3 h-5 w-5 text-brand-purple" />
+                          Celebrate! 🎉
+                        </span>
+                        <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               </div>
             </motion.div>
           ) : (
@@ -423,13 +648,25 @@ export default function Demo() {
               {/* Board Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-3 h-3 rounded-full bg-brand-orange" />
-                  <div>
-                    <h1 className="text-2xl font-bold">TechStart Inc - Q1 Campaign</h1>
-                    <p className="text-sm text-muted-foreground">Marketing campaign board</p>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setActiveTab('dashboard')}
+                    className="rounded-xl"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-brand-orange flex items-center justify-center">
+                      <span className="text-white font-bold">T</span>
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-bold">TechStart Inc - Q1 Campaign</h1>
+                      <p className="text-sm text-muted-foreground">Marketing campaign board • Drag tickets to move them</p>
+                    </div>
                   </div>
                 </div>
-                <Button>
+                <Button className="rounded-xl">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Ticket
                 </Button>
@@ -439,13 +676,13 @@ export default function Demo() {
               <DragDropContext onDragEnd={handleDragEnd}>
                 <div className="flex gap-6 overflow-x-auto pb-6">
                   {COLUMNS.map((column) => (
-                    <div key={column.id} className="flex flex-col min-h-[500px] w-80 rounded-xl p-4 bg-muted/30 border flex-shrink-0">
+                    <div key={column.id} className="flex flex-col min-h-[500px] w-80 rounded-2xl p-4 bg-muted/30 border flex-shrink-0">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                          <Badge variant={column.id}>{column.label}</Badge>
-                          <span className="text-sm text-muted-foreground">{tickets[column.id].length}</span>
+                          <Badge variant={column.id} className="text-xs font-medium">{column.label}</Badge>
+                          <span className="text-sm text-muted-foreground font-medium">{tickets[column.id].length}</span>
                         </div>
-                        <Button variant="ghost" size="icon-sm">
+                        <Button variant="ghost" size="icon-sm" className="rounded-lg">
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
@@ -456,8 +693,8 @@ export default function Demo() {
                             ref={provided.innerRef}
                             {...provided.droppableProps}
                             className={cn(
-                              "flex-1 space-y-3 min-h-[200px] rounded-lg p-1 transition-colors",
-                              snapshot.isDraggingOver && "bg-brand-orange/5 ring-2 ring-brand-orange/20"
+                              "flex-1 space-y-3 min-h-[200px] rounded-xl p-2 transition-all duration-200",
+                              snapshot.isDraggingOver && "bg-brand-orange/5 ring-2 ring-brand-orange/20 ring-dashed"
                             )}
                           >
                             {tickets[column.id].map((ticket, index) => (
@@ -471,6 +708,12 @@ export default function Demo() {
                   ))}
                 </div>
               </DragDropContext>
+              
+              <div className="mt-6 p-4 rounded-xl bg-muted/50 border border-dashed">
+                <p className="text-center text-sm text-muted-foreground">
+                  💡 <strong>Tip:</strong> Drag a ticket to the "Done" column to see a celebration! 🎉
+                </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
