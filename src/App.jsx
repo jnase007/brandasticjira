@@ -1,28 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from './contexts/AuthContext'
 import { GamificationProvider } from './contexts/GamificationContext'
 
-// Pages
-import Login from './pages/Login'
-import Demo from './pages/Demo'
-import Dashboard from './pages/Dashboard'
-import Boards from './pages/Boards'
-import BoardDetail from './pages/BoardDetail'
-import TicketDetail from './pages/TicketDetail'
-import ClientPortal from './pages/ClientPortal'
-import Settings from './pages/Settings'
-import Admin from './pages/Admin'
-import TeamHub from './pages/TeamHub'
-import JiraImport from './pages/JiraImport'
-import LeaderboardPage from './pages/LeaderboardPage'
-import TimeTracking from './pages/TimeTracking'
-import Reports from './pages/Reports'
-import ClientManagement from './pages/ClientManagement'
-import ClientDetail from './pages/ClientDetail'
-import TeamMemberDetail from './pages/TeamMemberDetail'
-import NotFound from './pages/NotFound'
+// Pages - Lazy loaded for better performance
+const Login = lazy(() => import('./pages/Login'))
+const Demo = lazy(() => import('./pages/Demo'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Boards = lazy(() => import('./pages/Boards'))
+const BoardDetail = lazy(() => import('./pages/BoardDetail'))
+const TicketDetail = lazy(() => import('./pages/TicketDetail'))
+const ClientPortal = lazy(() => import('./pages/ClientPortal'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Admin = lazy(() => import('./pages/Admin'))
+const TeamHub = lazy(() => import('./pages/TeamHub'))
+const JiraImport = lazy(() => import('./pages/JiraImport'))
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
+const TimeTracking = lazy(() => import('./pages/TimeTracking'))
+const Reports = lazy(() => import('./pages/Reports'))
+const ClientManagement = lazy(() => import('./pages/ClientManagement'))
+const ClientDetail = lazy(() => import('./pages/ClientDetail'))
+const TeamMemberDetail = lazy(() => import('./pages/TeamMemberDetail'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -35,6 +35,19 @@ import EasterEggs from './components/EasterEggs'
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
 import { Badge } from './components/ui/badge'
+import { Loader2 } from 'lucide-react'
+
+// Lightweight page loading spinner for route transitions
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-orange mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  )
+}
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -357,13 +370,15 @@ function App() {
     return (
       <div className="min-h-screen bg-background">
         {confetti}
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/demo" element={<Demo />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </AnimatePresence>
+        <Suspense fallback={<PageLoader />}>
+          <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </AnimatePresence>
+        </Suspense>
       </div>
     )
   }
@@ -373,7 +388,9 @@ function App() {
     return (
       <div className="min-h-screen bg-background">
         {confetti}
-        <Demo />
+        <Suspense fallback={<PageLoader />}>
+          <Demo />
+        </Suspense>
       </div>
     )
   }
@@ -386,6 +403,7 @@ function App() {
         <FocusModeProvider>
         <GamificationProvider>
           <MainLayout>
+            <Suspense fallback={<PageLoader />}>
             <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               {/* Team routes */}
@@ -519,10 +537,12 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
             </AnimatePresence>
+            </Suspense>
           </MainLayout>
         </GamificationProvider>
         </FocusModeProvider>
       ) : (
+        <Suspense fallback={<PageLoader />}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/login" element={<Login />} />
@@ -530,6 +550,7 @@ function App() {
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </AnimatePresence>
+        </Suspense>
       )}
     </div>
   )
