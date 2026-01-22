@@ -327,7 +327,7 @@ export default function TimeTracking() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-[1600px] mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
         <div className="mb-8">
           <Skeleton className="h-10 w-64 mb-3" />
           <Skeleton className="h-6 w-96" />
@@ -347,7 +347,7 @@ export default function TimeTracking() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-8 max-w-[1600px] mx-auto"
+      className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">

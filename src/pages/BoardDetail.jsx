@@ -229,11 +229,11 @@ export default function BoardDetail() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="h-8 w-48 bg-muted rounded shimmer mb-8" />
-        <div className="flex gap-6">
+        <div className="flex gap-4 sm:gap-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="w-80 h-96 bg-muted rounded-xl shimmer" />
+            <div key={i} className="w-[85vw] sm:w-80 h-96 bg-muted rounded-xl shimmer flex-shrink-0" />
           ))}
         </div>
       </div>
@@ -255,7 +255,7 @@ export default function BoardDetail() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
@@ -320,13 +320,13 @@ export default function BoardDetail() {
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar">
+        <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory sm:snap-none hide-scrollbar">
           {COLUMNS.map((column) => {
             const columnTickets = groupedTickets[column.id] || []
             const statusInfo = getStatusInfo(column.id)
 
             return (
-              <div key={column.id} className="kanban-column flex-shrink-0">
+              <div key={column.id} className="kanban-column flex-shrink-0 w-[85vw] sm:w-80 snap-center sm:snap-align-none">
                 {/* Column Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">

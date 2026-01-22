@@ -200,7 +200,7 @@ export default function Settings() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-6 max-w-4xl mx-auto"
+      className="p-4 sm:p-6 max-w-4xl mx-auto"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">

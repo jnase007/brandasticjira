@@ -1,0 +1,267 @@
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Menu, X, LayoutDashboard, Kanban, Building2, Clock, BarChart3,
+  Users2, Trophy, Settings, Shield, LogOut, Timer, Activity,
+  Search, ChevronRight, Zap, Bell,
+} from 'lucide-react'
+import { cn } from '../lib/utils'
+import { useAuth } from '../contexts/AuthContext'
+import { Button } from './ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { getInitials } from '../lib/utils'
+
+const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
+
+const navItems = [
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/boards', icon: Kanban, label: 'Boards' },
+  { path: '/clients', icon: Building2, label: 'Clients' },
+  { path: '/time', icon: Clock, label: 'Time & Profit' },
+  { path: '/reports', icon: BarChart3, label: 'Reports' },
+  { path: '/team', icon: Users2, label: 'Team Hub' },
+  { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+  { path: '/settings', icon: Settings, label: 'Settings' },
+]
+
+const adminNavItems = [
+  { path: '/admin', icon: Shield, label: 'Admin' },
+]
+
+// Bottom tab bar for quick access
+export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
+  const location = useLocation()
+  const { isAdmin } = useAuth()
+  
+  const quickItems = [
+    { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
+    { path: '/boards', icon: Kanban, label: 'Boards' },
+    { path: '/time', icon: Clock, label: 'Time' },
+    { action: 'timer', icon: Timer, label: 'Timer' },
+    { action: 'more', icon: Menu, label: 'More' },
+  ]
+
+  const [showMore, setShowMore] = useState(false)
+  
+  return (
+    <>
+      {/* Bottom Tab Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-bottom lg:hidden">
+        <div className="flex items-center justify-around h-16 px-2">
+          {quickItems.map((item) => {
+            const Icon = item.icon
+            const isActive = item.path && location.pathname === item.path
+            
+            if (item.action === 'timer') {
+              return (
+                <button
+                  key="timer"
+                  onClick={onOpenTimer}
+                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <div className="relative">
+                    <Icon className="h-5 w-5" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                  </div>
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              )
+            }
+            
+            if (item.action === 'more') {
+              return (
+                <button
+                  key="more"
+                  onClick={() => setShowMore(true)}
+                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              )
+            }
+            
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors",
+                  isActive
+                    ? "text-brand-orange"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className={cn("h-5 w-5", isActive && "text-brand-orange")} />
+                <span className={cn("text-[10px] font-medium", isActive && "text-brand-orange")}>
+                  {item.label}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* More Menu Drawer */}
+      <AnimatePresence>
+        {showMore && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMore(false)}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl border-t shadow-2xl safe-area-bottom lg:hidden"
+            >
+              <div className="p-4">
+                {/* Handle */}
+                <div className="w-12 h-1 bg-muted rounded-full mx-auto mb-4" />
+                
+                {/* Quick Actions */}
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <button
+                    onClick={() => {
+                      onOpenTimer()
+                      setShowMore(false)
+                    }}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-brand-orange to-brand-coral text-white"
+                  >
+                    <Timer className="h-6 w-6" />
+                    <span className="text-xs font-medium">Timer</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOpenActivity()
+                      setShowMore(false)
+                    }}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted"
+                  >
+                    <Activity className="h-6 w-6" />
+                    <span className="text-xs font-medium">Activity</span>
+                  </button>
+                  <Link
+                    to="/leaderboard"
+                    onClick={() => setShowMore(false)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted"
+                  >
+                    <Trophy className="h-6 w-6" />
+                    <span className="text-xs font-medium">Rank</span>
+                  </Link>
+                  <Link
+                    to="/settings"
+                    onClick={() => setShowMore(false)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted"
+                  >
+                    <Settings className="h-6 w-6" />
+                    <span className="text-xs font-medium">Settings</span>
+                  </Link>
+                </div>
+
+                {/* Nav Items */}
+                <div className="space-y-1">
+                  {navItems.slice(3).map((item) => {
+                    const Icon = item.icon
+                    const isActive = location.pathname === item.path
+                    
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setShowMore(false)}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
+                          isActive
+                            ? "bg-brand-orange/10 text-brand-orange"
+                            : "text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="font-medium">{item.label}</span>
+                        <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+                      </Link>
+                    )
+                  })}
+                  
+                  {isAdmin && adminNavItems.map((item) => {
+                    const Icon = item.icon
+                    
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setShowMore(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-brand-purple hover:bg-brand-purple/10 transition-colors"
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="font-medium">{item.label}</span>
+                        <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+                      </Link>
+                    )
+                  })}
+                </div>
+
+                {/* Close */}
+                <Button
+                  variant="ghost"
+                  className="w-full mt-4"
+                  onClick={() => setShowMore(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+// Mobile Header
+export function MobileHeader({ onOpenSearch }) {
+  const { profile } = useAuth()
+  const navigate = useNavigate()
+  
+  return (
+    <div className="fixed top-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-lg border-b h-14 flex items-center justify-between px-4 lg:hidden">
+      <Link to="/dashboard" className="flex items-center gap-2">
+        <img src={LOGO_MARK} alt="Brandastic" className="h-8 w-8" />
+        <span className="font-bold text-lg">Brandastic</span>
+      </Link>
+      
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onOpenSearch}
+          className="h-9 w-9"
+        >
+          <Search className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => navigate('/settings')}
+          className="h-9 w-9"
+        >
+          <Avatar className="h-7 w-7">
+            <AvatarImage src={profile?.avatar_url} />
+            <AvatarFallback className="text-xs bg-brand-orange text-white">
+              {getInitials(profile?.full_name)}
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export default MobileTabBar

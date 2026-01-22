@@ -32,7 +32,7 @@ export default function LeaderboardPage() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-8 max-w-[1400px] mx-auto"
+      className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">

@@ -222,7 +222,7 @@ export default function ClientPortal() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <Skeleton className="h-16 w-16 rounded-2xl" />
           <div>
@@ -270,7 +270,7 @@ export default function ClientPortal() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-6 max-w-6xl mx-auto"
+      className="p-4 sm:p-6 max-w-6xl mx-auto"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">

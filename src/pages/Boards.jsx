@@ -152,7 +152,7 @@ export default function Boards() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto animate-fade-in-up">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in-up">
         {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -187,7 +187,7 @@ export default function Boards() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>

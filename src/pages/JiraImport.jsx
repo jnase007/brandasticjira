@@ -398,7 +398,7 @@ export default function JiraImport() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
         <div className="animate-pulse space-y-4">
           <div className="h-10 w-64 bg-muted rounded" />
           <div className="h-6 w-96 bg-muted rounded" />
@@ -412,7 +412,7 @@ export default function JiraImport() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-8 max-w-4xl mx-auto"
+      className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto"
     >
       {/* Header */}
       <div className="mb-8">

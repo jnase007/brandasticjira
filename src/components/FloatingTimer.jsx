@@ -235,7 +235,7 @@ export default function FloatingTimer({
         exit={{ opacity: 0, y: 100, scale: 0.8 }}
         drag
         dragMomentum={false}
-        className="fixed z-50 cursor-move bottom-6 right-6"
+        className="fixed z-50 cursor-move bottom-6 right-6 max-sm:bottom-24 max-sm:right-4 max-sm:left-4 max-sm:w-auto"
       >
         {minimized ? (
           // Minimized - floating button
