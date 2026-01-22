@@ -16,12 +16,12 @@ const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/boards', icon: Kanban, label: 'Boards' },
+  { path: '/time', icon: Clock, label: 'Time Tracking' },
   { path: '/clients', icon: Building2, label: 'Clients' },
-  { path: '/time', icon: Clock, label: 'Time & Profit' },
   { path: '/reports', icon: BarChart3, label: 'Reports' },
   { path: '/team', icon: Users2, label: 'Team Hub' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+  { path: '/boards', icon: Kanban, label: 'Boards' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -37,8 +37,8 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
   
   const quickItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-    { path: '/boards', icon: Kanban, label: 'Boards' },
     { path: '/time', icon: Clock, label: 'Time' },
+    { path: '/clients', icon: Building2, label: 'Clients' },
     { action: 'timer', icon: Timer, label: 'Timer' },
     { action: 'more', icon: Menu, label: 'More' },
   ]

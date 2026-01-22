@@ -37,12 +37,12 @@ const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
-  { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },
+  { path: '/time', icon: Clock, label: 'Time Tracking', shortcut: 'G T' },
   { path: '/clients', icon: Building2, label: 'Clients', shortcut: 'G C' },
-  { path: '/time', icon: Clock, label: 'Time & Profit', shortcut: 'G P' },
   { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },
-  { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G T' },
+  { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
+  { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
 ]
 

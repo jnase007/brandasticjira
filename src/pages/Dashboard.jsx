@@ -271,18 +271,18 @@ export default function Dashboard({ onConfetti }) {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Boards</p>
+                  <p className="text-sm font-medium text-muted-foreground">My Tasks</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
-                    <AnimatedCounter value={totalBoards} />
+                    <AnimatedCounter value={recentTickets.filter(t => t.status !== 'done').length} />
                   </p>
                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                    <Kanban className="h-3 w-3" />
-                    <span>{boards.filter(b => b.type === 'kanban').length} kanban</span>
+                    <Target className="h-3 w-3" />
+                    <span>{recentTickets.filter(t => t.status === 'inprogress').length} in progress</span>
                   </div>
                 </div>
                 <div className="relative">
                   <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-blue/20 to-cyan-500/10 group-hover:scale-110 transition-transform duration-300">
-                    <Kanban className="h-7 w-7 text-brand-blue" />
+                    <Target className="h-7 w-7 text-brand-blue" />
                   </div>
                 </div>
               </div>
@@ -561,19 +561,19 @@ export default function Dashboard({ onConfetti }) {
             </CardHeader>
             <CardContent className="space-y-2">
               <Button asChild variant="outline" className="w-full justify-between h-12 rounded-xl group">
-                <Link to="/boards">
+                <Link to="/time">
                   <span className="flex items-center">
-                    <Kanban className="mr-3 h-5 w-5 text-brand-blue" />
-                    View All Boards
+                    <Clock className="mr-3 h-5 w-5 text-brand-blue" />
+                    Time Tracking
                   </span>
                   <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                 </Link>
               </Button>
               <Button asChild variant="outline" className="w-full justify-between h-12 rounded-xl group">
-                <Link to="/boards?new=true">
+                <Link to="/clients">
                   <span className="flex items-center">
-                    <Plus className="mr-3 h-5 w-5 text-green-500" />
-                    Create New Board
+                    <Building2 className="mr-3 h-5 w-5 text-green-500" />
+                    View Clients
                   </span>
                   <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                 </Link>
@@ -605,10 +605,10 @@ export default function Dashboard({ onConfetti }) {
           {/* Upcoming Celebrations */}
           <UpcomingCelebrations limit={3} />
 
-          {/* Recent Tickets */}
+          {/* My Tasks */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-xl">Recent Tickets</CardTitle>
+              <CardTitle className="text-xl">My Tasks</CardTitle>
               <Badge variant="outline" className="font-normal">
                 {completedTickets}/{recentTickets.length} done
               </Badge>
