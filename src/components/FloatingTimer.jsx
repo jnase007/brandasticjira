@@ -481,20 +481,41 @@ export default function FloatingTimer({
 
     // Save to database
     try {
+      // Validate we have a client
+      if (!selectedClient?.id) {
+        toast({
+          title: 'No client selected',
+          description: 'Please select a client before saving time',
+          variant: 'destructive'
+        })
+        return
+      }
+
       // Calculate minutes (can be fractional for sub-minute entries)
       const totalMinutes = Math.max(1, Math.round(seconds / 60)) // Minimum 1 minute for billing purposes
       
-      const { error } = await supabase.from('time_entries').insert({
+      const timeEntry = {
         user_id: user.id,
-        client_id: selectedClient?.id,
-        ticket_id: selectedTicket?.id,
-        description: description || selectedClient?.name || 'No description',
+        client_id: selectedClient.id,
+        description: description || selectedClient.name || 'No description',
         minutes: totalMinutes,
         date: new Date().toISOString().split('T')[0],
         billable: isBillable
-      })
+      }
+      
+      // Only add ticket_id if we have one
+      if (selectedTicket?.id) {
+        timeEntry.ticket_id = selectedTicket.id
+      }
+      
+      console.log('Saving time entry:', timeEntry)
+      
+      const { error } = await supabase.from('time_entries').insert(timeEntry)
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
 
       // Format time for display
       const hours = Math.floor(seconds / 3600)
@@ -519,9 +540,20 @@ export default function FloatingTimer({
       
     } catch (error) {
       console.error('Error saving time:', error)
+      
+      // Provide helpful error messages
+      let errorMessage = 'Please try again'
+      if (error?.message?.includes('violates row-level security')) {
+        errorMessage = 'Permission denied. Your profile may need the "team" role.'
+      } else if (error?.message?.includes('violates foreign key')) {
+        errorMessage = 'Invalid client or project selected.'
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: 'Error saving time',
-        description: 'Please try again',
+        description: errorMessage,
         variant: 'destructive'
       })
     }
