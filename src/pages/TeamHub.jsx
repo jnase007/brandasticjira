@@ -26,6 +26,9 @@ import {
   Sparkles,
   Briefcase,
   ArrowRight,
+  PiggyBank,
+  Percent,
+  Save,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
@@ -114,7 +117,7 @@ function getBudgetStatus(actuals, budget) {
 }
 
 export default function TeamHub() {
-  const { profile } = useAuth()
+  const { profile, isAdmin, isActualAdmin } = useAuth()
   const { toast } = useToast()
   
   const [loading, setLoading] = useState(true)
@@ -126,6 +129,7 @@ export default function TeamHub() {
   const [teamAssignments, setTeamAssignments] = useState([])
   const [adSpend, setAdSpend] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
+  const [profitability, setProfitability] = useState([])
   
   // Year selection for ad spend
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -141,6 +145,11 @@ export default function TeamHub() {
     month: new Date().getMonth() + 1,
     budget: '',
   })
+  
+  // Employee rate editing
+  const [editingRate, setEditingRate] = useState(null)
+  const [rateValue, setRateValue] = useState('')
+  const [savingRate, setSavingRate] = useState(false)
 
   // Fetch all data
   const fetchData = async (showRefresh = false) => {
@@ -159,6 +168,17 @@ export default function TeamHub() {
       setTeamAssignments(assignmentsRes.data || [])
       setAdSpend(adSpendRes.data || [])
       setTeamMembers(teamRes.data || [])
+      
+      // Try to fetch profitability view (may not exist yet)
+      try {
+        const { data: profitData } = await supabase
+          .from('employee_profitability')
+          .select('*')
+        setProfitability(profitData || [])
+      } catch (err) {
+        // View may not exist yet
+        console.log('Profitability view not ready:', err)
+      }
     } catch (error) {
       console.error('Error fetching team hub data:', error)
       toast({
@@ -169,6 +189,42 @@ export default function TeamHub() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+    }
+  }
+  
+  // Update employee hourly rate
+  const updateEmployeeRate = async (memberId, newRate) => {
+    setSavingRate(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ cost_rate: parseFloat(newRate) || 0 })
+        .eq('id', memberId)
+      
+      if (error) throw error
+      
+      // Update local state
+      setTeamMembers(prev => 
+        prev.map(m => m.id === memberId ? { ...m, cost_rate: parseFloat(newRate) } : m)
+      )
+      
+      toast({
+        title: '✅ Rate updated',
+        description: `Hourly rate set to $${newRate}/hr`,
+        variant: 'success',
+      })
+      
+      setEditingRate(null)
+      setRateValue('')
+    } catch (error) {
+      console.error('Error updating rate:', error)
+      toast({
+        title: 'Error updating rate',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingRate(false)
     }
   }
 
@@ -425,6 +481,12 @@ export default function TeamHub() {
               <User className="h-4 w-4" />
               Team Members
             </TabsTrigger>
+            {isActualAdmin && (
+              <TabsTrigger value="rates" className="gap-2">
+                <PiggyBank className="h-4 w-4" />
+                Rates & Profitability
+              </TabsTrigger>
+            )}
             <TabsTrigger value="roster" className="gap-2">
               <Building2 className="h-4 w-4" />
               Client Roster
@@ -572,6 +634,215 @@ export default function TeamHub() {
             </Card>
           </motion.div>
         </TabsContent>
+
+        {/* Rates & Profitability Tab (Admin Only) */}
+        {isActualAdmin && (
+          <TabsContent value="rates">
+            <motion.div variants={itemVariants} className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Avg. Cost Rate</p>
+                        <p className="text-3xl font-bold mt-1">
+                          ${teamMembers.length > 0 
+                            ? Math.round(teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length)
+                            : 0}/hr
+                        </p>
+                      </div>
+                      <DollarSign className="h-8 w-8 text-green-500/50" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-gradient-to-br from-brand-orange/10 to-brand-coral/5">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Client Billing Rate</p>
+                        <p className="text-3xl font-bold mt-1">$175/hr</p>
+                      </div>
+                      <TrendingUp className="h-8 w-8 text-brand-orange/50" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-gradient-to-br from-brand-purple/10 to-purple-500/5">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Avg. Margin</p>
+                        <p className="text-3xl font-bold mt-1">
+                          {teamMembers.length > 0 
+                            ? Math.round((1 - (teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) / 175) * 100)
+                            : 71}%
+                        </p>
+                      </div>
+                      <Percent className="h-8 w-8 text-brand-purple/50" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Employee Rates Table */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <PiggyBank className="h-5 w-5 text-green-500" />
+                    Employee Hourly Rates
+                  </CardTitle>
+                  <p className="text-muted-foreground">
+                    Set the cost rate for each team member to calculate project profitability
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-xl border overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-medium">Employee</th>
+                          <th className="text-left py-3 px-4 font-medium">Job Title</th>
+                          <th className="text-center py-3 px-4 font-medium">Cost Rate</th>
+                          <th className="text-center py-3 px-4 font-medium">Margin vs $175/hr</th>
+                          <th className="text-right py-3 px-4 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teamMembers.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                              No team members found
+                            </td>
+                          </tr>
+                        ) : (
+                          teamMembers.map((member) => {
+                            const costRate = member.cost_rate || 50
+                            const billingRate = 175
+                            const margin = Math.round((1 - costRate / billingRate) * 100)
+                            const isEditing = editingRate === member.id
+                            
+                            return (
+                              <tr key={member.id} className="border-t hover:bg-muted/30 transition-colors">
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-9 w-9">
+                                      <AvatarImage src={member.avatar_url} />
+                                      <AvatarFallback className="bg-brand-orange text-white">
+                                        {member.full_name?.[0] || '?'}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium">{member.full_name || 'Team Member'}</p>
+                                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-muted-foreground">
+                                  {member.job_title || member.department || '-'}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  {isEditing ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <span className="text-muted-foreground">$</span>
+                                      <Input
+                                        type="number"
+                                        value={rateValue}
+                                        onChange={(e) => setRateValue(e.target.value)}
+                                        className="w-20 h-8 text-center"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            updateEmployeeRate(member.id, rateValue)
+                                          } else if (e.key === 'Escape') {
+                                            setEditingRate(null)
+                                            setRateValue('')
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-muted-foreground">/hr</span>
+                                    </div>
+                                  ) : (
+                                    <span className="font-medium">${costRate}/hr</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <Badge 
+                                    variant={margin >= 70 ? 'default' : margin >= 50 ? 'secondary' : 'destructive'}
+                                    className={cn(
+                                      margin >= 70 && 'bg-green-500 text-white',
+                                      margin >= 50 && margin < 70 && 'bg-yellow-500 text-white'
+                                    )}
+                                  >
+                                    {margin}% margin
+                                  </Badge>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  {isEditing ? (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingRate(null)
+                                          setRateValue('')
+                                        }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => updateEmployeeRate(member.id, rateValue)}
+                                        disabled={savingRate}
+                                      >
+                                        {savingRate ? (
+                                          <RefreshCw className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Save className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingRate(member.id)
+                                        setRateValue(String(costRate))
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4 mr-1" />
+                                      Edit
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Info Box */}
+                  <div className="mt-4 p-4 rounded-xl bg-muted/50 border">
+                    <h4 className="font-medium mb-2 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-brand-orange" />
+                      How Profitability is Calculated
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• <strong>Revenue</strong> = Billable hours × Client billing rate ($175/hr)</li>
+                      <li>• <strong>Cost</strong> = All hours × Employee cost rate (set above)</li>
+                      <li>• <strong>Profit</strong> = Revenue - Cost</li>
+                      <li>• <strong>Margin</strong> = (Billing rate - Cost rate) / Billing rate × 100%</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+        )}
 
         {/* Client Roster Tab */}
         <TabsContent value="roster">
