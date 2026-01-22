@@ -25,7 +25,7 @@ const ALLOWED_TYPES = {
   all: ['*'],
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 
 export function FileUpload({
   bucket = 'documents',

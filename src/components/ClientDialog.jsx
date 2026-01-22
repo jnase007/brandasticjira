@@ -200,8 +200,8 @@ export default function ClientDialog({
       return
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: 'Image must be under 2MB', variant: 'destructive' })
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'Image must be under 50MB', variant: 'destructive' })
       return
     }
 
@@ -688,7 +688,7 @@ export default function ClientDialog({
                                   <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
                                 )}
                                 <p className="font-medium">Drop logo here or click to upload</p>
-                                <p className="text-sm text-muted-foreground">PNG, JPG up to 2MB</p>
+                                <p className="text-sm text-muted-foreground">PNG, JPG up to 50MB</p>
                               </>
                             )}
                           </div>

@@ -226,10 +226,10 @@ export default function Settings() {
       return
     }
 
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > 50 * 1024 * 1024) {
       toast({
         title: 'File too large',
-        description: 'Please select an image under 2MB.',
+        description: 'Please select an image under 50MB.',
         variant: 'destructive',
       })
       return
