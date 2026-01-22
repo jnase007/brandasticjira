@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
@@ -19,8 +20,15 @@ import {
   Download,
   RefreshCw,
   Filter,
+  User,
+  Cake,
+  Mail,
+  Sparkles,
+  Briefcase,
+  ArrowRight,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -410,11 +418,15 @@ export default function TeamHub() {
       </motion.div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="roster" className="space-y-6">
+      <Tabs defaultValue="team" className="space-y-6">
         <div className="flex items-center justify-between">
           <TabsList className="bg-muted/50">
+            <TabsTrigger value="team" className="gap-2">
+              <User className="h-4 w-4" />
+              Team Members
+            </TabsTrigger>
             <TabsTrigger value="roster" className="gap-2">
-              <Users className="h-4 w-4" />
+              <Building2 className="h-4 w-4" />
               Client Roster
             </TabsTrigger>
             <TabsTrigger value="adspend" className="gap-2">
@@ -435,6 +447,131 @@ export default function TeamHub() {
             </div>
           </div>
         </div>
+
+        {/* Team Members Tab */}
+        <TabsContent value="team">
+          <motion.div variants={itemVariants}>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Users className="h-5 w-5 text-brand-orange" />
+                  Team Members
+                </CardTitle>
+                <p className="text-muted-foreground">
+                  Your Brandastic team - click on anyone to see their full profile
+                </p>
+              </CardHeader>
+              <CardContent>
+                {teamMembers.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No team members found</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {teamMembers
+                      .filter(m => m.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || !searchQuery)
+                      .map((member) => {
+                        // Calculate years at company
+                        const yearsAtCompany = member.work_start_date 
+                          ? Math.floor((new Date() - new Date(member.work_start_date)) / (365.25 * 24 * 60 * 60 * 1000))
+                          : null
+                        
+                        // Format birthday
+                        const birthdayDisplay = member.birthday && member.show_birthday
+                          ? new Date(member.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : null
+
+                        // Check if birthday is upcoming (within 7 days)
+                        const isBirthdaySoon = member.birthday && member.show_birthday && (() => {
+                          const today = new Date()
+                          const bday = new Date(member.birthday + 'T00:00:00')
+                          bday.setFullYear(today.getFullYear())
+                          const diff = bday - today
+                          return diff >= 0 && diff <= 7 * 24 * 60 * 60 * 1000
+                        })()
+
+                        return (
+                          <Link
+                            key={member.id}
+                            to={`/team/${member.id}`}
+                            className="block group"
+                          >
+                            <motion.div
+                              variants={itemVariants}
+                              whileHover={{ y: -2 }}
+                              className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card"
+                            >
+                              {/* Header with Avatar */}
+                              <div className="flex items-center gap-3 mb-3">
+                                <Avatar className="h-14 w-14 border-2 border-background shadow">
+                                  <AvatarImage src={member.avatar_url} />
+                                  <AvatarFallback className="bg-brand-orange text-white text-lg">
+                                    {member.full_name?.[0] || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-semibold truncate group-hover:text-brand-orange transition-colors">
+                                    {member.full_name || 'Team Member'}
+                                  </h3>
+                                  <Badge variant="outline" className="text-xs capitalize">
+                                    {member.role || 'Team'}
+                                  </Badge>
+                                </div>
+                                {isBirthdaySoon && (
+                                  <div className="p-1.5 rounded-full bg-pink-500/10 animate-pulse">
+                                    <Cake className="h-4 w-4 text-pink-500" />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Tagline */}
+                              {member.tagline && (
+                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2 italic">
+                                  "{member.tagline}"
+                                </p>
+                              )}
+
+                              {/* Quick Info */}
+                              <div className="space-y-1.5 text-sm">
+                                {member.email && (
+                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Mail className="h-3.5 w-3.5" />
+                                    <span className="truncate">{member.email}</span>
+                                  </div>
+                                )}
+                                {yearsAtCompany !== null && (
+                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Briefcase className="h-3.5 w-3.5" />
+                                    <span>
+                                      {yearsAtCompany === 0 ? 'New this year' : `${yearsAtCompany}+ years`}
+                                    </span>
+                                  </div>
+                                )}
+                                {birthdayDisplay && (
+                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Cake className="h-3.5 w-3.5 text-pink-500" />
+                                    <span>{birthdayDisplay}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* View Profile Link */}
+                              <div className="mt-3 pt-3 border-t flex items-center justify-end">
+                                <span className="text-xs text-brand-orange font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  View Profile <ArrowRight className="h-3 w-3" />
+                                </span>
+                              </div>
+                            </motion.div>
+                          </Link>
+                        )
+                      })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
 
         {/* Client Roster Tab */}
         <TabsContent value="roster">

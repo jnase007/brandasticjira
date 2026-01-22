@@ -21,6 +21,7 @@ import TimeTracking from './pages/TimeTracking'
 import Reports from './pages/Reports'
 import ClientManagement from './pages/ClientManagement'
 import ClientDetail from './pages/ClientDetail'
+import TeamMemberDetail from './pages/TeamMemberDetail'
 import NotFound from './pages/NotFound'
 
 // Components
@@ -374,6 +375,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <TeamHub />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/team/:memberId"
+                element={
+                  <TeamRoute>
+                    <TeamMemberDetail />
                   </TeamRoute>
                 }
               />
