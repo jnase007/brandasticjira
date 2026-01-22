@@ -28,32 +28,16 @@ export function AuthProvider({ children }) {
   })
 
   useEffect(() => {
-    // Fast timeout - if loading takes too long, stop it and let user proceed
+    // Safety timeout - if loading takes too long, show retry option
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth loading timeout - forcing complete')
       setLoading(false)
-    }, 2500) // 2.5 second max wait - faster!
+    }, 5000) // 5 second max wait
 
-    // Get initial session with optimizations
+    // Get initial session
     const initAuth = async () => {
       try {
-        // Check for cached session first (faster)
-        const cachedSession = sessionStorage.getItem('sb-session-cache')
-        if (cachedSession) {
-          try {
-            const parsed = JSON.parse(cachedSession)
-            if (parsed?.user && Date.now() - parsed.cached_at < 60000) {
-              // Use cached user immediately while we verify
-              setUser(parsed.user)
-              setProfile(parsed.profile)
-              setLoading(false)
-              clearTimeout(safetyTimeout)
-            }
-          } catch (e) {
-            // Ignore cache parse errors
-          }
-        }
-
+        // Always get fresh session from Supabase
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
@@ -65,21 +49,20 @@ export function AuthProvider({ children }) {
         }
         
         if (session?.user) {
+          console.log('Session found for:', session.user.email)
           setUser(session.user)
-          // Fetch user profile in parallel, don't block
-          getProfile(session.user.id).then(({ data: profileData }) => {
+          
+          // Fetch user profile
+          try {
+            const { data: profileData } = await getProfile(session.user.id)
             if (profileData) {
               setProfile(profileData)
-              // Cache for faster subsequent loads
-              sessionStorage.setItem('sb-session-cache', JSON.stringify({
-                user: session.user,
-                profile: profileData,
-                cached_at: Date.now()
-              }))
             }
-          }).catch(() => {
-            // Ignore profile errors - non-blocking
-          })
+          } catch (profileErr) {
+            console.log('Profile fetch error (non-blocking):', profileErr)
+          }
+        } else {
+          console.log('No session found')
         }
       } catch (error) {
         console.error('Auth init error:', error)
@@ -243,34 +226,18 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
-  // Sign out - completely clear all auth state
+  // Sign out
   const signOut = async () => {
     try {
-      // Clear React state first
+      // Call Supabase signOut first (this clears the session)
+      const { error } = await supabase.auth.signOut()
+      
+      // Then clear React state
       setUser(null)
       setProfile(null)
       
-      // Call Supabase signOut
-      const { error } = await supabase.auth.signOut({ scope: 'global' })
-      
-      // Clear ALL cached data - be thorough
+      // Clear custom cached data
       localStorage.removeItem('viewMode')
-      sessionStorage.removeItem('sb-session-cache')
-      
-      // Clear any Supabase auth tokens from localStorage
-      // These keys follow the pattern: sb-{project-ref}-auth-token
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') && key.includes('-auth-')) {
-          localStorage.removeItem(key)
-        }
-      })
-      
-      // Clear sessionStorage too
-      Object.keys(sessionStorage).forEach(key => {
-        if (key.startsWith('sb-')) {
-          sessionStorage.removeItem(key)
-        }
-      })
       
       return { error }
     } catch (err) {
@@ -278,7 +245,6 @@ export function AuthProvider({ children }) {
       // Still clear state on error
       setUser(null)
       setProfile(null)
-      sessionStorage.clear()
       return { error: err }
     }
   }

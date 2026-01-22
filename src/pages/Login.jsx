@@ -23,7 +23,7 @@ const TEAM_PHOTOS = [
 
 export default function Login() {
   const navigate = useNavigate()
-  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const { signIn, signUp, signInWithGoogle, user } = useAuth()
   const { toast } = useToast()
 
   const [mode, setMode] = useState('login')
@@ -34,6 +34,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      console.log('User detected, redirecting to dashboard...')
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
 
   // Rotate background images every 8 seconds
   useEffect(() => {
@@ -49,9 +57,21 @@ export default function Login() {
 
     try {
       if (mode === 'login') {
-        const { error } = await signIn(email, password)
+        const { data, error } = await signIn(email, password)
         if (error) throw error
-        navigate('/dashboard')
+        
+        // Show success toast - redirect will happen via useEffect when user state updates
+        toast({
+          title: 'Welcome back! 👋',
+          description: 'Redirecting to dashboard...',
+          variant: 'success',
+        })
+        
+        // The useEffect watching `user` will handle the redirect
+        // But also try immediate navigation as backup
+        if (data?.user) {
+          navigate('/dashboard', { replace: true })
+        }
       } else {
         const { error } = await signUp(email, password, { full_name: fullName })
         if (error) throw error
@@ -67,9 +87,9 @@ export default function Login() {
         description: error.message || 'Something went wrong. Please try again.',
         variant: 'destructive',
       })
-    } finally {
       setLoading(false)
     }
+    // Don't set loading to false on success - let redirect happen
   }
 
   const handleGoogleSignIn = async () => {
