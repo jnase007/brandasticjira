@@ -496,6 +496,70 @@ export default function ClientManagement() {
         </motion.div>
       </motion.div>
 
+      {/* No Clients Banner - Shows prominently at top */}
+      {clients.length === 0 && (
+        <motion.div
+          variants={itemVariants}
+          className="mb-8 p-6 rounded-2xl border-2 border-dashed border-brand-orange/40 bg-gradient-to-r from-brand-orange/10 to-brand-coral/10"
+        >
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-shrink-0">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-orange to-brand-coral flex items-center justify-center">
+                <Building2 className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="text-2xl font-bold mb-2">
+                🚀 Import Your Brandastic Clients
+              </h2>
+              <p className="text-muted-foreground mb-1">
+                Get started by importing all 22 Brandastic clients with their monthly hours, billing rates, and project data.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Includes: Calops ($21k), Prudental Labs ($11k), Salvin, Check'n Play, DESS USA, and more...
+              </p>
+            </div>
+            <Button
+              size="lg"
+              onClick={async () => {
+                setRefreshing(true)
+                try {
+                  const results = await seedSampleClients()
+                  toast({
+                    title: '🎉 Clients Imported Successfully!',
+                    description: `Added ${results.clients.length} clients with ${results.boards.length} boards and ${results.tickets.length} tickets`,
+                    variant: 'success',
+                  })
+                  fetchData(true)
+                } catch (error) {
+                  console.error('Import error:', error)
+                  toast({
+                    title: '❌ Import Failed',
+                    description: error.message || 'Make sure the database tables exist. Check console for details.',
+                    variant: 'destructive',
+                  })
+                  setRefreshing(false)
+                }
+              }}
+              disabled={refreshing}
+              className="bg-gradient-to-r from-brand-orange to-brand-coral text-white shadow-lg shadow-brand-orange/25 hover:shadow-xl hover:shadow-brand-orange/30 transition-all px-8"
+            >
+              {refreshing ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-5 w-5 mr-2" />
+                  Import 22 Clients Now
+                </>
+              )}
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="requests" className="space-y-6">
         <TabsList className="bg-muted/50">
