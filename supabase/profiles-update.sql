@@ -32,6 +32,10 @@ ADD COLUMN IF NOT EXISTS hourly_cost DECIMAL(10,2);
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS target_hours_monthly INTEGER DEFAULT 160;
 
+-- Add custom banner URL for profile pages
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS banner_url TEXT;
+
 -- ============================================
 -- Verify the columns exist
 -- ============================================

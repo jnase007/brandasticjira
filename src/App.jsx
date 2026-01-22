@@ -182,32 +182,18 @@ function MainLayout({ children }) {
         />
       </div>
 
-      {/* Desktop User Profile - Top Right */}
-      <div className="hidden lg:block fixed top-4 right-6 z-40">
+      {/* Desktop User Profile - Top Right - with more right padding to avoid overlap */}
+      <div className="hidden lg:block fixed top-4 right-4 z-50">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 px-3 py-2 rounded-xl bg-background/80 backdrop-blur-sm border shadow-sm hover:shadow-md transition-all">
-              <Avatar className="h-9 w-9 border-2 border-brand-orange/20">
+            <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-background/95 backdrop-blur-md border shadow-lg hover:shadow-xl transition-all ring-1 ring-black/5">
+              <Avatar className="h-8 w-8 border-2 border-brand-orange/30">
                 <AvatarImage src={profile?.avatar_url} />
-                <AvatarFallback className="bg-brand-orange text-white text-sm font-medium">
+                <AvatarFallback className="bg-brand-orange text-white text-xs font-medium">
                   {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
-              <div className="text-left hidden xl:block">
-                <p className="text-sm font-medium leading-none">
-                  {profile?.full_name || 'User'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                  {isActualAdmin ? (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-brand-orange text-brand-orange">
-                      Admin
-                    </Badge>
-                  ) : (
-                    <span className="capitalize">{profile?.role || 'Team'}</span>
-                  )}
-                </p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground hidden xl:block" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

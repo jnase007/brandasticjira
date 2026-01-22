@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, Bell, Shield, Palette, Save, Upload, Camera, Check, 
   Sparkles, Mail, Clock, Calendar, Trophy, X, Loader2,
-  Sun, Moon, Monitor, Zap, RefreshCw, Cake, PartyPopper
+  Sun, Moon, Monitor, Zap, RefreshCw, Cake, PartyPopper, ImagePlus, Trash2
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
@@ -36,6 +36,7 @@ export default function Settings() {
   const { stats, getRank, getLevelProgress, achievements } = useGamification()
   const { toast } = useToast()
   const fileInputRef = useRef(null)
+  const bannerInputRef = useRef(null)
 
   const [fullName, setFullName] = useState(profile?.full_name || '')
   const [tagline, setTagline] = useState(profile?.tagline || '')
@@ -44,6 +45,8 @@ export default function Settings() {
   const [showBirthday, setShowBirthday] = useState(profile?.show_birthday ?? true)
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [bannerUrl, setBannerUrl] = useState(profile?.banner_url || '')
   const [showWelcome, setShowWelcome] = useState(false)
   
   // Theme state
@@ -91,6 +94,9 @@ export default function Settings() {
     }
     if (profile?.show_birthday !== undefined) {
       setShowBirthday(profile.show_birthday ?? true)
+    }
+    if (profile?.banner_url !== undefined) {
+      setBannerUrl(profile.banner_url || '')
     }
   }, [profile])
 
@@ -210,6 +216,92 @@ export default function Settings() {
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleBannerClick = () => {
+    bannerInputRef.current?.click()
+  }
+
+  const handleBannerChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file',
+        description: 'Please select an image file.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please select an image under 50MB.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUploadingBanner(true)
+    try {
+      // Upload to Supabase storage
+      const { supabase } = await import('../lib/supabase')
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-banner-${Date.now()}.${fileExt}`
+      const filePath = `banners/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath)
+
+      // Update profile with new banner URL
+      const { error: updateError } = await updateUserProfile({ banner_url: publicUrl })
+      if (updateError) throw updateError
+
+      setBannerUrl(publicUrl)
+      toast({
+        title: '🎨 Banner updated!',
+        description: 'Your profile banner looks amazing!',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Banner upload error:', error)
+      toast({
+        title: 'Upload failed',
+        description: 'Could not upload your banner. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingBanner(false)
+    }
+  }
+
+  const handleRemoveBanner = async () => {
+    try {
+      const { error } = await updateUserProfile({ banner_url: null })
+      if (error) throw error
+
+      setBannerUrl('')
+      toast({
+        title: 'Banner removed',
+        description: 'Your profile now uses the default gradient.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to remove banner',
+        description: 'Please try again.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleAvatarChange = async (e) => {
@@ -332,9 +424,45 @@ export default function Settings() {
           <motion.div variants={itemVariants} className="space-y-6">
             {/* Profile Card */}
             <Card className="overflow-hidden">
-              {/* Header Banner */}
-              <div className="h-24 bg-gradient-to-r from-brand-orange via-brand-coral to-brand-purple relative">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
+              {/* Header Banner - Editable */}
+              <div 
+                className="h-32 md:h-40 relative group cursor-pointer"
+                onClick={handleBannerClick}
+                style={{
+                  background: bannerUrl 
+                    ? `url(${bannerUrl}) center/cover no-repeat`
+                    : 'linear-gradient(135deg, #F7931E 0%, #E8614D 50%, #8B5CF6 100%)'
+                }}
+              >
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 text-white">
+                    {uploadingBanner ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <>
+                        <ImagePlus className="h-6 w-6" />
+                        <span className="font-medium">{bannerUrl ? 'Change' : 'Add'} Banner</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {/* Remove banner button */}
+                {bannerUrl && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemoveBanner(); }}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    title="Remove banner"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerChange}
+                  className="hidden"
+                />
               </div>
               
               <CardContent className="relative pt-0 pb-6 px-6">

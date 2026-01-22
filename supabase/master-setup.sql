@@ -7,6 +7,7 @@
 -- 1. PROFILES TABLE UPDATES
 -- ============================================
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tagline TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS banner_url TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS birthday DATE;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS work_start_date DATE;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS show_birthday BOOLEAN DEFAULT true;

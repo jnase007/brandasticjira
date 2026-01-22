@@ -229,76 +229,93 @@ export default function TeamMemberDetail() {
       {/* Member Header */}
       <motion.div variants={itemVariants} className="mb-8">
         <Card className="overflow-hidden">
-          <div className="h-32 bg-gradient-to-r from-brand-orange via-brand-coral to-purple-500 relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent" />
+          {/* Banner - supports custom banner image */}
+          <div 
+            className="h-36 md:h-40 relative"
+            style={{
+              background: member.banner_url 
+                ? `url(${member.banner_url}) center/cover no-repeat`
+                : 'linear-gradient(135deg, #F7931E 0%, #E8614D 50%, #8B5CF6 100%)'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
           </div>
-          <CardContent className="relative pt-0">
-            <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-12">
-              {/* Avatar */}
-              <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
-                <AvatarImage src={member.avatar_url} />
-                <AvatarFallback className="text-2xl bg-brand-orange text-white">
-                  {member.full_name?.[0] || '?'}
-                </AvatarFallback>
-              </Avatar>
-              
-              {/* Info */}
-              <div className="flex-1 pb-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-3xl font-display font-bold">{member.full_name || 'Team Member'}</h1>
-                  <Badge variant="outline" className="capitalize">
-                    {member.role || 'Team'}
-                  </Badge>
-                  {isBirthdaySoon && (
-                    <Badge className="bg-pink-500 text-white animate-pulse">
-                      <Cake className="h-3 w-3 mr-1" />
-                      Birthday Soon!
-                    </Badge>
-                  )}
-                </div>
-                
-                {/* Tagline */}
-                {member.tagline && (
-                  <p className="text-muted-foreground mt-1 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-brand-orange" />
-                    "{member.tagline}"
-                  </p>
-                )}
-
-                {/* Quick Info */}
-                <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
-                  {member.email && (
-                    <span className="flex items-center gap-1">
-                      <Mail className="h-4 w-4" />
-                      {member.email}
-                    </span>
-                  )}
-                  {yearsAtCompany !== null && (
-                    <span className="flex items-center gap-1">
-                      <Briefcase className="h-4 w-4" />
-                      {yearsAtCompany === 0 ? 'Started this year' : `${yearsAtCompany}+ years at Brandastic`}
-                    </span>
-                  )}
-                  {birthdayDisplay && member.show_birthday && (
-                    <span className="flex items-center gap-1">
-                      <Cake className="h-4 w-4 text-pink-500" />
-                      {birthdayDisplay}
-                    </span>
-                  )}
-                </div>
+          
+          {/* Profile Info - Properly spaced below banner */}
+          <CardContent className="relative pt-0 pb-6">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+              {/* Avatar - overlaps banner */}
+              <div className="-mt-14 md:-mt-16 relative z-10 flex-shrink-0">
+                <Avatar className="w-24 h-24 md:w-28 md:h-28 border-4 border-background shadow-xl">
+                  <AvatarImage src={member.avatar_url} />
+                  <AvatarFallback className="text-2xl bg-brand-orange text-white">
+                    {member.full_name?.[0] || '?'}
+                  </AvatarFallback>
+                </Avatar>
               </div>
+              
+              {/* Info - starts below avatar overlap on mobile */}
+              <div className="flex-1 pt-1 md:pt-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  <div>
+                    {/* Name & Badges */}
+                    <div className="flex items-center gap-3 flex-wrap mb-1">
+                      <h1 className="text-2xl md:text-3xl font-display font-bold">{member.full_name || 'Team Member'}</h1>
+                      <Badge variant="outline" className="capitalize">
+                        {member.role || 'Team'}
+                      </Badge>
+                      {isBirthdaySoon && (
+                        <Badge className="bg-pink-500 text-white animate-pulse">
+                          <Cake className="h-3 w-3 mr-1" />
+                          Birthday Soon!
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {/* Tagline */}
+                    {member.tagline && (
+                      <p className="text-muted-foreground flex items-center gap-2 mb-2">
+                        <Sparkles className="h-4 w-4 text-brand-orange flex-shrink-0" />
+                        <span className="italic">"{member.tagline}"</span>
+                      </p>
+                    )}
 
-              {/* Quick Actions */}
-              <div className="flex gap-2 pb-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchMemberData(true)}
-                  disabled={refreshing}
-                >
-                  <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-                  Refresh
-                </Button>
+                    {/* Quick Info */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                      {member.email && (
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="h-4 w-4" />
+                          {member.email}
+                        </span>
+                      )}
+                      {yearsAtCompany !== null && (
+                        <span className="flex items-center gap-1.5">
+                          <Briefcase className="h-4 w-4" />
+                          {yearsAtCompany === 0 ? 'Started this year' : `${yearsAtCompany}+ years at Brandastic`}
+                        </span>
+                      )}
+                      {birthdayDisplay && member.show_birthday && (
+                        <span className="flex items-center gap-1.5">
+                          <Cake className="h-4 w-4 text-pink-500" />
+                          {birthdayDisplay}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions - positioned right on desktop */}
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchMemberData(true)}
+                      disabled={refreshing}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+                      <span className="ml-2 hidden sm:inline">Refresh</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>

@@ -201,91 +201,103 @@ export default function ClientDetail() {
       {/* Client Header */}
       <motion.div variants={itemVariants} className="mb-8">
         <Card className="overflow-hidden">
+          {/* Banner */}
           <div 
-            className="h-32 relative"
+            className="h-36 md:h-40 relative"
             style={{ 
-              background: `linear-gradient(135deg, ${client.color || '#F7931E'}88, ${client.color || '#F7931E'}44)` 
+              background: `linear-gradient(135deg, ${client.color || '#F7931E'}dd, ${client.color || '#F7931E'}88, ${client.color || '#F7931E'}44)` 
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
           </div>
-          <CardContent className="relative pt-0">
-            <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-12">
-              {/* Logo */}
-              <div 
-                className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-background"
-                style={{ backgroundColor: client.color || '#F7931E' }}
-              >
-                {client.logo_url ? (
-                  <img src={client.logo_url} alt={client.name} className="w-full h-full rounded-xl object-contain" />
-                ) : (
-                  client.name[0]
-                )}
+          
+          {/* Profile Info - Properly spaced below banner */}
+          <CardContent className="relative pt-0 pb-6">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+              {/* Logo - overlaps banner */}
+              <div className="-mt-14 md:-mt-16 relative z-10 flex-shrink-0">
+                <div 
+                  className="w-24 h-24 md:w-28 md:h-28 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-background overflow-hidden"
+                  style={{ backgroundColor: client.color || '#F7931E' }}
+                >
+                  {client.logo_url ? (
+                    <img src={client.logo_url} alt={client.name} className="w-full h-full object-cover" />
+                  ) : (
+                    client.name[0]
+                  )}
+                </div>
               </div>
               
               {/* Info */}
-              <div className="flex-1 pb-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-3xl font-display font-bold">{client.name}</h1>
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    Active
-                  </Badge>
-                </div>
-                {client.account_services && client.account_services.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {client.account_services.map((service, i) => (
-                      <Badge key={i} variant="secondary">{service}</Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <div className="flex-1 pt-1 md:pt-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  <div>
+                    {/* Name & Badges */}
+                    <div className="flex items-center gap-3 flex-wrap mb-2">
+                      <h1 className="text-2xl md:text-3xl font-display font-bold">{client.name}</h1>
+                      <Badge variant="outline" className="text-green-600 border-green-600">
+                        Active
+                      </Badge>
+                    </div>
+                    
+                    {/* Services */}
+                    {client.account_services && client.account_services.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {client.account_services.map((service, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{service}</Badge>
+                        ))}
+                      </div>
+                    )}
 
-              {/* Quick Actions */}
-              <div className="flex gap-2 pb-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchClientData(true)}
-                  disabled={refreshing}
-                >
-                  <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-                  Refresh
-                </Button>
-                <Button 
-                  size="sm" 
-                  className="bg-green-500 hover:bg-green-600"
-                  onClick={() => {
-                    // Open the floating timer with this client pre-selected
-                    if (window.openTimerWithClient) {
-                      window.openTimerWithClient({ id: client.id, name: client.name, color: client.color })
-                    } else {
-                      toast({ title: 'Timer opened!', description: `Tracking time for ${client.name}` })
-                    }
-                  }}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Start Timer
-                </Button>
+                    {/* Contact Info */}
+                    {(client.contact_email || client.contact_name) && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        {client.contact_name && (
+                          <span className="flex items-center gap-1.5">
+                            <Users className="h-4 w-4" />
+                            {client.contact_name}
+                          </span>
+                        )}
+                        {client.contact_email && (
+                          <a href={`mailto:${client.contact_email}`} className="flex items-center gap-1.5 hover:text-brand-orange transition-colors">
+                            <Mail className="h-4 w-4" />
+                            {client.contact_email}
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchClientData(true)}
+                      disabled={refreshing}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+                      <span className="ml-2 hidden sm:inline">Refresh</span>
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="bg-green-500 hover:bg-green-600"
+                      onClick={() => {
+                        // Open the floating timer with this client pre-selected
+                        if (window.openTimerWithClient) {
+                          window.openTimerWithClient({ id: client.id, name: client.name, color: client.color })
+                        } else {
+                          toast({ title: 'Timer opened!', description: `Tracking time for ${client.name}` })
+                        }
+                      }}
+                    >
+                      <Play className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">Start Timer</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Contact Info */}
-            {(client.contact_email || client.contact_name) && (
-              <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t text-sm text-muted-foreground">
-                {client.contact_name && (
-                  <span className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    {client.contact_name}
-                  </span>
-                )}
-                {client.contact_email && (
-                  <a href={`mailto:${client.contact_email}`} className="flex items-center gap-1 hover:text-brand-orange">
-                    <Mail className="h-4 w-4" />
-                    {client.contact_email}
-                  </a>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       </motion.div>
