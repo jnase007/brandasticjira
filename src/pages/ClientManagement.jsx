@@ -37,6 +37,7 @@ import {
 } from '../components/ui/dialog'
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
+import ClientDialog from '../components/ClientDialog'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -126,6 +127,7 @@ export default function ClientManagement() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [requestDialogOpen, setRequestDialogOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
+  const [clientDialogOpen, setClientDialogOpen] = useState(false)
   
   // Invite form
   const [inviteEmail, setInviteEmail] = useState('')
@@ -414,9 +416,13 @@ export default function ClientManagement() {
               <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => setInviteDialogOpen(true)}>
-              <Mail className="h-4 w-4 mr-2" />
-              Invite Client
+            <Button 
+              size="sm" 
+              className="bg-gradient-to-r from-brand-orange to-brand-coral"
+              onClick={() => setClientDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Client
             </Button>
           </div>
         </div>
@@ -1223,6 +1229,16 @@ export default function ClientManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Client Dialog */}
+      <ClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        onSuccess={() => {
+          fetchData(true)
+          setClientDialogOpen(false)
+        }}
+      />
     </motion.div>
   )
 }
