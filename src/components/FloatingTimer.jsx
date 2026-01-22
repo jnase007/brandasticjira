@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Play, Square, Clock, X, Minimize2, ChevronDown, 
-  Building2, FileText, Check, Zap, Search
+  Building2, FileText, Check, Zap, Search, Ticket, Loader2,
+  ArrowUp, ArrowDown, CornerDownLeft
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -17,11 +18,155 @@ function formatTime(seconds) {
   return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
+// Fuzzy search scoring - handles partial matches, out of order words, typos
+function fuzzySearch(query, text) {
+  if (!query || !text) return { match: false, score: 0, ranges: [] }
+  
+  const q = query.toLowerCase().trim()
+  const t = text.toLowerCase()
+  
+  // Exact match (highest priority)
+  if (t === q) return { match: true, score: 100, ranges: [[0, t.length]] }
+  
+  // Starts with query
+  if (t.startsWith(q)) return { match: true, score: 90, ranges: [[0, q.length]] }
+  
+  // Contains exact query
+  const exactIndex = t.indexOf(q)
+  if (exactIndex !== -1) {
+    return { match: true, score: 80, ranges: [[exactIndex, exactIndex + q.length]] }
+  }
+  
+  // Word matching - all query words must be present
+  const queryWords = q.split(/\s+/).filter(w => w.length > 0)
+  const textWords = t.split(/\s+/)
+  const ranges = []
+  let allFound = true
+  let score = 70
+  
+  for (const qWord of queryWords) {
+    let found = false
+    let currentIdx = 0
+    
+    for (const tWord of textWords) {
+      const wordStart = t.indexOf(tWord, currentIdx)
+      
+      // Exact word match
+      if (tWord === qWord) {
+        ranges.push([wordStart, wordStart + tWord.length])
+        found = true
+        score += 5
+        break
+      }
+      
+      // Word starts with query word
+      if (tWord.startsWith(qWord)) {
+        ranges.push([wordStart, wordStart + qWord.length])
+        found = true
+        score += 3
+        break
+      }
+      
+      // Word contains query word
+      const idx = tWord.indexOf(qWord)
+      if (idx !== -1) {
+        ranges.push([wordStart + idx, wordStart + idx + qWord.length])
+        found = true
+        score += 1
+        break
+      }
+      
+      currentIdx = wordStart + tWord.length
+    }
+    
+    if (!found) {
+      allFound = false
+      break
+    }
+  }
+  
+  if (allFound && ranges.length > 0) {
+    return { match: true, score, ranges }
+  }
+  
+  // Fuzzy character matching for typo tolerance
+  let qi = 0
+  let ti = 0
+  const fuzzyRanges = []
+  let rangeStart = -1
+  
+  while (qi < q.length && ti < t.length) {
+    if (q[qi] === t[ti]) {
+      if (rangeStart === -1) rangeStart = ti
+      qi++
+    } else {
+      if (rangeStart !== -1) {
+        fuzzyRanges.push([rangeStart, ti])
+        rangeStart = -1
+      }
+    }
+    ti++
+  }
+  
+  if (rangeStart !== -1) {
+    fuzzyRanges.push([rangeStart, ti])
+  }
+  
+  if (qi === q.length) {
+    // All query characters found in order
+    const fuzzyScore = 30 + Math.floor((q.length / t.length) * 20)
+    return { match: true, score: fuzzyScore, ranges: fuzzyRanges }
+  }
+  
+  return { match: false, score: 0, ranges: [] }
+}
+
+// Highlight matched text
+function HighlightedText({ text, ranges, className }) {
+  if (!ranges || ranges.length === 0) {
+    return <span className={className}>{text}</span>
+  }
+  
+  // Sort and merge overlapping ranges
+  const sortedRanges = [...ranges].sort((a, b) => a[0] - b[0])
+  const mergedRanges = []
+  
+  for (const range of sortedRanges) {
+    const last = mergedRanges[mergedRanges.length - 1]
+    if (last && range[0] <= last[1]) {
+      last[1] = Math.max(last[1], range[1])
+    } else {
+      mergedRanges.push([...range])
+    }
+  }
+  
+  const parts = []
+  let lastEnd = 0
+  
+  for (const [start, end] of mergedRanges) {
+    if (start > lastEnd) {
+      parts.push(<span key={`text-${lastEnd}`}>{text.slice(lastEnd, start)}</span>)
+    }
+    parts.push(
+      <span key={`match-${start}`} className="bg-brand-orange/30 text-brand-orange font-semibold rounded px-0.5">
+        {text.slice(start, end)}
+      </span>
+    )
+    lastEnd = end
+  }
+  
+  if (lastEnd < text.length) {
+    parts.push(<span key={`text-${lastEnd}`}>{text.slice(lastEnd)}</span>)
+  }
+  
+  return <span className={className}>{parts}</span>
+}
+
 export default function FloatingTimer({ 
   isVisible,
   onClose,
-  initialClient = null, // Pre-select a client when opening from a board/project
-  initialDescription = '' // Pre-fill description
+  initialClient = null,
+  initialDescription = ''
 }) {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -34,73 +179,210 @@ export default function FloatingTimer({
   // Form state
   const [description, setDescription] = useState('')
   const [selectedClient, setSelectedClient] = useState(null)
-  const [showClientPicker, setShowClientPicker] = useState(false)
-  const [clients, setClients] = useState([])
-  const [clientSearch, setClientSearch] = useState('')
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [showPicker, setShowPicker] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [isBillable, setIsBillable] = useState(true)
-  const [recentClients, setRecentClients] = useState([])
+  
+  // Data
+  const [clients, setClients] = useState([])
+  const [tickets, setTickets] = useState([])
+  const [recentItems, setRecentItems] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Keyboard navigation
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   
   const inputRef = useRef(null)
   const searchInputRef = useRef(null)
+  const listRef = useRef(null)
 
-  // Load clients and recent selections
+  // Load clients, tickets, and recent selections
   useEffect(() => {
-    const loadClients = async () => {
+    const loadData = async () => {
+      setIsLoading(true)
       try {
-        const { data, error } = await supabase
+        // Load clients
+        const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
-          .select('id, name, color')
+          .select('id, name, color, monthly_hours')
           .eq('is_active', true)
           .order('name')
         
-        if (error) {
-          console.error('Timer: Error loading clients:', error)
-          return
-        }
+        if (clientsError) console.error('Error loading clients:', clientsError)
+        else setClients(clientsData || [])
         
-        if (data) {
-          setClients(data)
-          console.log('Timer: Loaded', data.length, 'clients')
-        }
+        // Load tickets/projects for deeper search
+        const { data: ticketsData, error: ticketsError } = await supabase
+          .from('tickets')
+          .select(`
+            id, title, key,
+            boards (id, name, client_id, clients (id, name, color))
+          `)
+          .order('updated_at', { ascending: false })
+          .limit(500)
         
-        // Load recent clients from localStorage
-        const recent = JSON.parse(localStorage.getItem('recentTimerClients') || '[]')
-        if (recent.length > 0 && data) {
-          const recentWithData = recent
-            .map(id => data.find(c => c.id === id))
-            .filter(Boolean)
-            .slice(0, 3)
-          setRecentClients(recentWithData)
-        }
+        if (ticketsError) console.error('Error loading tickets:', ticketsError)
+        else setTickets(ticketsData || [])
+        
+        // Load recent items from localStorage
+        const recent = JSON.parse(localStorage.getItem('recentTimerItems') || '[]')
+        setRecentItems(recent.slice(0, 5))
+        
       } catch (err) {
-        console.error('Timer: Exception loading clients:', err)
+        console.error('Exception loading data:', err)
+      } finally {
+        setIsLoading(false)
       }
     }
-    loadClients()
+    loadData()
   }, [])
 
-  // Save to recent clients when one is selected
-  const selectClient = (client) => {
-    setSelectedClient(client)
-    setShowClientPicker(false)
-    setClientSearch('')
+  // Combine and filter search results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
     
-    // Update recent clients
-    const recent = JSON.parse(localStorage.getItem('recentTimerClients') || '[]')
-    const updated = [client.id, ...recent.filter(id => id !== client.id)].slice(0, 5)
-    localStorage.setItem('recentTimerClients', JSON.stringify(updated))
-    setRecentClients(prev => {
-      const newRecent = [client, ...prev.filter(c => c.id !== client.id)].slice(0, 3)
-      return newRecent
+    const results = []
+    
+    // Search clients
+    for (const client of clients) {
+      const { match, score, ranges } = fuzzySearch(searchQuery, client.name)
+      if (match) {
+        results.push({
+          type: 'client',
+          id: client.id,
+          name: client.name,
+          color: client.color,
+          score,
+          ranges,
+          data: client
+        })
+      }
+    }
+    
+    // Search tickets
+    for (const ticket of tickets) {
+      const client = ticket.boards?.clients
+      const searchText = `${ticket.key || ''} ${ticket.title} ${ticket.boards?.name || ''} ${client?.name || ''}`
+      const { match, score, ranges } = fuzzySearch(searchQuery, searchText)
+      
+      if (match) {
+        // Calculate ranges for title specifically
+        const titleResult = fuzzySearch(searchQuery, ticket.title)
+        results.push({
+          type: 'ticket',
+          id: ticket.id,
+          name: ticket.title,
+          key: ticket.key,
+          boardName: ticket.boards?.name,
+          clientName: client?.name,
+          clientColor: client?.color,
+          clientId: client?.id,
+          score: score + (titleResult.match ? 10 : 0),
+          ranges: titleResult.ranges,
+          data: { ticket, client }
+        })
+      }
+    }
+    
+    // Sort by score
+    return results.sort((a, b) => b.score - a.score).slice(0, 15)
+  }, [searchQuery, clients, tickets])
+
+  // Show recent or search results
+  const displayItems = searchQuery.trim() ? searchResults : recentItems
+
+  // Reset highlight when results change
+  useEffect(() => {
+    setHighlightedIndex(-1)
+  }, [searchQuery])
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e) => {
+    if (!showPicker) return
+    
+    const items = displayItems
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setHighlightedIndex(prev => 
+          prev < items.length - 1 ? prev + 1 : 0
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex(prev => 
+          prev > 0 ? prev - 1 : items.length - 1
+        )
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (highlightedIndex >= 0 && items[highlightedIndex]) {
+          selectItem(items[highlightedIndex])
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setShowPicker(false)
+        setSearchQuery('')
+        break
+      case 'Tab':
+        if (items.length > 0) {
+          e.preventDefault()
+          selectItem(items[0])
+        }
+        break
+    }
+  }, [showPicker, displayItems, highlightedIndex])
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const item = listRef.current.children[highlightedIndex]
+      if (item) {
+        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      }
+    }
+  }, [highlightedIndex])
+
+  // Select an item (client or ticket)
+  const selectItem = (item) => {
+    if (item.type === 'client') {
+      setSelectedClient(item.data)
+      setSelectedTicket(null)
+      setDescription('')
+    } else if (item.type === 'ticket') {
+      setSelectedClient(item.data.client)
+      setSelectedTicket(item.data.ticket)
+      setDescription(item.data.ticket.title)
+    }
+    
+    setShowPicker(false)
+    setSearchQuery('')
+    
+    // Save to recent
+    const newRecent = [
+      { 
+        type: item.type, 
+        id: item.id, 
+        name: item.name,
+        color: item.color || item.clientColor,
+        clientName: item.clientName,
+        clientId: item.clientId,
+        data: item.data
+      },
+      ...recentItems.filter(r => !(r.type === item.type && r.id === item.id))
+    ].slice(0, 5)
+    
+    setRecentItems(newRecent)
+    localStorage.setItem('recentTimerItems', JSON.stringify(newRecent))
+    
+    toast({
+      title: item.type === 'client' ? '📁 Client selected' : '🎫 Project selected',
+      description: item.name
     })
   }
-
-  // Filter clients by search
-  const filteredClients = clientSearch.trim()
-    ? clients.filter(c => 
-        c.name.toLowerCase().includes(clientSearch.toLowerCase())
-      )
-    : clients
 
   // Apply initial client/description when provided
   useEffect(() => {
@@ -127,7 +409,7 @@ export default function FloatingTimer({
   useEffect(() => {
     const saved = localStorage.getItem('activeTimer')
     if (saved) {
-      const { startTime, description, clientId, isBillable } = JSON.parse(saved)
+      const { startTime, description, clientId, ticketId, isBillable } = JSON.parse(saved)
       const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
       setStartTime(startTime)
       setSeconds(elapsed)
@@ -153,10 +435,12 @@ export default function FloatingTimer({
   const handleStart = () => {
     if (!selectedClient) {
       toast({
-        title: 'Select a client first',
-        description: 'Choose which client you\'re working for',
+        title: 'Select a project first',
+        description: 'Search and choose which project you\'re working on',
         variant: 'destructive'
       })
+      setShowPicker(true)
+      setTimeout(() => searchInputRef.current?.focus(), 100)
       return
     }
     
@@ -170,12 +454,13 @@ export default function FloatingTimer({
       startTime: now,
       description,
       clientId: selectedClient?.id,
+      ticketId: selectedTicket?.id,
       isBillable
     }))
     
     toast({
       title: '⏱️ Timer started!',
-      description: `Tracking time for ${selectedClient.name}`,
+      description: `Tracking: ${description || selectedClient.name}`,
     })
   }
 
@@ -199,7 +484,8 @@ export default function FloatingTimer({
       const { error } = await supabase.from('time_entries').insert({
         user_id: user.id,
         client_id: selectedClient?.id,
-        description: description || 'No description',
+        ticket_id: selectedTicket?.id,
+        description: description || selectedClient?.name || 'No description',
         minutes: Math.round(seconds / 60),
         date: new Date().toISOString().split('T')[0],
         billable: isBillable
@@ -219,6 +505,7 @@ export default function FloatingTimer({
       // Reset
       setSeconds(0)
       setDescription('')
+      setSelectedTicket(null)
       
     } catch (error) {
       console.error('Error saving time:', error)
@@ -281,7 +568,7 @@ export default function FloatingTimer({
           // Expanded - Toggl-style widget
           <motion.div
             layout
-            className="w-80 rounded-2xl shadow-2xl border bg-background overflow-hidden"
+            className="w-96 max-sm:w-full rounded-2xl shadow-2xl border bg-background overflow-hidden"
           >
             {/* Header */}
             <div className={cn(
@@ -330,170 +617,267 @@ export default function FloatingTimer({
                 <span className="relative z-10">{formatTime(seconds)}</span>
               </div>
 
-              {/* Description Input */}
+              {/* Smart Search Box - Main Input */}
               <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What are you working on?"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/50"
-                  disabled={isRunning}
-                />
-              </div>
-
-              {/* Client/Project Picker */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    if (!isRunning) {
-                      setShowClientPicker(!showClientPicker)
-                      setTimeout(() => searchInputRef.current?.focus(), 100)
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={showPicker ? searchQuery : (selectedClient ? '' : searchQuery)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      if (!showPicker) setShowPicker(true)
+                    }}
+                    onFocus={() => !isRunning && setShowPicker(true)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      selectedClient 
+                        ? "Search for a different project..." 
+                        : "Type to search clients & projects..."
                     }
-                  }}
-                  disabled={isRunning}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors",
-                    isRunning ? "opacity-60 cursor-not-allowed" : "hover:bg-muted/50",
-                    !selectedClient && !isRunning && "border-dashed border-brand-orange/50 bg-brand-orange/5"
+                    className={cn(
+                      "w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all",
+                      isRunning && "opacity-60 cursor-not-allowed",
+                      !selectedClient && !isRunning && "border-brand-orange border-dashed bg-brand-orange/5"
+                    )}
+                    disabled={isRunning}
+                  />
+                  {isLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                   )}
-                >
-                  {selectedClient ? (
-                    <>
+                </div>
+
+                {/* Selected Item Display */}
+                {selectedClient && !showPicker && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-2 p-3 rounded-xl bg-muted/50 border"
+                  >
+                    <div className="flex items-center gap-3">
                       <div 
                         className="w-4 h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: selectedClient.color || '#F7931E' }}
                       />
-                      <span className="flex-1 font-medium">{selectedClient.name}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 text-brand-orange" />
-                      <span className="flex-1 text-brand-orange font-medium">Search & select project...</span>
-                    </>
-                  )}
-                  <ChevronDown className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    showClientPicker && "rotate-180"
-                  )} />
-                </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{selectedClient.name}</p>
+                        {selectedTicket && (
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                            <Ticket className="h-3 w-3" />
+                            {selectedTicket.key}: {selectedTicket.title}
+                          </p>
+                        )}
+                      </div>
+                      {!isRunning && (
+                        <button
+                          onClick={() => {
+                            setSelectedClient(null)
+                            setSelectedTicket(null)
+                            setDescription('')
+                            setShowPicker(true)
+                            setTimeout(() => searchInputRef.current?.focus(), 100)
+                          }}
+                          className="p-1 rounded hover:bg-muted"
+                        >
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
 
-                {/* Client Dropdown with Search */}
+                {/* Autocomplete Dropdown */}
                 <AnimatePresence>
-                  {showClientPicker && (
+                  {showPicker && !isRunning && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-xl shadow-2xl z-10 overflow-hidden"
+                      initial={{ opacity: 0, y: -10, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      exit={{ opacity: 0, y: -10, height: 0 }}
+                      className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-xl shadow-2xl z-20 overflow-hidden"
                     >
-                      {/* Search Input */}
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <input
-                            ref={searchInputRef}
-                            type="text"
-                            value={clientSearch}
-                            onChange={(e) => setClientSearch(e.target.value)}
-                            placeholder="Search projects..."
-                            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border bg-muted/50 focus:outline-none focus:ring-2 focus:ring-brand-orange/50"
-                            autoFocus
-                          />
+                      {/* Results Header */}
+                      <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {searchQuery.trim() 
+                            ? `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}` 
+                            : 'Recent'}
+                        </span>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span className="flex items-center gap-0.5">
+                            <ArrowUp className="h-2.5 w-2.5" />
+                            <ArrowDown className="h-2.5 w-2.5" />
+                            navigate
+                          </span>
+                          <span className="flex items-center gap-0.5">
+                            <CornerDownLeft className="h-2.5 w-2.5" />
+                            select
+                          </span>
                         </div>
                       </div>
 
-                      {/* Recent Clients */}
-                      {!clientSearch && recentClients.length > 0 && (
-                        <div className="p-2 border-b">
-                          <p className="text-xs text-muted-foreground px-2 mb-1">Recent</p>
-                          <div className="flex flex-wrap gap-1">
-                            {recentClients.map(client => (
-                              <button
-                                key={client.id}
-                                onClick={() => selectClient(client)}
-                                className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-muted hover:bg-brand-orange/10 transition-colors"
-                              >
-                                <div 
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: client.color || '#F7931E' }}
-                                />
-                                {client.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Client List */}
-                      <div className="max-h-48 overflow-y-auto">
-                        {filteredClients.length === 0 ? (
-                          <div className="p-4 text-center text-sm text-muted-foreground">
-                            {clientSearch ? (
-                              `No projects matching "${clientSearch}"`
+                      {/* Results List */}
+                      <div ref={listRef} className="max-h-64 overflow-y-auto">
+                        {displayItems.length === 0 ? (
+                          <div className="p-6 text-center">
+                            {searchQuery.trim() ? (
+                              <div className="space-y-2">
+                                <Search className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                                <p className="text-sm text-muted-foreground">
+                                  No results for "<span className="font-medium">{searchQuery}</span>"
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Try different keywords or check spelling
+                                </p>
+                              </div>
                             ) : clients.length === 0 ? (
                               <div className="space-y-2">
-                                <p>No clients in the system yet</p>
-                                <p className="text-xs">Go to <strong>Admin → Add Sample Clients</strong> to import clients</p>
+                                <Building2 className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                                <p className="text-sm text-muted-foreground">No clients yet</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Go to <strong>Clients</strong> to add some
+                                </p>
                               </div>
                             ) : (
-                              'No projects found'
+                              <div className="space-y-2">
+                                <Search className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                                <p className="text-sm text-muted-foreground">
+                                  Start typing to search...
+                                </p>
+                              </div>
                             )}
                           </div>
                         ) : (
-                          filteredClients.map(client => (
-                            <button
-                              key={client.id}
-                              onClick={() => selectClient(client)}
+                          displayItems.map((item, index) => (
+                            <motion.button
+                              key={`${item.type}-${item.id}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: index * 0.02 }}
+                              onClick={() => selectItem(item)}
                               className={cn(
-                                "w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors",
-                                selectedClient?.id === client.id && "bg-brand-orange/10"
+                                "w-full flex items-start gap-3 px-4 py-3 text-left transition-colors",
+                                highlightedIndex === index 
+                                  ? "bg-brand-orange/10" 
+                                  : "hover:bg-muted/50",
+                                selectedClient?.id === item.id && item.type === 'client' && "bg-green-500/10"
                               )}
                             >
-                              <div 
-                                className="w-4 h-4 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: client.color || '#F7931E' }}
-                              />
-                              <span className="flex-1 text-left font-medium">{client.name}</span>
-                              {selectedClient?.id === client.id && (
-                                <Check className="h-4 w-4 text-brand-orange" />
+                              <div className="flex-shrink-0 mt-0.5">
+                                {item.type === 'client' ? (
+                                  <div 
+                                    className="w-4 h-4 rounded-full"
+                                    style={{ backgroundColor: item.color || '#F7931E' }}
+                                  />
+                                ) : (
+                                  <div className="w-4 h-4 rounded bg-muted flex items-center justify-center">
+                                    <Ticket className="h-2.5 w-2.5 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <HighlightedText 
+                                    text={item.name} 
+                                    ranges={item.ranges}
+                                    className="font-medium truncate"
+                                  />
+                                  {item.type === 'ticket' && item.key && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                                      {item.key}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.type === 'ticket' && (
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    <div 
+                                      className="w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: item.clientColor || '#F7931E' }}
+                                    />
+                                    {item.clientName}
+                                    {item.boardName && <span>• {item.boardName}</span>}
+                                  </p>
+                                )}
+                                {item.type === 'client' && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    Client • {item.data?.monthly_hours || 0}h/month
+                                  </p>
+                                )}
+                              </div>
+                              {highlightedIndex === index && (
+                                <div className="text-xs text-brand-orange font-medium flex items-center gap-1">
+                                  <CornerDownLeft className="h-3 w-3" />
+                                </div>
                               )}
-                            </button>
+                            </motion.button>
                           ))
                         )}
                       </div>
 
-                      {/* Keyboard hint */}
-                      <div className="p-2 border-t bg-muted/30">
-                        <p className="text-[10px] text-muted-foreground text-center">
-                          Type to search • Click to select
-                        </p>
-                      </div>
+                      {/* Quick Actions */}
+                      {displayItems.length > 0 && (
+                        <div className="p-2 border-t bg-muted/20">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground px-2">
+                            <span>
+                              {clients.length} clients • {tickets.length} projects loaded
+                            </span>
+                            <button
+                              onClick={() => {
+                                setShowPicker(false)
+                                setSearchQuery('')
+                              }}
+                              className="text-brand-orange hover:underline"
+                            >
+                              Close (Esc)
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* Billable Toggle */}
-              <div className="flex items-center justify-between px-1">
-                <span className="text-sm text-muted-foreground">Billable</span>
-                <button
-                  onClick={() => !isRunning && setIsBillable(!isBillable)}
-                  disabled={isRunning}
-                  className={cn(
-                    "relative w-12 h-6 rounded-full transition-colors",
-                    isBillable ? "bg-green-500" : "bg-muted",
-                    isRunning && "opacity-60 cursor-not-allowed"
-                  )}
+              {/* Description - Only show when client selected */}
+              {selectedClient && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="relative"
                 >
-                  <motion.div
-                    animate={{ x: isBillable ? 24 : 2 }}
-                    className="absolute top-1 w-4 h-4 bg-white rounded-full shadow"
+                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="What are you working on? (optional)"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/50"
+                    disabled={isRunning}
                   />
-                </button>
-              </div>
+                </motion.div>
+              )}
+
+              {/* Billable Toggle */}
+              {selectedClient && (
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-sm text-muted-foreground">Billable</span>
+                  <button
+                    onClick={() => !isRunning && setIsBillable(!isBillable)}
+                    disabled={isRunning}
+                    className={cn(
+                      "relative w-12 h-6 rounded-full transition-colors",
+                      isBillable ? "bg-green-500" : "bg-muted",
+                      isRunning && "opacity-60 cursor-not-allowed"
+                    )}
+                  >
+                    <motion.div
+                      animate={{ x: isBillable ? 24 : 2 }}
+                      className="absolute top-1 w-4 h-4 bg-white rounded-full shadow"
+                    />
+                  </button>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-2 pt-2">
@@ -532,15 +916,16 @@ export default function FloatingTimer({
                     )}
                   >
                     <Play className="h-5 w-5 fill-current" />
-                    Start Timer
+                    {selectedClient ? 'Start Timer' : 'Select a project first'}
                   </motion.button>
                 )}
               </div>
 
-              {/* Quick tip */}
-              {!isRunning && !selectedClient && (
+              {/* Keyboard shortcuts hint */}
+              {!isRunning && !showPicker && (
                 <p className="text-center text-xs text-muted-foreground">
-                  👆 Select a client above to start tracking
+                  Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">T</kbd> to toggle timer • 
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono ml-1">/</kbd> to search
                 </p>
               )}
             </div>
