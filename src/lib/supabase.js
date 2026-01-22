@@ -516,3 +516,179 @@ export async function searchTickets(query) {
     .limit(20)
   return { data, error }
 }
+
+// ============================================
+// SAMPLE DATA SEEDING
+// ============================================
+
+const SAMPLE_CLIENTS = [
+  {
+    name: 'Calops',
+    slug: 'calops',
+    monthly_hours: 120, // $21,000 @ $175/hr
+    contact_name: 'Alex Johnson',
+    contact_email: 'alex@calops.com',
+    color: '#4F46E5',
+    account_services: ['SEO', 'PPC', 'Social Media'],
+  },
+  {
+    name: 'Prudental Labs',
+    slug: 'prudental-labs',
+    monthly_hours: 63, // $11,000 @ $175/hr
+    contact_name: 'Sarah Chen',
+    contact_email: 'sarah@prudentallabs.com',
+    color: '#059669',
+    account_services: ['SEO', 'Content Marketing', 'Web Development'],
+  },
+  {
+    name: 'Salvin',
+    slug: 'salvin',
+    monthly_hours: 60, // $10,500 @ $175/hr
+    contact_name: 'Mike Torres',
+    contact_email: 'mike@salvin.com',
+    color: '#DC2626',
+    account_services: ['PPC', 'Email Marketing', 'Branding'],
+  },
+  {
+    name: "Check'n Play",
+    slug: 'checknplay',
+    monthly_hours: 55, // $9,600 @ $175/hr
+    contact_name: 'Lisa Wang',
+    contact_email: 'lisa@checknplay.com',
+    color: '#7C3AED',
+    account_services: ['Social Media', 'Influencer Marketing', 'Video Production'],
+  },
+  {
+    name: 'DESS USA',
+    slug: 'dess-usa',
+    monthly_hours: 45, // $7,800 @ $175/hr
+    contact_name: 'Robert Kim',
+    contact_email: 'robert@dessusa.com',
+    color: '#0891B2',
+    account_services: ['SEO', 'PPC', 'Web Development'],
+  },
+]
+
+const SAMPLE_BOARDS = {
+  'calops': { name: 'Q1 2025 Marketing Campaign', description: 'Main marketing initiatives for Q1' },
+  'prudental-labs': { name: 'Website Redesign', description: 'Full website overhaul and optimization' },
+  'salvin': { name: 'Brand Refresh', description: 'Logo, colors, and brand guidelines update' },
+  'checknplay': { name: 'Social Media Launch', description: 'New social media presence and campaigns' },
+  'dess-usa': { name: 'SEO Optimization', description: 'Technical SEO and content strategy' },
+}
+
+const SAMPLE_TICKETS = [
+  { status: 'done', priority: 'high', title: 'Keyword research', description: 'Research top 50 keywords for campaign' },
+  { status: 'done', priority: 'medium', title: 'Competitor analysis', description: 'Analyze top 5 competitors' },
+  { status: 'inprogress', priority: 'high', title: 'Landing page design', description: 'Design new landing page for campaign' },
+  { status: 'inprogress', priority: 'medium', title: 'Ad copy writing', description: 'Write copy for Google Ads' },
+  { status: 'todo', priority: 'high', title: 'Campaign setup', description: 'Set up Google Ads campaign' },
+  { status: 'todo', priority: 'low', title: 'Reporting dashboard', description: 'Create monthly reporting dashboard' },
+]
+
+export async function seedSampleClients() {
+  const results = { clients: [], boards: [], tickets: [], errors: [] }
+  
+  for (const clientData of SAMPLE_CLIENTS) {
+    // Upsert client
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .upsert({
+        ...clientData,
+        is_active: true,
+      }, { onConflict: 'slug' })
+      .select()
+      .single()
+    
+    if (clientError) {
+      results.errors.push(`Client ${clientData.name}: ${clientError.message}`)
+      continue
+    }
+    
+    results.clients.push(client)
+    
+    // Create board
+    const boardInfo = SAMPLE_BOARDS[clientData.slug]
+    if (boardInfo) {
+      const { data: existingBoard } = await supabase
+        .from('boards')
+        .select()
+        .eq('client_id', client.id)
+        .eq('name', boardInfo.name)
+        .single()
+      
+      if (!existingBoard) {
+        const { data: board, error: boardError } = await supabase
+          .from('boards')
+          .insert({
+            name: boardInfo.name,
+            description: boardInfo.description,
+            client_id: client.id,
+          })
+          .select()
+          .single()
+        
+        if (board) {
+          results.boards.push(board)
+          
+          // Create sample tickets for this board
+          for (let i = 0; i < SAMPLE_TICKETS.length; i++) {
+            const ticketData = SAMPLE_TICKETS[i]
+            const { data: ticket } = await supabase
+              .from('tickets')
+              .insert({
+                title: ticketData.title,
+                description: ticketData.description,
+                status: ticketData.status,
+                priority: ticketData.priority,
+                board_id: board.id,
+                client_id: client.id,
+                position: i,
+              })
+              .select()
+              .single()
+            
+            if (ticket) results.tickets.push(ticket)
+          }
+        }
+      }
+    }
+    
+    // Set client hourly rate
+    await supabase
+      .from('client_hourly_rates')
+      .upsert({
+        client_id: client.id,
+        rate_per_hour: 175.00,
+        effective_date: new Date().toISOString().split('T')[0],
+      }, { onConflict: 'client_id,effective_date' })
+  }
+  
+  return results
+}
+
+export async function deleteSampleClients() {
+  const slugs = SAMPLE_CLIENTS.map(c => c.slug)
+  
+  // Get client IDs
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id')
+    .in('slug', slugs)
+  
+  if (!clients?.length) return { deleted: 0 }
+  
+  const clientIds = clients.map(c => c.id)
+  
+  // Delete in order: tickets, boards, client_hourly_rates, clients
+  await supabase.from('tickets').delete().in('client_id', clientIds)
+  await supabase.from('boards').delete().in('client_id', clientIds)
+  await supabase.from('client_hourly_rates').delete().in('client_id', clientIds)
+  
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .in('slug', slugs)
+  
+  return { deleted: clientIds.length, error }
+}

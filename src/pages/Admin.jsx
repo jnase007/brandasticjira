@@ -33,7 +33,7 @@ import {
   Eye,
   Zap,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, seedSampleClients, deleteSampleClients } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, getInitials } from '../lib/utils'
 import ClientDialog from '../components/ClientDialog'
@@ -157,6 +157,9 @@ export default function Admin() {
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
   const [boards, setBoards] = useState([])
+  
+  // Sample data seeding
+  const [seeding, setSeeding] = useState(false)
   
   // Data states
   const [users, setUsers] = useState([])
@@ -508,6 +511,38 @@ export default function Admin() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setSeeding(true)
+                try {
+                  const results = await seedSampleClients()
+                  toast({
+                    title: '🌱 Sample data added!',
+                    description: `Created ${results.clients.length} clients, ${results.boards.length} boards, ${results.tickets.length} tickets`,
+                    variant: 'success',
+                  })
+                  fetchData(true)
+                } catch (error) {
+                  toast({
+                    title: 'Error seeding data',
+                    description: error.message,
+                    variant: 'destructive',
+                  })
+                } finally {
+                  setSeeding(false)
+                }
+              }}
+              disabled={seeding}
+            >
+              {seeding ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2" />
+              )}
+              Add Sample Clients
+            </Button>
             <Button
               variant="outline"
               size="sm"
