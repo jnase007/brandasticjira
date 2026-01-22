@@ -223,16 +223,18 @@ function MainLayout({ children }) {
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar - hidden on mobile and when in client preview */}
-      <div className={`hidden lg:block ${clientPreviewMode ? 'opacity-50 pointer-events-none' : ''}`}>
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onCollapse={setSidebarCollapsed}
-          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-          onOpenActivity={() => setActivityOpen(true)}
-          onOpenTimer={() => setTimerVisible(true)}
-        />
-      </div>
+      {/* Desktop Sidebar - completely hidden when in client preview */}
+      {!clientPreviewMode && (
+        <div className="hidden lg:block">
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onCollapse={setSidebarCollapsed}
+            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+            onOpenActivity={() => setActivityOpen(true)}
+            onOpenTimer={() => setTimerVisible(true)}
+          />
+        </div>
+      )}
 
       {/* Desktop User Profile - Top Right - with more right padding to avoid overlap */}
       {!clientPreviewMode && (
@@ -275,85 +277,91 @@ function MainLayout({ children }) {
         </div>
       )}
 
-      {/* Mobile Header */}
-      <div className="lg:hidden">
-        <MobileHeader onOpenSearch={() => setCommandPaletteOpen(true)} />
-      </div>
+      {/* Mobile Header - hidden in client preview */}
+      {!clientPreviewMode && (
+        <div className="lg:hidden">
+          <MobileHeader onOpenSearch={() => setCommandPaletteOpen(true)} />
+        </div>
+      )}
       
       {/* Main content */}
-      {/* Mobile: full width with padding for header/tab bar */}
-      {/* Desktop: sidebar margin with animation */}
-      <main className={`min-h-screen pt-14 pb-20 lg:pt-0 lg:pb-0 ${clientPreviewMode ? 'pt-12' : ''}`}>
-        {clientPreviewMode ? (
-          /* Client Portal Preview Mode */
+      {clientPreviewMode ? (
+        /* Client Portal Preview Mode - Full screen, no sidebar */
+        <main className="min-h-screen pt-12">
           <Suspense fallback={<PageLoader />}>
             <ClientPortalPreview />
           </Suspense>
-        ) : (
-          <>
-            {/* Desktop layout with sidebar margin */}
-            <motion.div
-              initial={false}
-              animate={{ marginLeft: sidebarCollapsed ? 72 : 240 }}
-              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="hidden lg:block min-h-screen"
-            >
-              {children}
-            </motion.div>
-            {/* Mobile layout - no sidebar margin */}
-            <div className="lg:hidden">
-              {children}
-            </div>
-          </>
-        )}
-      </main>
-
-      {/* Mobile Bottom Tab Bar */}
-      <MobileTabBar
-        onOpenTimer={() => setTimerVisible(true)}
-        onOpenActivity={() => setActivityOpen(true)}
-      />
-
-      {/* Command Palette */}
-      <CommandPalette
-        open={commandPaletteOpen}
-        onOpenChange={setCommandPaletteOpen}
-        onAction={handleCommandAction}
-      />
-
-      {/* Activity Feed */}
-      <ActivityFeed
-        open={activityOpen}
-        onClose={() => setActivityOpen(false)}
-      />
-
-      {/* Floating Timer - Toggl-style */}
-      <FloatingTimer
-        isVisible={timerVisible}
-        onClose={() => {
-          setTimerVisible(false)
-          setTimerInitialClient(null)
-          setTimerInitialDescription('')
-        }}
-        initialClient={timerInitialClient}
-        initialDescription={timerInitialDescription}
-      />
-
-      {/* Quick Actions FAB - Hidden when timer is visible to avoid overlap */}
-      {!timerVisible && (
-        <QuickActionsFAB
-          onStartTimer={() => setTimerVisible(true)}
-          onNewTicket={() => {}} // Navigate to create ticket
-          onOpenSearch={() => setCommandPaletteOpen(true)}
-          onShowShortcuts={() => setShortcutsOpen(true)}
-        />
+        </main>
+      ) : (
+        /* Normal Mode with sidebar */
+        <main className="min-h-screen pt-14 pb-20 lg:pt-0 lg:pb-0">
+          {/* Desktop layout with sidebar margin */}
+          <motion.div
+            initial={false}
+            animate={{ marginLeft: sidebarCollapsed ? 72 : 240 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            className="hidden lg:block min-h-screen"
+          >
+            {children}
+          </motion.div>
+          {/* Mobile layout - no sidebar margin */}
+          <div className="lg:hidden">
+            {children}
+          </div>
+        </main>
       )}
 
-      {/* Keyboard Shortcuts Panel */}
-      <ShortcutsPanel
-        isOpen={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
+      {/* These elements are hidden in client preview mode */}
+      {!clientPreviewMode && (
+        <>
+          {/* Mobile Bottom Tab Bar */}
+          <MobileTabBar
+            onOpenTimer={() => setTimerVisible(true)}
+            onOpenActivity={() => setActivityOpen(true)}
+          />
+
+          {/* Command Palette */}
+          <CommandPalette
+            open={commandPaletteOpen}
+            onOpenChange={setCommandPaletteOpen}
+            onAction={handleCommandAction}
+          />
+
+          {/* Activity Feed */}
+          <ActivityFeed
+            open={activityOpen}
+            onClose={() => setActivityOpen(false)}
+          />
+
+          {/* Floating Timer - Toggl-style */}
+          <FloatingTimer
+            isVisible={timerVisible}
+            onClose={() => {
+              setTimerVisible(false)
+              setTimerInitialClient(null)
+              setTimerInitialDescription('')
+            }}
+            initialClient={timerInitialClient}
+            initialDescription={timerInitialDescription}
+          />
+
+          {/* Quick Actions FAB - Hidden when timer is visible to avoid overlap */}
+          {!timerVisible && (
+            <QuickActionsFAB
+              onStartTimer={() => setTimerVisible(true)}
+              onNewTicket={() => {}} // Navigate to create ticket
+              onOpenSearch={() => setCommandPaletteOpen(true)}
+              onShowShortcuts={() => setShortcutsOpen(true)}
+            />
+          )}
+
+          {/* Keyboard Shortcuts Panel */}
+          <ShortcutsPanel
+            isOpen={shortcutsOpen}
+            onClose={() => setShortcutsOpen(false)}
+          />
+        </>
+      )}
     </div>
   )
 }
