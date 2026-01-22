@@ -19,6 +19,7 @@ import JiraImport from './pages/JiraImport'
 import LeaderboardPage from './pages/LeaderboardPage'
 import TimeTracking from './pages/TimeTracking'
 import Reports from './pages/Reports'
+import ClientManagement from './pages/ClientManagement'
 import NotFound from './pages/NotFound'
 
 // Components
@@ -329,6 +330,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <Reports />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/clients"
+                element={
+                  <TeamRoute>
+                    <ClientManagement />
                   </TeamRoute>
                 }
               />
