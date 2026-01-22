@@ -46,21 +46,34 @@ export default function FloatingTimer({
   // Load clients and recent selections
   useEffect(() => {
     const loadClients = async () => {
-      const { data } = await supabase
-        .from('clients')
-        .select('id, name, color')
-        .eq('is_active', true)
-        .order('name')
-      if (data) setClients(data)
-      
-      // Load recent clients from localStorage
-      const recent = JSON.parse(localStorage.getItem('recentTimerClients') || '[]')
-      if (recent.length > 0 && data) {
-        const recentWithData = recent
-          .map(id => data.find(c => c.id === id))
-          .filter(Boolean)
-          .slice(0, 3)
-        setRecentClients(recentWithData)
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('id, name, color')
+          .eq('is_active', true)
+          .order('name')
+        
+        if (error) {
+          console.error('Timer: Error loading clients:', error)
+          return
+        }
+        
+        if (data) {
+          setClients(data)
+          console.log('Timer: Loaded', data.length, 'clients')
+        }
+        
+        // Load recent clients from localStorage
+        const recent = JSON.parse(localStorage.getItem('recentTimerClients') || '[]')
+        if (recent.length > 0 && data) {
+          const recentWithData = recent
+            .map(id => data.find(c => c.id === id))
+            .filter(Boolean)
+            .slice(0, 3)
+          setRecentClients(recentWithData)
+        }
+      } catch (err) {
+        console.error('Timer: Exception loading clients:', err)
       }
     }
     loadClients()

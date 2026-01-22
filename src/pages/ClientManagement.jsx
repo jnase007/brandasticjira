@@ -159,27 +159,51 @@ export default function ClientManagement() {
     else setLoading(true)
 
     try {
-      const [clientsRes, requestsRes, projectsRes, usersRes] = await Promise.all([
-        supabase.from('clients').select('*').eq('is_active', true).order('name'),
-        supabase
-          .from('client_requests')
-          .select('*, client:clients(name, color), creator:profiles!client_requests_created_by_fkey(full_name)')
-          .order('created_at', { ascending: false })
-          .limit(50),
-        supabase
-          .from('client_projects')
-          .select('*, client:clients(name, color)')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('*, client:clients(name)')
-          .eq('role', 'client'),
-      ])
-
+      // Fetch clients first - this is the main table we need
+      const clientsRes = await supabase
+        .from('clients')
+        .select('*')
+        .eq('is_active', true)
+        .order('name')
+      
+      if (clientsRes.error) {
+        console.error('Clients fetch error:', clientsRes.error)
+        // If table doesn't exist, show empty state so user can import
+        if (clientsRes.error.message?.includes('does not exist')) {
+          toast({
+            title: '⚠️ Database setup needed',
+            description: 'Run supabase/all-features-setup.sql to create tables',
+            variant: 'destructive',
+          })
+        }
+      }
+      
       setClients(clientsRes.data || [])
-      setRequests(requestsRes.data || [])
-      setProjects(projectsRes.data || [])
-      setClientUsers(usersRes.data || [])
+
+      // Try to fetch other data, but don't fail if tables don't exist
+      try {
+        const [requestsRes, projectsRes, usersRes] = await Promise.all([
+          supabase
+            .from('client_requests')
+            .select('*, client:clients(name, color), creator:profiles!client_requests_created_by_fkey(full_name)')
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase
+            .from('client_projects')
+            .select('*, client:clients(name, color)')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('profiles')
+            .select('*, client:clients(name)')
+            .eq('role', 'client'),
+        ])
+
+        setRequests(requestsRes.data || [])
+        setProjects(projectsRes.data || [])
+        setClientUsers(usersRes.data || [])
+      } catch (err) {
+        console.log('Optional tables not ready:', err)
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
