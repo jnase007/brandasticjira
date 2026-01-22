@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Play } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Play, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -412,6 +412,25 @@ export default function Login() {
                 </motion.div>
                 <p className="text-center text-white/40 text-xs">
                   Explore the app with sample data
+                </p>
+              </div>
+
+              {/* Visit Brandastic.com */}
+              <div className="pt-4 border-t border-white/10">
+                <motion.a
+                  href="https://brandastic.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-brand-orange/20 to-brand-coral/20 border border-brand-orange/30 text-white font-medium hover:from-brand-orange/30 hover:to-brand-coral/30 transition-all group"
+                >
+                  <span className="text-brand-orange">✨</span>
+                  Visit Brandastic.com
+                  <ExternalLink className="h-4 w-4 text-brand-orange opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </motion.a>
+                <p className="text-center text-white/40 text-xs mt-2">
+                  Learn more about our digital marketing agency
                 </p>
               </div>
             </div>
