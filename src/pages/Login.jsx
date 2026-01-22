@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Play, ExternalLink } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -394,28 +394,6 @@ export default function Login() {
                   </>
                 )}
               </p>
-
-              {/* Demo Buttons */}
-              <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Button
-                    type="button"
-                    onClick={() => navigate('/demo')}
-                    className="w-full h-11 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium group"
-                    variant="ghost"
-                  >
-                    <Play className="mr-2 h-4 w-4 text-brand-orange group-hover:scale-110 transition-transform" />
-                    Try Demo
-                    <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                  </Button>
-                </motion.div>
-                <p className="text-center text-white/40 text-xs">
-                  Explore the app with sample data
-                </p>
-              </div>
 
               {/* Visit Brandastic.com */}
               <div className="pt-4 border-t border-white/10">
