@@ -6,7 +6,7 @@ import {
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
   ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, seedSampleClients } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, formatRelativeDate, getInitials } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -66,6 +66,46 @@ const PRIORITY_OPTIONS = [
   { value: 'high', label: 'High', color: 'text-orange-500' },
   { value: 'urgent', label: 'Urgent', color: 'text-red-500' },
 ]
+
+// Empty state component for when there are no clients
+function EmptyClientsState({ onImport, loading }) {
+  return (
+    <div className="text-center py-12">
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-orange/20 to-brand-coral/20 flex items-center justify-center mx-auto mb-4">
+        <Building2 className="h-10 w-10 text-brand-orange" />
+      </div>
+      <h3 className="text-xl font-semibold mb-2">No Clients Yet</h3>
+      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+        Import your Brandastic clients to start tracking time, projects, and profitability.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <Button
+          onClick={onImport}
+          disabled={loading}
+          size="lg"
+          className="bg-gradient-to-r from-brand-orange to-brand-coral text-white"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            <>
+              <Zap className="h-5 w-5 mr-2" />
+              Import 22 Brandastic Clients
+            </>
+          )}
+        </Button>
+      </div>
+      <div className="mt-6 p-4 rounded-xl bg-muted/50 max-w-lg mx-auto">
+        <p className="text-sm text-muted-foreground">
+          <strong>Includes:</strong> Calops, Prudental Labs, Salvin, Check'n Play, DESS USA, and 17 more clients with calculated hours at $175/hr
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export default function ClientManagement() {
   const { user, profile, isAdmin } = useAuth()
@@ -632,6 +672,27 @@ export default function ClientManagement() {
               </div>
             </CardHeader>
             <CardContent>
+              {clients.length === 0 ? (
+                <EmptyClientsState onImport={async () => {
+                  setRefreshing(true)
+                  try {
+                    const results = await seedSampleClients()
+                    toast({
+                      title: '🎉 Clients Imported!',
+                      description: `Added ${results.clients.length} clients with ${results.boards.length} boards`,
+                      variant: 'success',
+                    })
+                    fetchData(true)
+                  } catch (error) {
+                    toast({
+                      title: 'Error importing clients',
+                      description: error.message,
+                      variant: 'destructive',
+                    })
+                    setRefreshing(false)
+                  }
+                }} loading={refreshing} />
+              ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredClients.map((client) => {
                   const clientUserCount = clientUsers.filter(u => u.client_id === client.id).length
@@ -681,6 +742,7 @@ export default function ClientManagement() {
                   )
                 })}
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

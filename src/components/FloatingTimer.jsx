@@ -418,7 +418,16 @@ export default function FloatingTimer({
                       <div className="max-h-48 overflow-y-auto">
                         {filteredClients.length === 0 ? (
                           <div className="p-4 text-center text-sm text-muted-foreground">
-                            {clientSearch ? `No projects matching "${clientSearch}"` : 'No projects found'}
+                            {clientSearch ? (
+                              `No projects matching "${clientSearch}"`
+                            ) : clients.length === 0 ? (
+                              <div className="space-y-2">
+                                <p>No clients in the system yet</p>
+                                <p className="text-xs">Go to <strong>Admin → Add Sample Clients</strong> to import clients</p>
+                              </div>
+                            ) : (
+                              'No projects found'
+                            )}
                           </div>
                         ) : (
                           filteredClients.map(client => (
