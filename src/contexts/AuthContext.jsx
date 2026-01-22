@@ -177,24 +177,24 @@ export function AuthProvider({ children }) {
   // Create profile if it doesn't exist
   const createProfileIfNotExists = async (user, metadata = {}) => {
     try {
-      // Check if profile exists
+      // Check if profile exists - use maybeSingle to avoid error when not found
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
       
       if (!existingProfile) {
-        // Create new profile
+        // Create new profile with upsert to handle race conditions
         const { error: insertError } = await supabase
           .from('profiles')
-          .insert({
+          .upsert({
             id: user.id,
             email: user.email,
             full_name: metadata.full_name || user.user_metadata?.full_name || '',
             role: 'team', // Default role
             avatar_url: user.user_metadata?.avatar_url || null,
-          })
+          }, { onConflict: 'id' })
         
         if (insertError) {
           console.error('Error creating profile:', insertError)

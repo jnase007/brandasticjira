@@ -77,7 +77,7 @@ export async function getProfile(userId) {
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single()
+    .maybeSingle() // Returns null instead of error if not found
   return { data, error }
 }
 
@@ -87,8 +87,8 @@ export async function updateProfile(userId, updates) {
     .update(updates)
     .eq('id', userId)
     .select()
-    .single()
-  return { data, error }
+  // Return first result or null
+  return { data: data?.[0] || null, error }
 }
 
 // ============================================
