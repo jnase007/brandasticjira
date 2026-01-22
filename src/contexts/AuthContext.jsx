@@ -226,12 +226,21 @@ export function AuthProvider({ children }) {
 
   // Sign out
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (!error) {
+    try {
+      const { error } = await supabase.auth.signOut()
+      // Always clear state, even if there's an error
       setUser(null)
       setProfile(null)
+      // Clear any cached data
+      localStorage.removeItem('viewMode')
+      return { error }
+    } catch (err) {
+      console.error('Sign out error:', err)
+      // Still clear state on error
+      setUser(null)
+      setProfile(null)
+      return { error: err }
     }
-    return { error }
   }
 
   // Update profile - uses upsert to create if doesn't exist
