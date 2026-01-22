@@ -290,13 +290,15 @@ function MainLayout({ children }) {
         initialDescription={timerInitialDescription}
       />
 
-      {/* Quick Actions FAB - Desktop only */}
-      <QuickActionsFAB
-        onStartTimer={() => setTimerVisible(true)}
-        onNewTicket={() => {}} // Navigate to create ticket
-        onOpenSearch={() => setCommandPaletteOpen(true)}
-        onShowShortcuts={() => setShortcutsOpen(true)}
-      />
+      {/* Quick Actions FAB - Hidden when timer is visible to avoid overlap */}
+      {!timerVisible && (
+        <QuickActionsFAB
+          onStartTimer={() => setTimerVisible(true)}
+          onNewTicket={() => {}} // Navigate to create ticket
+          onOpenSearch={() => setCommandPaletteOpen(true)}
+          onShowShortcuts={() => setShortcutsOpen(true)}
+        />
+      )}
 
       {/* Keyboard Shortcuts Panel */}
       <ShortcutsPanel
