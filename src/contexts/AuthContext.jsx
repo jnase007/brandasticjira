@@ -30,35 +30,44 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Safety timeout - if loading takes too long, stop it
     const safetyTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('Auth loading timeout - forcing complete')
-        setLoading(false)
-      }
-    }, 10000) // 10 second max wait
+      console.warn('Auth loading timeout - forcing complete')
+      setLoading(false)
+    }, 5000) // 5 second max wait (reduced from 10)
 
     // Get initial session
     const initAuth = async () => {
       try {
+        console.log('Initializing auth...')
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
           console.error('Session error:', error)
           setAuthError(error.message)
           setLoading(false)
+          clearTimeout(safetyTimeout)
           return
         }
         
+        console.log('Session:', session ? 'Found' : 'None')
+        
         if (session?.user) {
           setUser(session.user)
-          // Fetch user profile
-          const { data: profileData } = await getProfile(session.user.id)
-          setProfile(profileData)
+          // Fetch user profile - don't let this block loading
+          try {
+            const { data: profileData } = await getProfile(session.user.id)
+            setProfile(profileData)
+          } catch (profileError) {
+            console.error('Profile fetch error:', profileError)
+            // Continue without profile - don't block
+          }
         }
       } catch (error) {
         console.error('Auth init error:', error)
         setAuthError(error.message)
       } finally {
+        console.log('Auth init complete')
         setLoading(false)
+        clearTimeout(safetyTimeout)
       }
     }
 

@@ -52,11 +52,11 @@ export default function LoadingScreen({ onRetry, error }) {
     return () => clearInterval(interval)
   }, [])
 
-  // Show refresh button after 5 seconds
+  // Show refresh button after 3 seconds (faster)
   useEffect(() => {
     const timeout = setTimeout(() => {
       setShowRefresh(true)
-    }, 5000)
+    }, 3000)
     return () => clearTimeout(timeout)
   }, [])
 
