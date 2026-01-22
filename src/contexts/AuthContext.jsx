@@ -63,8 +63,6 @@ export function AuthProvider({ children }) {
     }
 
     initAuth()
-    
-    return () => clearTimeout(safetyTimeout)
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -143,6 +141,7 @@ export function AuthProvider({ children }) {
     )
 
     return () => {
+      clearTimeout(safetyTimeout)
       subscription.unsubscribe()
     }
   }, [])
