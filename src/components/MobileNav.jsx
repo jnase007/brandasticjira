@@ -32,7 +32,8 @@ const adminNavItems = [
 // Bottom tab bar for quick access
 export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
   const location = useLocation()
-  const { isAdmin } = useAuth()
+  const navigate = useNavigate()
+  const { isAdmin, profile, signOut } = useAuth()
   
   const quickItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
@@ -119,11 +120,35 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl border-t shadow-2xl safe-area-bottom lg:hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl border-t shadow-2xl lg:hidden max-h-[85vh] flex flex-col"
             >
-              <div className="p-4">
-                {/* Handle */}
-                <div className="w-12 h-1 bg-muted rounded-full mx-auto mb-4" />
+              {/* Handle - Fixed at top */}
+              <div className="flex-shrink-0 pt-3 pb-2">
+                <div className="w-12 h-1 bg-muted rounded-full mx-auto" />
+              </div>
+              
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-4 pb-4">
+                {/* User Profile */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 mb-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={profile?.avatar_url} />
+                    <AvatarFallback className="bg-brand-orange text-white font-bold">
+                      {getInitials(profile?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{profile?.full_name || 'User'}</p>
+                    <p className="text-sm text-muted-foreground truncate">{profile?.role || 'Team Member'}</p>
+                  </div>
+                  <Link
+                    to="/settings"
+                    onClick={() => setShowMore(false)}
+                    className="p-2 rounded-lg hover:bg-muted"
+                  >
+                    <Settings className="h-5 w-5 text-muted-foreground" />
+                  </Link>
+                </div>
                 
                 {/* Quick Actions */}
                 <div className="grid grid-cols-4 gap-3 mb-4">
@@ -166,7 +191,7 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
                 </div>
 
                 {/* Nav Items */}
-                <div className="space-y-1">
+                <div className="space-y-1 mb-4">
                   {navItems.slice(3).map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
@@ -208,7 +233,23 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
                   })}
                 </div>
 
-                {/* Close */}
+                {/* Divider */}
+                <div className="border-t my-4" />
+
+                {/* Logout Button */}
+                <button
+                  onClick={async () => {
+                    setShowMore(false)
+                    await signOut()
+                    navigate('/login')
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors w-full"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="font-medium">Log Out</span>
+                </button>
+
+                {/* Close Button */}
                 <Button
                   variant="ghost"
                   className="w-full mt-4"
@@ -217,6 +258,9 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
                   Close
                 </Button>
               </div>
+              
+              {/* Safe area padding at bottom */}
+              <div className="safe-area-bottom" />
             </motion.div>
           </>
         )}
