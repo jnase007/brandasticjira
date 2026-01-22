@@ -6,7 +6,9 @@ import {
   TrendingUp, FileText, Timer, CheckCircle, AlertCircle,
   BarChart3, PieChart, Activity, ExternalLink, Edit2,
   Play, Ticket, Loader2, ChevronRight, Target, Zap,
-  Download, RefreshCw, Mail, Phone
+  Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
+  Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
+  Sparkles, AlertTriangle, Trophy, ArrowRight, Save
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,8 +20,51 @@ import { Progress } from '../components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Skeleton } from '../components/ui/skeleton'
+import { Textarea } from '../components/ui/textarea'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog'
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
+
+// Pipeline stages with colors
+const PIPELINE_STAGES = [
+  { value: 'prospect', label: 'Prospect', color: 'bg-gray-500', icon: '🎯' },
+  { value: 'kickoff', label: 'Kickoff', color: 'bg-blue-500', icon: '🚀' },
+  { value: 'discovery', label: 'Discovery', color: 'bg-purple-500', icon: '🔍' },
+  { value: 'proposal', label: 'Proposal', color: 'bg-yellow-500', icon: '📝' },
+  { value: 'implementation', label: 'Implementation', color: 'bg-orange-500', icon: '⚙️' },
+  { value: 'active', label: 'Active', color: 'bg-green-500', icon: '✅' },
+  { value: 'paused', label: 'Paused', color: 'bg-amber-500', icon: '⏸️' },
+  { value: 'churned', label: 'Churned', color: 'bg-red-500', icon: '❌' },
+]
+
+// Note types with icons
+const NOTE_TYPES = [
+  { value: 'note', label: 'General Note', icon: FileIcon },
+  { value: 'call', label: 'Phone Call', icon: PhoneCall },
+  { value: 'meeting', label: 'Meeting', icon: Video },
+  { value: 'kickoff', label: 'Kickoff Meeting', icon: Sparkles },
+  { value: 'discovery', label: 'Discovery Session', icon: Target },
+  { value: 'proposal', label: 'Proposal', icon: FileText },
+  { value: 'handoff', label: 'Team Handoff', icon: Users },
+  { value: 'milestone', label: 'Milestone', icon: Trophy },
+  { value: 'issue', label: 'Issue/Concern', icon: AlertTriangle },
+  { value: 'win', label: 'Win! 🎉', icon: Trophy },
+]
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -44,6 +89,19 @@ export default function ClientDetail() {
   const [teamMembers, setTeamMembers] = useState([])
   const [monthlyStats, setMonthlyStats] = useState([])
   const [refreshing, setRefreshing] = useState(false)
+  
+  // Notes state
+  const [notes, setNotes] = useState([])
+  const [addNoteOpen, setAddNoteOpen] = useState(false)
+  const [newNote, setNewNote] = useState({
+    title: '',
+    content: '',
+    note_type: 'note',
+  })
+  const [savingNote, setSavingNote] = useState(false)
+  
+  // Pipeline stage editing
+  const [editingStage, setEditingStage] = useState(false)
 
   // Fetch all client data
   const fetchClientData = async (showRefresh = false) => {
@@ -129,6 +187,18 @@ export default function ClientDetail() {
         })
       }
       setMonthlyStats(stats)
+      
+      // Fetch client notes
+      try {
+        const { data: notesData } = await supabase
+          .from('client_notes')
+          .select('*, creator:created_by(full_name, avatar_url)')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+        setNotes(notesData || [])
+      } catch (err) {
+        console.log('Notes table may not exist yet:', err)
+      }
 
     } catch (error) {
       console.error('Error fetching client data:', error)
@@ -144,6 +214,98 @@ export default function ClientDetail() {
       fetchClientData()
     }
   }, [clientId])
+
+  // Add a new note
+  const handleAddNote = async () => {
+    if (!newNote.content.trim()) {
+      toast({ title: 'Please enter note content', variant: 'destructive' })
+      return
+    }
+    
+    setSavingNote(true)
+    try {
+      const { data, error } = await supabase
+        .from('client_notes')
+        .insert({
+          client_id: clientId,
+          created_by: user.id,
+          title: newNote.title || null,
+          content: newNote.content,
+          note_type: newNote.note_type,
+        })
+        .select('*, creator:created_by(full_name, avatar_url)')
+        .single()
+      
+      if (error) throw error
+      
+      setNotes(prev => [data, ...prev])
+      setNewNote({ title: '', content: '', note_type: 'note' })
+      setAddNoteOpen(false)
+      
+      toast({
+        title: '✅ Note added',
+        description: 'Your note has been saved.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error adding note:', error)
+      toast({
+        title: 'Error adding note',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingNote(false)
+    }
+  }
+  
+  // Update client pipeline stage
+  const updatePipelineStage = async (newStage) => {
+    const oldStage = client.pipeline_stage || 'active'
+    if (newStage === oldStage) {
+      setEditingStage(false)
+      return
+    }
+    
+    try {
+      // Update client stage
+      const { error: clientError } = await supabase
+        .from('clients')
+        .update({ pipeline_stage: newStage })
+        .eq('id', clientId)
+      
+      if (clientError) throw clientError
+      
+      // Add a note about the stage change
+      await supabase
+        .from('client_notes')
+        .insert({
+          client_id: clientId,
+          created_by: user.id,
+          content: `Pipeline stage changed from "${PIPELINE_STAGES.find(s => s.value === oldStage)?.label || oldStage}" to "${PIPELINE_STAGES.find(s => s.value === newStage)?.label || newStage}"`,
+          note_type: 'milestone',
+          stage_change_from: oldStage,
+          stage_change_to: newStage,
+        })
+      
+      setClient(prev => ({ ...prev, pipeline_stage: newStage }))
+      setEditingStage(false)
+      fetchClientData(true) // Refresh notes
+      
+      toast({
+        title: '✅ Stage updated',
+        description: `Client moved to ${PIPELINE_STAGES.find(s => s.value === newStage)?.label || newStage}`,
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error updating stage:', error)
+      toast({
+        title: 'Error updating stage',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
 
   if (loading) {
     return (
@@ -235,9 +397,41 @@ export default function ClientDetail() {
                     {/* Name & Badges */}
                     <div className="flex items-center gap-3 flex-wrap mb-2">
                       <h1 className="text-2xl md:text-3xl font-display font-bold">{client.name}</h1>
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        Active
-                      </Badge>
+                      
+                      {/* Pipeline Stage Badge */}
+                      {editingStage ? (
+                        <Select
+                          value={client.pipeline_stage || 'active'}
+                          onValueChange={(value) => updatePipelineStage(value)}
+                        >
+                          <SelectTrigger className="w-40 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PIPELINE_STAGES.map(stage => (
+                              <SelectItem key={stage.value} value={stage.value}>
+                                <span className="flex items-center gap-2">
+                                  <span>{stage.icon}</span>
+                                  <span>{stage.label}</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "cursor-pointer hover:opacity-80 transition-opacity",
+                            PIPELINE_STAGES.find(s => s.value === (client.pipeline_stage || 'active'))?.color,
+                            "text-white border-0"
+                          )}
+                          onClick={() => setEditingStage(true)}
+                        >
+                          {PIPELINE_STAGES.find(s => s.value === (client.pipeline_stage || 'active'))?.icon}{' '}
+                          {PIPELINE_STAGES.find(s => s.value === (client.pipeline_stage || 'active'))?.label || 'Active'}
+                        </Badge>
+                      )}
                     </div>
                     
                     {/* Services */}
@@ -405,8 +599,17 @@ export default function ClientDetail() {
 
       {/* Tabs */}
       <motion.div variants={itemVariants}>
-        <Tabs defaultValue="activity" className="space-y-6">
-          <TabsList>
+        <Tabs defaultValue="notes" className="space-y-6">
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="notes" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Notes
+              {notes.length > 0 && (
+                <span className="ml-1 text-xs bg-brand-orange text-white px-1.5 rounded-full">
+                  {notes.length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="activity" className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Activity
@@ -428,6 +631,128 @@ export default function ClientDetail() {
               Team
             </TabsTrigger>
           </TabsList>
+
+          {/* Notes Tab */}
+          <TabsContent value="notes">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-brand-orange" />
+                      Client Notes & Communication
+                    </CardTitle>
+                    <CardDescription>Track meetings, calls, and important updates</CardDescription>
+                  </div>
+                  <Button onClick={() => setAddNoteOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Note
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {notes.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No notes yet</p>
+                    <p className="text-sm mb-4">Start adding notes to track your communication with this client</p>
+                    <Button onClick={() => setAddNoteOpen(true)} variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add First Note
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {notes.map((note) => {
+                      const noteType = NOTE_TYPES.find(t => t.value === note.note_type) || NOTE_TYPES[0]
+                      const IconComponent = noteType.icon
+                      const isStageChange = note.stage_change_from && note.stage_change_to
+                      
+                      return (
+                        <div 
+                          key={note.id} 
+                          className={cn(
+                            "p-4 rounded-xl border bg-card hover:shadow-md transition-all",
+                            note.is_pinned && "border-brand-orange/50 bg-brand-orange/5",
+                            isStageChange && "border-purple-500/30 bg-purple-500/5"
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Icon */}
+                            <div className={cn(
+                              "p-2 rounded-lg flex-shrink-0",
+                              note.note_type === 'win' && "bg-green-500/10",
+                              note.note_type === 'issue' && "bg-red-500/10",
+                              note.note_type === 'milestone' && "bg-purple-500/10",
+                              !['win', 'issue', 'milestone'].includes(note.note_type) && "bg-muted"
+                            )}>
+                              <IconComponent className={cn(
+                                "h-4 w-4",
+                                note.note_type === 'win' && "text-green-500",
+                                note.note_type === 'issue' && "text-red-500",
+                                note.note_type === 'milestone' && "text-purple-500",
+                                !['win', 'issue', 'milestone'].includes(note.note_type) && "text-muted-foreground"
+                              )} />
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                {note.title && (
+                                  <span className="font-semibold">{note.title}</span>
+                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  {noteType.label}
+                                </Badge>
+                                {note.is_pinned && (
+                                  <Pin className="h-3 w-3 text-brand-orange" />
+                                )}
+                              </div>
+                              
+                              <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                              
+                              {/* Stage change visualization */}
+                              {isStageChange && (
+                                <div className="mt-2 flex items-center gap-2 text-xs">
+                                  <Badge variant="outline" className="bg-muted">
+                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_from)?.icon}{' '}
+                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_from)?.label}
+                                  </Badge>
+                                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                  <Badge className={cn(
+                                    PIPELINE_STAGES.find(s => s.value === note.stage_change_to)?.color,
+                                    "text-white border-0"
+                                  )}>
+                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_to)?.icon}{' '}
+                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_to)?.label}
+                                  </Badge>
+                                </div>
+                              )}
+                              
+                              {/* Meta */}
+                              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1.5">
+                                  <Avatar className="h-5 w-5">
+                                    <AvatarImage src={note.creator?.avatar_url} />
+                                    <AvatarFallback className="text-[10px]">
+                                      {note.creator?.full_name?.[0] || '?'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>{note.creator?.full_name || 'Unknown'}</span>
+                                </div>
+                                <span>•</span>
+                                <span>{formatDate(note.created_at)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Activity Tab */}
           <TabsContent value="activity">
@@ -726,6 +1051,83 @@ export default function ClientDetail() {
           </TabsContent>
         </Tabs>
       </motion.div>
+
+      {/* Add Note Dialog */}
+      <Dialog open={addNoteOpen} onOpenChange={setAddNoteOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-brand-orange" />
+              Add Note for {client.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Note Type</Label>
+              <Select 
+                value={newNote.note_type} 
+                onValueChange={(value) => setNewNote(prev => ({ ...prev, note_type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {NOTE_TYPES.map(type => {
+                    const TypeIcon = type.icon
+                    return (
+                      <SelectItem key={type.value} value={type.value}>
+                        <span className="flex items-center gap-2">
+                          <TypeIcon className="h-4 w-4" />
+                          {type.label}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Title (optional)</Label>
+              <Input
+                placeholder="e.g., Kickoff Meeting Notes"
+                value={newNote.title}
+                onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Note Content *</Label>
+              <Textarea
+                placeholder="What happened? What are the next steps? Any important details to remember..."
+                value={newNote.content}
+                onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))}
+                rows={6}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddNoteOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddNote} disabled={savingNote || !newNote.content.trim()}>
+              {savingNote ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Add Note
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }
