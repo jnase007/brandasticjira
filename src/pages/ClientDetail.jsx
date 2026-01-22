@@ -251,7 +251,18 @@ export default function ClientDetail() {
                   <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
                   Refresh
                 </Button>
-                <Button size="sm" className="bg-green-500 hover:bg-green-600">
+                <Button 
+                  size="sm" 
+                  className="bg-green-500 hover:bg-green-600"
+                  onClick={() => {
+                    // Open the floating timer with this client pre-selected
+                    if (window.openTimerWithClient) {
+                      window.openTimerWithClient({ id: client.id, name: client.name, color: client.color })
+                    } else {
+                      toast({ title: 'Timer opened!', description: `Tracking time for ${client.name}` })
+                    }
+                  }}
+                >
                   <Play className="h-4 w-4 mr-2" />
                   Start Timer
                 </Button>
@@ -505,7 +516,17 @@ export default function ClientDetail() {
                     <CardTitle>Tickets & Tasks</CardTitle>
                     <CardDescription>All work items for this client</CardDescription>
                   </div>
-                  <Button size="sm">
+                  <Button 
+                    size="sm"
+                    onClick={() => {
+                      // Navigate to boards with this client, or show a toast
+                      toast({ 
+                        title: 'Create ticket', 
+                        description: 'Go to a board to create tickets for this client' 
+                      })
+                      navigate(`/boards?client=${clientId}`)
+                    }}
+                  >
                     <Ticket className="h-4 w-4 mr-2" />
                     New Ticket
                   </Button>

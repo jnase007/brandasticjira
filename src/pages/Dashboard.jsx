@@ -403,8 +403,11 @@ export default function Dashboard({ onConfetti }) {
                       const isNearLimit = progress >= 90 && progress <= 100
                       
                       return (
-                        <motion.div
+                        <Link
                           key={client.client_id}
+                          to={`/clients/${client.client_id}`}
+                        >
+                        <motion.div
                           layout
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -488,6 +491,7 @@ export default function Dashboard({ onConfetti }) {
                             </motion.div>
                           </div>
                         </motion.div>
+                        </Link>
                       )
                     })
                   )}
