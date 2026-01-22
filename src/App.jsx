@@ -20,6 +20,7 @@ import LeaderboardPage from './pages/LeaderboardPage'
 import TimeTracking from './pages/TimeTracking'
 import Reports from './pages/Reports'
 import ClientManagement from './pages/ClientManagement'
+import ClientDetail from './pages/ClientDetail'
 import NotFound from './pages/NotFound'
 
 // Components
@@ -405,6 +406,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <ClientManagement />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/clients/:clientId"
+                element={
+                  <TeamRoute>
+                    <ClientDetail />
                   </TeamRoute>
                 }
               />

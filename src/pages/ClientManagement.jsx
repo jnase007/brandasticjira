@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Building2, Users, Plus, Search, Bell, MessageSquare, Calendar,
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
-  ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap,
+  ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight
 } from 'lucide-react'
 import { supabase, seedSampleClients } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -790,11 +791,15 @@ export default function ClientManagement() {
                   const monthlyRevenue = (client.monthly_hours || 0) * 175
                   
                   return (
-                    <motion.div
+                    <Link
                       key={client.id}
+                      to={`/clients/${client.id}`}
+                      className="block"
+                    >
+                    <motion.div
                       variants={itemVariants}
                       whileHover={{ y: -2 }}
-                      className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card"
+                      className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group"
                     >
                       <div className="flex items-center gap-3 mb-3">
                         {client.logo_url ? (
@@ -859,13 +864,21 @@ export default function ClientManagement() {
                         </div>
                       </div>
                       
-                      {/* Contact */}
-                      {client.contact_email && (
-                        <p className="text-xs text-muted-foreground mt-3 truncate">
-                          📧 {client.contact_email}
-                        </p>
-                      )}
+                      {/* Contact & View Link */}
+                      <div className="flex items-center justify-between mt-3">
+                        {client.contact_email ? (
+                          <p className="text-xs text-muted-foreground truncate flex-1">
+                            📧 {client.contact_email}
+                          </p>
+                        ) : (
+                          <div />
+                        )}
+                        <span className="text-xs text-brand-orange font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          View Dashboard <ArrowRight className="h-3 w-3" />
+                        </span>
+                      </div>
                     </motion.div>
+                    </Link>
                   )
                 })}
               </div>
