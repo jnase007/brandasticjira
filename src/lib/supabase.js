@@ -518,64 +518,59 @@ export async function searchTickets(query) {
 }
 
 // ============================================
-// SAMPLE DATA SEEDING
+// REAL CLIENT DATA - ALL BRANDASTIC CLIENTS
+// $175/hr billing rate
 // ============================================
 
-const SAMPLE_CLIENTS = [
-  {
-    name: 'Calops',
-    slug: 'calops',
-    monthly_hours: 120, // $21,000 @ $175/hr
-    contact_name: 'Alex Johnson',
-    contact_email: 'alex@calops.com',
-    color: '#4F46E5',
-    account_services: ['SEO', 'PPC', 'Social Media'],
-  },
-  {
-    name: 'Prudental Labs',
-    slug: 'prudental-labs',
-    monthly_hours: 63, // $11,000 @ $175/hr
-    contact_name: 'Sarah Chen',
-    contact_email: 'sarah@prudentallabs.com',
-    color: '#059669',
-    account_services: ['SEO', 'Content Marketing', 'Web Development'],
-  },
-  {
-    name: 'Salvin',
-    slug: 'salvin',
-    monthly_hours: 60, // $10,500 @ $175/hr
-    contact_name: 'Mike Torres',
-    contact_email: 'mike@salvin.com',
-    color: '#DC2626',
-    account_services: ['PPC', 'Email Marketing', 'Branding'],
-  },
-  {
-    name: "Check'n Play",
-    slug: 'checknplay',
-    monthly_hours: 55, // $9,600 @ $175/hr
-    contact_name: 'Lisa Wang',
-    contact_email: 'lisa@checknplay.com',
-    color: '#7C3AED',
-    account_services: ['Social Media', 'Influencer Marketing', 'Video Production'],
-  },
-  {
-    name: 'DESS USA',
-    slug: 'dess-usa',
-    monthly_hours: 45, // $7,800 @ $175/hr
-    contact_name: 'Robert Kim',
-    contact_email: 'robert@dessusa.com',
-    color: '#0891B2',
-    account_services: ['SEO', 'PPC', 'Web Development'],
-  },
+const BRANDASTIC_CLIENTS = [
+  // $21,000/mo = 120 hours
+  { name: 'Calops', slug: 'calops', monthly_hours: 120, monthly_revenue: 21000, start_date: '2025-01-14', color: '#4F46E5', account_services: ['SEO', 'PPC', 'Social Media'] },
+  // $11,000/mo = 63 hours
+  { name: 'Prudental Labs', slug: 'prudental-labs', monthly_hours: 63, monthly_revenue: 11000, start_date: '2025-11-14', color: '#059669', account_services: ['SEO', 'Content Marketing', 'Web Development'] },
+  // $10,500/mo = 60 hours
+  { name: 'Salvin', slug: 'salvin', monthly_hours: 60, monthly_revenue: 10500, start_date: '2025-06-14', color: '#DC2626', account_services: ['PPC', 'Email Marketing', 'Branding'] },
+  // $10,000/mo = 57 hours
+  { name: 'Wearparts LLC', slug: 'wearparts-llc', monthly_hours: 57, monthly_revenue: 10000, start_date: '2025-08-14', color: '#EA580C', account_services: ['SEO', 'PPC', 'Web Development'] },
+  // $9,600/mo = 55 hours
+  { name: "Check'n Play", slug: 'checknplay', monthly_hours: 55, monthly_revenue: 9600, start_date: '2025-01-14', color: '#7C3AED', account_services: ['Social Media', 'Influencer Marketing', 'Video Production'] },
+  // $9,100/mo = 52 hours
+  { name: 'Young Surgical', slug: 'young-surgical', monthly_hours: 52, monthly_revenue: 9100, start_date: '2025-01-14', color: '#0D9488', account_services: ['SEO', 'PPC', 'Content Marketing'] },
+  // $7,800/mo = 45 hours
+  { name: 'DESS USA', slug: 'dess-usa', monthly_hours: 45, monthly_revenue: 7800, start_date: '2025-01-14', color: '#0891B2', account_services: ['SEO', 'PPC', 'Web Development'] },
+  // $5,880/mo = 34 hours
+  { name: 'Adopt Hwy', slug: 'adopt-hwy', monthly_hours: 34, monthly_revenue: 5880, start_date: '2025-01-14', color: '#16A34A', account_services: ['Social Media', 'Content Marketing'] },
+  // $5,250/mo = 30 hours
+  { name: 'Christian Heart School', slug: 'christian-heart-school', monthly_hours: 30, monthly_revenue: 5250, start_date: '2025-12-14', color: '#2563EB', account_services: ['SEO', 'Social Media', 'Email Marketing'] },
+  // $5,250/mo = 30 hours
+  { name: 'Morehouse', slug: 'morehouse', monthly_hours: 30, monthly_revenue: 5250, start_date: '2026-01-14', color: '#9333EA', account_services: ['PPC', 'Branding', 'Web Development'] },
+  // $5,000/mo = 29 hours
+  { name: 'MonoB', slug: 'monob', monthly_hours: 29, monthly_revenue: 5000, start_date: '2025-12-14', color: '#DB2777', account_services: ['SEO', 'Social Media', 'Influencer Marketing'] },
+  // $4,550/mo = 26 hours
+  { name: 'Friar Tux', slug: 'friar-tux', monthly_hours: 26, monthly_revenue: 4550, start_date: '2025-01-14', color: '#1E293B', account_services: ['SEO', 'PPC', 'Web Development'] },
+  // $4,500/mo = 26 hours
+  { name: 'TriStar Insurance', slug: 'tristar-insurance', monthly_hours: 26, monthly_revenue: 4500, start_date: '2025-12-31', color: '#0369A1', account_services: ['SEO', 'PPC', 'Content Marketing'] },
+  // $4,350/mo = 25 hours
+  { name: 'Starboard Realty', slug: 'starboard-realty', monthly_hours: 25, monthly_revenue: 4350, start_date: '2025-06-14', color: '#0F766E', account_services: ['SEO', 'Social Media', 'Web Development'] },
+  // $3,500/mo = 20 hours
+  { name: 'Husbey Crummack', slug: 'husbey-crummack', monthly_hours: 20, monthly_revenue: 3500, start_date: '2025-11-14', color: '#7E22CE', account_services: ['SEO', 'PPC'] },
+  // $3,500/mo = 20 hours
+  { name: 'Labtech PPC', slug: 'labtech-ppc', monthly_hours: 20, monthly_revenue: 3500, start_date: '2025-12-14', color: '#BE185D', account_services: ['PPC', 'Analytics'] },
+  // $2,650/mo = 15 hours
+  { name: 'Labtech SEO', slug: 'labtech-seo', monthly_hours: 15, monthly_revenue: 2650, start_date: '2025-01-14', color: '#C026D3', account_services: ['SEO', 'Content Marketing'] },
+  // $2,600/mo = 15 hours
+  { name: 'Friar Tux Email', slug: 'friar-tux-email', monthly_hours: 15, monthly_revenue: 2600, start_date: '2025-12-14', color: '#334155', account_services: ['Email Marketing'] },
+  // $1,500/mo = 9 hours
+  { name: 'Roger Beltrans', slug: 'roger-beltrans', monthly_hours: 9, monthly_revenue: 1500, start_date: '2025-05-14', color: '#CA8A04', account_services: ['SEO', 'Web Development'] },
+  // $1,500/mo = 9 hours
+  { name: 'Trico Realty', slug: 'trico-realty', monthly_hours: 9, monthly_revenue: 1500, start_date: '2025-01-14', color: '#65A30D', account_services: ['SEO', 'Social Media'] },
+  // $1,199/mo = 7 hours
+  { name: 'IPA 1031 Group', slug: 'ipa-1031-group', monthly_hours: 7, monthly_revenue: 1199, start_date: '2025-01-14', color: '#0284C7', account_services: ['SEO', 'PPC'] },
+  // $1,000/mo = 6 hours
+  { name: 'Posture Pump', slug: 'posture-pump', monthly_hours: 6, monthly_revenue: 1000, start_date: '2025-01-14', color: '#EA580C', account_services: ['SEO'] },
 ]
 
-const SAMPLE_BOARDS = {
-  'calops': { name: 'Q1 2025 Marketing Campaign', description: 'Main marketing initiatives for Q1' },
-  'prudental-labs': { name: 'Website Redesign', description: 'Full website overhaul and optimization' },
-  'salvin': { name: 'Brand Refresh', description: 'Logo, colors, and brand guidelines update' },
-  'checknplay': { name: 'Social Media Launch', description: 'New social media presence and campaigns' },
-  'dess-usa': { name: 'SEO Optimization', description: 'Technical SEO and content strategy' },
-}
+// Total Monthly Revenue: $130,434
+// Total Monthly Hours: 745
 
 const SAMPLE_TICKETS = [
   { status: 'done', priority: 'high', title: 'Keyword research', description: 'Research top 50 keywords for campaign' },
@@ -587,15 +582,23 @@ const SAMPLE_TICKETS = [
 ]
 
 export async function seedSampleClients() {
-  const results = { clients: [], boards: [], tickets: [], errors: [] }
+  const results = { clients: [], boards: [], tickets: [], rates: [], errors: [] }
   
-  for (const clientData of SAMPLE_CLIENTS) {
+  for (const clientData of BRANDASTIC_CLIENTS) {
+    // Calculate monthly revenue from hours (or use provided)
+    const monthlyRevenue = clientData.monthly_revenue || (clientData.monthly_hours * 175)
+    
     // Upsert client
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .upsert({
-        ...clientData,
+        name: clientData.name,
+        slug: clientData.slug,
+        monthly_hours: clientData.monthly_hours,
+        color: clientData.color,
+        account_services: clientData.account_services,
         is_active: true,
+        // Store start date in created_at if needed, or use a custom field
       }, { onConflict: 'slug' })
       .select()
       .single()
@@ -605,66 +608,115 @@ export async function seedSampleClients() {
       continue
     }
     
-    results.clients.push(client)
+    results.clients.push({ ...client, monthly_revenue: monthlyRevenue })
     
-    // Create board
-    const boardInfo = SAMPLE_BOARDS[clientData.slug]
-    if (boardInfo) {
-      const { data: existingBoard } = await supabase
+    // Create main board for client
+    const boardName = `${clientData.name} - Q1 2025`
+    const { data: existingBoard } = await supabase
+      .from('boards')
+      .select()
+      .eq('client_id', client.id)
+      .limit(1)
+      .single()
+    
+    if (!existingBoard) {
+      const { data: board, error: boardError } = await supabase
         .from('boards')
+        .insert({
+          name: boardName,
+          description: `Main project board for ${clientData.name}`,
+          client_id: client.id,
+        })
         .select()
-        .eq('client_id', client.id)
-        .eq('name', boardInfo.name)
         .single()
       
-      if (!existingBoard) {
-        const { data: board, error: boardError } = await supabase
-          .from('boards')
-          .insert({
-            name: boardInfo.name,
-            description: boardInfo.description,
-            client_id: client.id,
-          })
-          .select()
-          .single()
+      if (board) {
+        results.boards.push(board)
         
-        if (board) {
-          results.boards.push(board)
+        // Create sample tickets based on services
+        const serviceTickets = getTicketsForServices(clientData.account_services)
+        for (let i = 0; i < serviceTickets.length; i++) {
+          const ticketData = serviceTickets[i]
+          const { data: ticket } = await supabase
+            .from('tickets')
+            .insert({
+              title: ticketData.title,
+              description: ticketData.description,
+              status: ticketData.status,
+              priority: ticketData.priority,
+              board_id: board.id,
+              client_id: client.id,
+              position: i,
+            })
+            .select()
+            .single()
           
-          // Create sample tickets for this board
-          for (let i = 0; i < SAMPLE_TICKETS.length; i++) {
-            const ticketData = SAMPLE_TICKETS[i]
-            const { data: ticket } = await supabase
-              .from('tickets')
-              .insert({
-                title: ticketData.title,
-                description: ticketData.description,
-                status: ticketData.status,
-                priority: ticketData.priority,
-                board_id: board.id,
-                client_id: client.id,
-                position: i,
-              })
-              .select()
-              .single()
-            
-            if (ticket) results.tickets.push(ticket)
-          }
+          if (ticket) results.tickets.push(ticket)
         }
       }
     }
     
-    // Set client hourly rate
-    await supabase
+    // Set client hourly rate ($175/hr)
+    const { data: rate } = await supabase
       .from('client_hourly_rates')
       .upsert({
         client_id: client.id,
         rate_per_hour: 175.00,
-        effective_date: new Date().toISOString().split('T')[0],
+        effective_date: clientData.start_date || '2025-01-14',
       }, { onConflict: 'client_id,effective_date' })
+      .select()
+      .single()
+    
+    if (rate) results.rates.push(rate)
   }
   
   return results
+}
+
+// Generate relevant tickets based on client services
+function getTicketsForServices(services) {
+  const serviceTicketTemplates = {
+    'SEO': [
+      { title: 'Technical SEO audit', description: 'Complete technical audit of website', status: 'done', priority: 'high' },
+      { title: 'Keyword research', description: 'Research and map target keywords', status: 'done', priority: 'high' },
+      { title: 'On-page optimization', description: 'Optimize meta titles, descriptions, headers', status: 'inprogress', priority: 'medium' },
+    ],
+    'PPC': [
+      { title: 'Campaign structure review', description: 'Review and optimize campaign structure', status: 'done', priority: 'high' },
+      { title: 'Ad copy optimization', description: 'Write and test new ad variations', status: 'inprogress', priority: 'medium' },
+      { title: 'Bid strategy adjustment', description: 'Optimize bidding for conversions', status: 'todo', priority: 'medium' },
+    ],
+    'Social Media': [
+      { title: 'Content calendar', description: 'Create monthly content calendar', status: 'done', priority: 'high' },
+      { title: 'Engagement strategy', description: 'Develop community engagement plan', status: 'inprogress', priority: 'medium' },
+      { title: 'Analytics review', description: 'Monthly performance analysis', status: 'todo', priority: 'low' },
+    ],
+    'Email Marketing': [
+      { title: 'Email template design', description: 'Design responsive email templates', status: 'done', priority: 'medium' },
+      { title: 'Automation flows', description: 'Set up drip campaigns and automations', status: 'inprogress', priority: 'high' },
+    ],
+    'Web Development': [
+      { title: 'Performance optimization', description: 'Improve page load speed', status: 'inprogress', priority: 'high' },
+      { title: 'Mobile responsiveness', description: 'Ensure site works on all devices', status: 'todo', priority: 'medium' },
+    ],
+    'Content Marketing': [
+      { title: 'Blog content strategy', description: 'Plan and schedule blog posts', status: 'done', priority: 'medium' },
+      { title: 'Content creation', description: 'Write and publish new content', status: 'inprogress', priority: 'medium' },
+    ],
+    'Branding': [
+      { title: 'Brand guidelines', description: 'Document brand standards', status: 'done', priority: 'high' },
+      { title: 'Visual assets', description: 'Create branded visual assets', status: 'inprogress', priority: 'medium' },
+    ],
+  }
+  
+  const tickets = []
+  for (const service of services || ['SEO']) {
+    const serviceTickets = serviceTicketTemplates[service] || []
+    tickets.push(...serviceTickets)
+  }
+  
+  // Limit to 6 tickets max per client and shuffle statuses
+  return tickets.slice(0, 6)
 }
 
 export async function deleteSampleClients() {
