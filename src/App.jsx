@@ -31,6 +31,10 @@ import ActivityFeed from './components/ActivityFeed'
 import Confetti, { useConfetti } from './components/Confetti'
 import EasterEggs from './components/EasterEggs'
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
+import { QuickActionsFAB } from './components/QuickActions'
+import { ShortcutsPanel } from './components/ShortcutsPanel'
+import { NotificationBell } from './components/NotificationCenter'
+import { FocusModeProvider } from './components/FocusMode'
 
 // Protected Route wrapper
 function ProtectedRoute({ children, allowedRoles = ['team', 'admin', 'client'] }) {
@@ -90,6 +94,30 @@ function MainLayout({ children }) {
   const [timerVisible, setTimerVisible] = useState(false)
   const [timerInitialClient, setTimerInitialClient] = useState(null)
   const [timerInitialDescription, setTimerInitialDescription] = useState('')
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      
+      // ? for shortcuts panel
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setShortcutsOpen(true)
+      }
+      
+      // T for timer
+      if (e.key === 't' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setTimerVisible(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Function to open timer with a pre-selected client (called from boards)
   const openTimerWithClient = useCallback((client, description = '') => {
@@ -188,6 +216,20 @@ function MainLayout({ children }) {
         initialClient={timerInitialClient}
         initialDescription={timerInitialDescription}
       />
+
+      {/* Quick Actions FAB - Desktop only */}
+      <QuickActionsFAB
+        onStartTimer={() => setTimerVisible(true)}
+        onNewTicket={() => {}} // Navigate to create ticket
+        onOpenSearch={() => setCommandPaletteOpen(true)}
+        onShowShortcuts={() => setShortcutsOpen(true)}
+      />
+
+      {/* Keyboard Shortcuts Panel */}
+      <ShortcutsPanel
+        isOpen={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
     </div>
   )
 }
@@ -280,6 +322,7 @@ function App() {
       {confetti}
       <EasterEggs />
       {user ? (
+        <FocusModeProvider>
         <GamificationProvider>
           <MainLayout>
             <AnimatePresence mode="wait">
@@ -401,6 +444,7 @@ function App() {
             </AnimatePresence>
           </MainLayout>
         </GamificationProvider>
+        </FocusModeProvider>
       ) : (
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>

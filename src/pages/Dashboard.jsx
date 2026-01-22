@@ -31,6 +31,9 @@ import { Badge } from '../components/ui/badge'
 import { Skeleton, SkeletonStats } from '../components/ui/skeleton'
 import AnimatedCounter, { PercentageCounter, HoursCounter } from '../components/AnimatedCounter'
 import { DonutChart, AreaChart, ProgressList, Sparkline } from '../components/Charts'
+import { SmartInsights } from '../components/SmartInsights'
+import { WeeklyGoals } from '../components/WeeklyGoals'
+import { KudosWidget } from '../components/Kudos'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -511,6 +514,9 @@ export default function Dashboard({ onConfetti }) {
           variants={itemVariants}
           className="space-y-6"
         >
+          {/* Smart Insights */}
+          <SmartInsights />
+
           {/* Utilization Donut */}
           <Card>
             <CardHeader>
@@ -580,6 +586,16 @@ export default function Dashboard({ onConfetti }) {
                 <ChevronRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Button>
             </CardContent>
+          </Card>
+
+          {/* Weekly Goals */}
+          <Card className="p-4">
+            <WeeklyGoals compact />
+          </Card>
+
+          {/* Team Kudos */}
+          <Card className="p-4">
+            <KudosWidget compact />
           </Card>
 
           {/* Recent Tickets */}

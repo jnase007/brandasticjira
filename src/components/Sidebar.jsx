@@ -29,6 +29,7 @@ import { Button } from './ui/button'
 import XPBar from './XPBar'
 import { AchievementMini } from './AchievementShowcase'
 import DailyChallenges from './DailyChallenges'
+import { NotificationBell } from './NotificationCenter'
 
 const LOGO_WHITE = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/BrandasticLogo-White%20(4).png'
 const LOGO_ICON = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png'
@@ -314,6 +315,15 @@ export default function Sidebar({
             <Activity className="h-5 w-5 flex-shrink-0" />
             {!collapsed && <span>Activity</span>}
           </button>
+
+          {/* Notifications */}
+          <div className={cn(
+            "flex items-center gap-3 px-3 py-2.5",
+            collapsed && "justify-center px-0"
+          )}>
+            <NotificationBell />
+            {!collapsed && <span className="text-sm text-muted-foreground">Notifications</span>}
+          </div>
         </div>
       </nav>
 
