@@ -35,6 +35,7 @@ import { SmartInsights } from '../components/SmartInsights'
 import { WeeklyGoals } from '../components/WeeklyGoals'
 import { KudosWidget } from '../components/Kudos'
 import { CelebrationBanner, UpcomingCelebrations } from '../components/Celebrations'
+import { SafeComponent } from '../components/ErrorBoundary'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -198,7 +199,9 @@ export default function Dashboard({ onConfetti }) {
       className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto"
     >
       {/* Celebration Banner - Shows when someone has birthday/anniversary today */}
-      <CelebrationBanner />
+      <SafeComponent>
+        <CelebrationBanner />
+      </SafeComponent>
 
       {/* Header */}
       <motion.div
@@ -519,7 +522,9 @@ export default function Dashboard({ onConfetti }) {
           className="space-y-6"
         >
           {/* Smart Insights */}
-          <SmartInsights />
+          <SafeComponent>
+            <SmartInsights />
+          </SafeComponent>
 
           {/* Utilization Donut */}
           <Card>
@@ -593,17 +598,23 @@ export default function Dashboard({ onConfetti }) {
           </Card>
 
           {/* Weekly Goals */}
-          <Card className="p-4">
-            <WeeklyGoals compact />
-          </Card>
+          <SafeComponent>
+            <Card className="p-4">
+              <WeeklyGoals compact />
+            </Card>
+          </SafeComponent>
 
           {/* Team Kudos */}
-          <Card className="p-4">
-            <KudosWidget compact />
-          </Card>
+          <SafeComponent>
+            <Card className="p-4">
+              <KudosWidget compact />
+            </Card>
+          </SafeComponent>
 
           {/* Upcoming Celebrations */}
-          <UpcomingCelebrations limit={3} />
+          <SafeComponent>
+            <UpcomingCelebrations limit={3} />
+          </SafeComponent>
 
           {/* My Tasks */}
           <Card>

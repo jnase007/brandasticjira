@@ -31,7 +31,7 @@ export function SmartInsights() {
       const insightsList = []
       
       try {
-        // Get user's stats
+        // Get user's stats - use maybeSingle to avoid errors when data doesn't exist
         const [ticketsRes, timeRes, streakRes] = await Promise.all([
           supabase
             .from('tickets')
@@ -47,7 +47,7 @@ export function SmartInsights() {
             .from('user_gamification_stats')
             .select('current_streak, total_xp')
             .eq('user_id', user.id)
-            .single(),
+            .maybeSingle(), // Use maybeSingle to avoid throwing when no row found
         ])
 
         const tickets = ticketsRes.data || []
