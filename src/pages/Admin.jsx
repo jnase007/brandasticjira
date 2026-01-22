@@ -185,53 +185,61 @@ export default function Admin() {
     hoursThisMonth: 0,
   })
 
+  const [fetchError, setFetchError] = useState(null)
+
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
+    setFetchError(null)
+
+    // Add timeout to prevent hanging forever
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+    )
 
     try {
-      // Fetch users/profiles
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
+      // Fetch all data in parallel with timeout
+      const fetchPromise = Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('clients').select('*').order('created_at', { ascending: false }),
+        supabase.from('boards').select('*, client:clients(name)').eq('is_archived', false).order('created_at', { ascending: false }),
+        supabase.from('boards').select('*', { count: 'exact', head: true }),
+        supabase.from('tickets').select('*', { count: 'exact', head: true }),
+      ])
 
-      // Fetch clients
-      const { data: clientsData } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const results = await Promise.race([fetchPromise, timeout])
+      const [profilesRes, clientsRes, boardsRes, boardCountRes, ticketCountRes] = results
 
-      // Fetch boards
-      const { data: boardsData } = await supabase
-        .from('boards')
-        .select('*, client:clients(name)')
-        .eq('is_archived', false)
-        .order('created_at', { ascending: false })
+      // Check for errors in any response
+      if (profilesRes.error) throw profilesRes.error
+      if (clientsRes.error) throw clientsRes.error
+      if (boardsRes.error) throw boardsRes.error
 
-      // Fetch board count
-      const { count: boardCount } = await supabase
-        .from('boards')
-        .select('*', { count: 'exact', head: true })
+      const profilesData = profilesRes.data || []
+      const clientsData = clientsRes.data || []
+      const boardsData = boardsRes.data || []
+      const boardCount = boardCountRes.count || 0
+      const ticketCount = ticketCountRes.count || 0
 
-      // Fetch ticket count
-      const { count: ticketCount } = await supabase
-        .from('tickets')
-        .select('*', { count: 'exact', head: true })
-
-      setUsers(profilesData || [])
-      setClients(clientsData || [])
-      setBoards(boardsData || [])
+      setUsers(profilesData)
+      setClients(clientsData)
+      setBoards(boardsData)
       setStats({
-        totalUsers: profilesData?.length || 0,
-        totalClients: clientsData?.length || 0,
-        totalBoards: boardCount || 0,
-        totalTickets: ticketCount || 0,
-        activeUsers: profilesData?.filter(u => u.role !== 'client').length || 0,
-        hoursThisMonth: clientsData?.reduce((sum, c) => sum + (c.monthly_hours || 0), 0) || 0,
+        totalUsers: profilesData.length,
+        totalClients: clientsData.length,
+        totalBoards: boardCount,
+        totalTickets: ticketCount,
+        activeUsers: profilesData.filter(u => u.role !== 'client').length,
+        hoursThisMonth: clientsData.reduce((sum, c) => sum + (c.monthly_hours || 0), 0),
       })
     } catch (error) {
       console.error('Error fetching admin data:', error)
+      setFetchError(error.message || 'Failed to load data')
+      toast({
+        title: 'Error loading data',
+        description: 'Please try refreshing the page.',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -523,6 +531,30 @@ export default function Admin() {
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state with retry button
+  if (fetchError) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+          <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Failed to Load</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            {fetchError}
+          </p>
+          <div className="flex gap-3">
+            <Button onClick={() => fetchData()} variant="default">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Reload Page
+            </Button>
+          </div>
         </div>
       </div>
     )

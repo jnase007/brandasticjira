@@ -92,18 +92,31 @@ export default function Dashboard({ onConfetti }) {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
+  const [fetchError, setFetchError] = useState(null)
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
+    setFetchError(null)
+    
+    // Add timeout to prevent hanging forever
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+    )
     
     try {
-      const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.all([
+      const fetchPromise = Promise.all([
         getClients(),
         getBoards(),
         getClientHoursSummary(),
         getTickets(),
       ])
+
+      const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.race([fetchPromise, timeout])
+
+      // Check for errors
+      if (clientsRes.error) throw clientsRes.error
+      if (boardsRes.error) throw boardsRes.error
 
       setClients(clientsRes.data || [])
       setBoards(boardsRes.data || [])
@@ -111,6 +124,7 @@ export default function Dashboard({ onConfetti }) {
       setRecentTickets((ticketsRes.data || []).slice(0, 5))
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
+      setFetchError(error.message || 'Failed to load data')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -185,6 +199,32 @@ export default function Dashboard({ onConfetti }) {
               <Skeleton className="h-32 w-32 rounded-full mx-auto mb-4" />
               <Skeleton className="h-4 w-full" />
             </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state with retry button
+  if (fetchError) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+          <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+            <Zap className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Connection Issue</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            {fetchError}
+          </p>
+          <div className="flex gap-3">
+            <Button onClick={() => fetchData()} variant="default">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Reload Page
+            </Button>
           </div>
         </div>
       </div>

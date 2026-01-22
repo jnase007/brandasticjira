@@ -156,18 +156,28 @@ export default function ClientManagement() {
   const [projectFeatured, setProjectFeatured] = useState(false)
   const [projectSaving, setProjectSaving] = useState(false)
 
-  // Fetch data
+  const [fetchError, setFetchError] = useState(null)
+
+  // Fetch data with timeout to prevent hanging
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
+    setFetchError(null)
+
+    // Add timeout to prevent hanging forever
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+    )
 
     try {
       // Fetch clients first - this is the main table we need
-      const clientsRes = await supabase
+      const clientsPromise = supabase
         .from('clients')
         .select('*')
         .eq('is_active', true)
         .order('name')
+      
+      const clientsRes = await Promise.race([clientsPromise, timeout])
       
       if (clientsRes.error) {
         console.error('Clients fetch error:', clientsRes.error)
@@ -185,7 +195,7 @@ export default function ClientManagement() {
 
       // Try to fetch other data, but don't fail if tables don't exist
       try {
-        const [requestsRes, projectsRes, usersRes] = await Promise.all([
+        const optionalDataPromise = Promise.all([
           supabase
             .from('client_requests')
             .select('*, client:clients(name, color), creator:profiles!client_requests_created_by_fkey(full_name)')
@@ -201,6 +211,8 @@ export default function ClientManagement() {
             .eq('role', 'client'),
         ])
 
+        const [requestsRes, projectsRes, usersRes] = await Promise.race([optionalDataPromise, timeout])
+
         setRequests(requestsRes.data || [])
         setProjects(projectsRes.data || [])
         setClientUsers(usersRes.data || [])
@@ -209,6 +221,7 @@ export default function ClientManagement() {
       }
     } catch (error) {
       console.error('Error fetching data:', error)
+      setFetchError(error.message || 'Failed to load data')
     } finally {
       setLoading(false)
       setRefreshing(false)

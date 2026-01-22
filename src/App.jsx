@@ -37,13 +37,31 @@ import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
 import { Badge } from './components/ui/badge'
 import { Loader2 } from 'lucide-react'
 
-// Lightweight page loading spinner for route transitions
+// Lightweight page loading spinner for route transitions with timeout handling
 function PageLoader() {
+  const [showRetry, setShowRetry] = useState(false)
+  
+  useEffect(() => {
+    // Show retry option after 5 seconds of loading
+    const timer = setTimeout(() => setShowRetry(true), 5000)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="text-center">
         <Loader2 className="h-8 w-8 animate-spin text-brand-orange mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground mb-3">Loading...</p>
+        {showRetry && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="text-xs"
+          >
+            Taking too long? Refresh
+          </Button>
+        )}
       </div>
     </div>
   )
