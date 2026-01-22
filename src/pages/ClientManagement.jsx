@@ -781,18 +781,22 @@ export default function ClientManagement() {
                   }
                 }} loading={refreshing} />
               ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredClients.map((client) => {
                   const clientUserCount = clientUsers.filter(u => u.client_id === client.id).length
                   const clientRequestCount = requests.filter(r => r.client_id === client.id).length
                   const clientProjectCount = projects.filter(p => p.client_id === client.id).length
+                  const monthlyRevenue = (client.monthly_hours || 0) * 175
                   
                   return (
-                    <div
+                    <motion.div
                       key={client.id}
-                      className="p-4 rounded-xl border hover:shadow-md transition-all"
+                      variants={itemVariants}
+                      whileHover={{ y: -2 }}
+                      className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card"
                     >
-                      <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center gap-3 mb-3">
                         {client.logo_url ? (
                           <img
                             src={client.logo_url}
@@ -801,35 +805,93 @@ export default function ClientManagement() {
                           />
                         ) : (
                           <div
-                            className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold"
+                            className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
                             style={{ backgroundColor: client.color || '#F7931E' }}
                           >
                             {client.name[0]}
                           </div>
                         )}
-                        <div>
-                          <h3 className="font-semibold">{client.name}</h3>
-                          <p className="text-sm text-muted-foreground">{client.contact_email || 'No email'}</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{client.name}</h3>
+                          {client.account_services && client.account_services.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {client.account_services.slice(0, 2).map((service, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                  {service}
+                                </span>
+                              ))}
+                              {client.account_services.length > 2 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{client.account_services.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="font-bold">{clientUserCount}</p>
-                          <p className="text-xs text-muted-foreground">Users</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="font-bold">{clientRequestCount}</p>
-                          <p className="text-xs text-muted-foreground">Requests</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="font-bold">{clientProjectCount}</p>
-                          <p className="text-xs text-muted-foreground">Projects</p>
+                      
+                      {/* Monthly Stats */}
+                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Monthly</p>
+                            <p className="font-bold text-green-600">${monthlyRevenue.toLocaleString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Hours</p>
+                            <p className="font-bold">{client.monthly_hours || 0}h</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                        <div className="p-1.5 rounded-lg bg-muted/50">
+                          <p className="font-semibold">{clientUserCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Users</p>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-muted/50">
+                          <p className="font-semibold">{clientRequestCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Requests</p>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-muted/50">
+                          <p className="font-semibold">{clientProjectCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Projects</p>
+                        </div>
+                      </div>
+                      
+                      {/* Contact */}
+                      {client.contact_email && (
+                        <p className="text-xs text-muted-foreground mt-3 truncate">
+                          📧 {client.contact_email}
+                        </p>
+                      )}
+                    </motion.div>
                   )
                 })}
               </div>
+              
+              {/* Summary Footer */}
+              <div className="mt-6 p-4 rounded-xl bg-muted/50 border">
+                <div className="flex flex-wrap gap-6 justify-center text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-brand-orange">{clients.length}</p>
+                    <p className="text-sm text-muted-foreground">Active Clients</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-600">
+                      ${clients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * 175), 0).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Monthly Revenue</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {clients.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)}h
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Hours/Month</p>
+                  </div>
+                </div>
+              </div>
+              </>
               )}
             </CardContent>
           </Card>
