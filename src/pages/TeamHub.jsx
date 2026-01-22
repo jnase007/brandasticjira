@@ -150,6 +150,34 @@ export default function TeamHub() {
   const [editingRate, setEditingRate] = useState(null)
   const [rateValue, setRateValue] = useState('')
   const [savingRate, setSavingRate] = useState(false)
+  
+  // Overhead settings - stored in localStorage for now, could be in DB
+  const [monthlyOverhead, setMonthlyOverhead] = useState(() => {
+    const saved = localStorage.getItem('company_monthly_overhead')
+    return saved ? parseFloat(saved) : 37000
+  })
+  const [targetBillableHours, setTargetBillableHours] = useState(() => {
+    const saved = localStorage.getItem('company_target_billable_hours')
+    return saved ? parseFloat(saved) : 745 // Total monthly hours from all clients
+  })
+  const [editingOverhead, setEditingOverhead] = useState(false)
+  
+  // Calculate overhead per hour
+  const overheadPerHour = targetBillableHours > 0 ? monthlyOverhead / targetBillableHours : 0
+  
+  // Save overhead settings
+  const saveOverheadSettings = (overhead, hours) => {
+    localStorage.setItem('company_monthly_overhead', String(overhead))
+    localStorage.setItem('company_target_billable_hours', String(hours))
+    setMonthlyOverhead(overhead)
+    setTargetBillableHours(hours)
+    setEditingOverhead(false)
+    toast({
+      title: '✅ Overhead settings saved',
+      description: `$${overhead.toLocaleString()}/month ÷ ${hours}hrs = $${(overhead/hours).toFixed(2)}/hr overhead`,
+      variant: 'success',
+    })
+  }
 
   // Fetch all data
   const fetchData = async (showRefresh = false) => {
@@ -639,20 +667,126 @@ export default function TeamHub() {
         {isActualAdmin && (
           <TabsContent value="rates">
             <motion.div variants={itemVariants} className="space-y-6">
+              {/* Overhead Settings Card */}
+              <Card className="border-brand-orange/30 bg-gradient-to-r from-brand-orange/5 to-transparent">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-brand-orange" />
+                        Company Overhead Settings
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Overhead is distributed across billable hours to calculate true project costs
+                      </p>
+                    </div>
+                    {!editingOverhead && (
+                      <Button variant="outline" size="sm" onClick={() => setEditingOverhead(true)}>
+                        <Edit2 className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {editingOverhead ? (
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label>Monthly Overhead</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            defaultValue={monthlyOverhead}
+                            id="overhead-input"
+                            className="pl-7"
+                            placeholder="37000"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Rent, utilities, software, insurance, etc.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Target Billable Hours/Month</Label>
+                        <Input
+                          type="number"
+                          defaultValue={targetBillableHours}
+                          id="hours-input"
+                          placeholder="745"
+                        />
+                        <p className="text-xs text-muted-foreground">Total hours across all clients</p>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <Button
+                          onClick={() => {
+                            const overhead = parseFloat(document.getElementById('overhead-input').value) || 37000
+                            const hours = parseFloat(document.getElementById('hours-input').value) || 745
+                            saveOverheadSettings(overhead, hours)
+                          }}
+                        >
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
+                        </Button>
+                        <Button variant="outline" onClick={() => setEditingOverhead(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 md:grid-cols-4">
+                      <div className="text-center p-4 rounded-xl bg-background border">
+                        <p className="text-2xl font-bold text-brand-orange">${monthlyOverhead.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Monthly Overhead</p>
+                      </div>
+                      <div className="text-center p-4 rounded-xl bg-background border">
+                        <p className="text-2xl font-bold text-brand-blue">{targetBillableHours}hrs</p>
+                        <p className="text-xs text-muted-foreground mt-1">Target Billable Hours</p>
+                      </div>
+                      <div className="text-center p-4 rounded-xl bg-background border">
+                        <p className="text-2xl font-bold text-brand-purple">${overheadPerHour.toFixed(2)}/hr</p>
+                        <p className="text-xs text-muted-foreground mt-1">Overhead Per Hour</p>
+                      </div>
+                      <div className="text-center p-4 rounded-xl bg-background border">
+                        <p className="text-2xl font-bold text-green-500">
+                          ${(175 - overheadPerHour - (teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / (teamMembers.length || 1))).toFixed(0)}/hr
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">Avg Net Profit/Hr</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Summary Cards */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5">
+              <div className="grid gap-4 md:grid-cols-4">
+                <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Avg. Cost Rate</p>
+                        <p className="text-sm text-muted-foreground">Avg. Labor Cost</p>
                         <p className="text-3xl font-bold mt-1">
                           ${teamMembers.length > 0 
                             ? Math.round(teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length)
                             : 0}/hr
                         </p>
                       </div>
-                      <DollarSign className="h-8 w-8 text-green-500/50" />
+                      <User className="h-8 w-8 text-blue-500/50" />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/5">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Fully Loaded Cost</p>
+                        <p className="text-3xl font-bold mt-1">
+                          ${teamMembers.length > 0 
+                            ? Math.round((teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) + overheadPerHour)
+                            : 0}/hr
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">Labor + Overhead</p>
+                      </div>
+                      <Building2 className="h-8 w-8 text-purple-500/50" />
                     </div>
                   </CardContent>
                 </Card>
@@ -669,18 +803,19 @@ export default function TeamHub() {
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-gradient-to-br from-brand-purple/10 to-purple-500/5">
+                <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Avg. Margin</p>
+                        <p className="text-sm text-muted-foreground">True Net Margin</p>
                         <p className="text-3xl font-bold mt-1">
                           {teamMembers.length > 0 
-                            ? Math.round((1 - (teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) / 175) * 100)
-                            : 71}%
+                            ? Math.round((1 - ((teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) + overheadPerHour) / 175) * 100)
+                            : 0}%
                         </p>
+                        <p className="text-xs text-muted-foreground mt-1">After overhead</p>
                       </div>
-                      <Percent className="h-8 w-8 text-brand-purple/50" />
+                      <Percent className="h-8 w-8 text-green-500/50" />
                     </div>
                   </CardContent>
                 </Card>
@@ -694,33 +829,54 @@ export default function TeamHub() {
                     Employee Hourly Rates
                   </CardTitle>
                   <p className="text-muted-foreground">
-                    Set the cost rate for each team member to calculate project profitability
+                    Set the labor cost for each team member. Overhead (${overheadPerHour.toFixed(2)}/hr) is added automatically.
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-xl border overflow-hidden">
+                  <div className="rounded-xl border overflow-hidden overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="text-left py-3 px-4 font-medium">Employee</th>
                           <th className="text-left py-3 px-4 font-medium">Job Title</th>
-                          <th className="text-center py-3 px-4 font-medium">Cost Rate</th>
-                          <th className="text-center py-3 px-4 font-medium">Margin vs $175/hr</th>
+                          <th className="text-center py-3 px-4 font-medium">
+                            <div>Labor Cost</div>
+                            <div className="text-xs font-normal text-muted-foreground">Direct</div>
+                          </th>
+                          <th className="text-center py-3 px-4 font-medium">
+                            <div>+ Overhead</div>
+                            <div className="text-xs font-normal text-muted-foreground">${overheadPerHour.toFixed(2)}/hr</div>
+                          </th>
+                          <th className="text-center py-3 px-4 font-medium bg-brand-purple/10">
+                            <div>Fully Loaded</div>
+                            <div className="text-xs font-normal text-muted-foreground">True Cost</div>
+                          </th>
+                          <th className="text-center py-3 px-4 font-medium">
+                            <div>Gross Margin</div>
+                            <div className="text-xs font-normal text-muted-foreground">Labor only</div>
+                          </th>
+                          <th className="text-center py-3 px-4 font-medium bg-green-500/10">
+                            <div>Net Margin</div>
+                            <div className="text-xs font-normal text-muted-foreground">With overhead</div>
+                          </th>
                           <th className="text-right py-3 px-4 font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {teamMembers.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                            <td colSpan={8} className="text-center py-12 text-muted-foreground">
                               No team members found
                             </td>
                           </tr>
                         ) : (
                           teamMembers.map((member) => {
-                            const costRate = member.cost_rate || 50
+                            const laborCost = member.cost_rate || 50
+                            const fullyLoadedCost = laborCost + overheadPerHour
                             const billingRate = 175
-                            const margin = Math.round((1 - costRate / billingRate) * 100)
+                            const grossMargin = Math.round((1 - laborCost / billingRate) * 100)
+                            const netMargin = Math.round((1 - fullyLoadedCost / billingRate) * 100)
+                            const profitPerHour = billingRate - fullyLoadedCost
                             const isEditing = editingRate === member.id
                             
                             return (
@@ -744,13 +900,13 @@ export default function TeamHub() {
                                 </td>
                                 <td className="py-3 px-4 text-center">
                                   {isEditing ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                      <span className="text-muted-foreground">$</span>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <span className="text-muted-foreground text-sm">$</span>
                                       <Input
                                         type="number"
                                         value={rateValue}
                                         onChange={(e) => setRateValue(e.target.value)}
-                                        className="w-20 h-8 text-center"
+                                        className="w-16 h-8 text-center text-sm"
                                         autoFocus
                                         onKeyDown={(e) => {
                                           if (e.key === 'Enter') {
@@ -761,22 +917,33 @@ export default function TeamHub() {
                                           }
                                         }}
                                       />
-                                      <span className="text-muted-foreground">/hr</span>
                                     </div>
                                   ) : (
-                                    <span className="font-medium">${costRate}/hr</span>
+                                    <span className="font-medium">${laborCost}</span>
                                   )}
                                 </td>
+                                <td className="py-3 px-4 text-center text-muted-foreground">
+                                  +${overheadPerHour.toFixed(2)}
+                                </td>
+                                <td className="py-3 px-4 text-center bg-brand-purple/5">
+                                  <span className="font-bold text-brand-purple">${fullyLoadedCost.toFixed(2)}</span>
+                                </td>
                                 <td className="py-3 px-4 text-center">
+                                  <span className="text-muted-foreground">{grossMargin}%</span>
+                                </td>
+                                <td className="py-3 px-4 text-center bg-green-500/5">
                                   <Badge 
-                                    variant={margin >= 70 ? 'default' : margin >= 50 ? 'secondary' : 'destructive'}
+                                    variant={netMargin >= 50 ? 'default' : netMargin >= 30 ? 'secondary' : 'destructive'}
                                     className={cn(
-                                      margin >= 70 && 'bg-green-500 text-white',
-                                      margin >= 50 && margin < 70 && 'bg-yellow-500 text-white'
+                                      netMargin >= 50 && 'bg-green-500 text-white',
+                                      netMargin >= 30 && netMargin < 50 && 'bg-yellow-500 text-white'
                                     )}
                                   >
-                                    {margin}% margin
+                                    {netMargin}%
                                   </Badge>
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    ${profitPerHour.toFixed(0)}/hr profit
+                                  </div>
                                 </td>
                                 <td className="py-3 px-4 text-right">
                                   {isEditing ? (
@@ -809,7 +976,7 @@ export default function TeamHub() {
                                       variant="outline"
                                       onClick={() => {
                                         setEditingRate(member.id)
-                                        setRateValue(String(costRate))
+                                        setRateValue(String(laborCost))
                                       }}
                                     >
                                       <Edit2 className="h-4 w-4 mr-1" />
@@ -822,6 +989,36 @@ export default function TeamHub() {
                           })
                         )}
                       </tbody>
+                      {/* Totals Row */}
+                      {teamMembers.length > 0 && (
+                        <tfoot className="bg-muted/30 font-medium">
+                          <tr className="border-t-2">
+                            <td colSpan={2} className="py-3 px-4">
+                              <strong>Team Average</strong>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              ${Math.round(teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length)}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              +${overheadPerHour.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-center bg-brand-purple/5">
+                              <strong className="text-brand-purple">
+                                ${((teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) + overheadPerHour).toFixed(2)}
+                              </strong>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              {Math.round((1 - (teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) / 175) * 100)}%
+                            </td>
+                            <td className="py-3 px-4 text-center bg-green-500/5">
+                              <strong className="text-green-600">
+                                {Math.round((1 - ((teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) + overheadPerHour) / 175) * 100)}%
+                              </strong>
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
                   </div>
                   
@@ -831,12 +1028,25 @@ export default function TeamHub() {
                       <Sparkles className="h-4 w-4 text-brand-orange" />
                       How Profitability is Calculated
                     </h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• <strong>Revenue</strong> = Billable hours × Client billing rate ($175/hr)</li>
-                      <li>• <strong>Cost</strong> = All hours × Employee cost rate (set above)</li>
-                      <li>• <strong>Profit</strong> = Revenue - Cost</li>
-                      <li>• <strong>Margin</strong> = (Billing rate - Cost rate) / Billing rate × 100%</li>
-                    </ul>
+                    <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                      <div>
+                        <p className="font-medium text-foreground mb-1">Per Hour Breakdown:</p>
+                        <ul className="space-y-1">
+                          <li>• <strong>Revenue:</strong> $175/hr (client billing)</li>
+                          <li>• <strong>Labor Cost:</strong> Employee's hourly cost</li>
+                          <li>• <strong>Overhead:</strong> ${overheadPerHour.toFixed(2)}/hr (${monthlyOverhead.toLocaleString()} ÷ {targetBillableHours}hrs)</li>
+                          <li>• <strong>Fully Loaded:</strong> Labor + Overhead</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground mb-1">Margin Calculations:</p>
+                        <ul className="space-y-1">
+                          <li>• <strong>Gross Margin:</strong> ($175 - Labor) ÷ $175</li>
+                          <li>• <strong>Net Margin:</strong> ($175 - Fully Loaded) ÷ $175</li>
+                          <li>• <strong>Profit/Hr:</strong> $175 - Fully Loaded Cost</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
