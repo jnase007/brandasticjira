@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, Bell, Shield, Palette, Save, Upload, Camera, Check, 
   Sparkles, Mail, Clock, Calendar, Trophy, X, Loader2,
-  Sun, Moon, Monitor
+  Sun, Moon, Monitor, Zap, RefreshCw
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
@@ -46,6 +46,12 @@ export default function Settings() {
   // Theme state
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'system'
+  })
+
+  // Autosave state
+  const [autosaveEnabled, setAutosaveEnabled] = useState(() => {
+    const stored = localStorage.getItem('autosave_enabled')
+    return stored === null ? true : stored === 'true'
   })
 
   // Show welcome toast when profile is synced from Google
@@ -639,6 +645,62 @@ export default function Settings() {
                         : theme === 'dark' 
                           ? '🌙 Dark mode is easier on the eyes' 
                           : '☀️ Light mode for bright workspaces'}
+                    </p>
+                  </div>
+
+                  {/* Autosave Toggle */}
+                  <div className="pt-4 border-t">
+                    <Label className="mb-3 block">Autosave</Label>
+                    <div className="flex items-center justify-between p-4 rounded-xl border">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          autosaveEnabled ? "bg-green-500/10" : "bg-muted"
+                        )}>
+                          <RefreshCw className={cn(
+                            "h-5 w-5",
+                            autosaveEnabled ? "text-green-500" : "text-muted-foreground"
+                          )} />
+                        </div>
+                        <div>
+                          <p className="font-medium">Auto-save changes</p>
+                          <p className="text-sm text-muted-foreground">
+                            Automatically save your work as you type
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={autosaveEnabled}
+                        onClick={() => {
+                          const newValue = !autosaveEnabled
+                          setAutosaveEnabled(newValue)
+                          localStorage.setItem('autosave_enabled', String(newValue))
+                          toast({
+                            title: newValue ? '🔄 Autosave enabled' : '⏸️ Autosave disabled',
+                            description: newValue 
+                              ? 'Your changes will be saved automatically' 
+                              : 'Remember to save your changes manually',
+                          })
+                        }}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2",
+                          autosaveEnabled ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                            autosaveEnabled ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {autosaveEnabled 
+                        ? '✓ Changes save automatically after 1.5 seconds of inactivity' 
+                        : '⚠️ Don\'t forget to manually save your work'}
                     </p>
                   </div>
 

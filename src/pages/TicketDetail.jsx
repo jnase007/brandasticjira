@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
   Edit,
@@ -17,6 +17,9 @@ import {
   Calendar,
   User,
   Tag,
+  Check,
+  Loader2,
+  Save,
 } from 'lucide-react'
 import {
   getTicket,
@@ -69,6 +72,8 @@ import {
 } from '../components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useToast } from '../hooks/useToast'
+import { useAutosave } from '../hooks/useAutosave'
+import { FileUpload, InlineFileUpload } from '../components/FileUpload'
 
 export default function TicketDetail() {
   const { ticketId } = useParams()
@@ -87,6 +92,37 @@ export default function TicketDetail() {
   const [newComment, setNewComment] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [showAttachments, setShowAttachments] = useState(false)
+
+  // Autosave function
+  const autosaveFn = useCallback(async (data) => {
+    if (!ticketId || !editMode) return
+    
+    await updateTicket(ticketId, {
+      title: data.title,
+      description: data.description,
+      status: data.status,
+      priority: data.priority,
+      assigned_to: data.assigned_to || null,
+      due_date: data.due_date || null,
+      estimated_hours: data.estimated_hours || null,
+      tags: data.tags || [],
+    })
+    
+    setTicket((prev) => ({ ...prev, ...data }))
+  }, [ticketId, editMode])
+
+  // Use autosave hook
+  const { 
+    isSaving: isAutosaving, 
+    hasUnsavedChanges, 
+    isEnabled: autosaveEnabled,
+    saveNow: manualSave,
+  } = useAutosave(autosaveFn, editedTicket, {
+    delay: 1500,
+    saveMessage: 'Ticket saved',
+    showToast: true,
+  })
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -325,12 +361,47 @@ export default function TicketDetail() {
         <div className="flex items-center gap-2">
           {editMode ? (
             <>
-              <Button variant="outline" onClick={() => setEditMode(false)}>
+              {/* Autosave indicator */}
+              <AnimatePresence>
+                {autosaveEnabled && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-2 text-sm text-muted-foreground mr-2"
+                  >
+                    {isAutosaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
+                        <span>Saving...</span>
+                      </>
+                    ) : hasUnsavedChanges ? (
+                      <>
+                        <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                        <span>Unsaved</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 text-green-500" />
+                        <span className="text-green-500">Saved</span>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              <Button variant="outline" onClick={() => {
+                setEditMode(false)
+                setEditedTicket(ticket)
+              }}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save'}
-              </Button>
+              {!autosaveEnabled && (
+                <Button onClick={handleSave} disabled={saving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+              )}
             </>
           ) : (
             <>
@@ -579,79 +650,45 @@ export default function TicketDetail() {
               </TabsContent>
 
               <TabsContent value="attachments" className="mt-4">
-                {/* Upload Button */}
-                <div className="mb-4">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      disabled={uploadingFile}
-                    />
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 hover:bg-muted/50 transition-colors">
-                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm font-medium">
-                        {uploadingFile ? 'Uploading...' : 'Click to upload files'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        or drag and drop
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Attachments List */}
-                <div className="space-y-2">
-                  {(!ticket.attachments || ticket.attachments.length === 0) ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No attachments yet
-                    </p>
-                  ) : (
-                    ticket.attachments.map((attachment, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-card group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-muted">
-                            {attachment.type?.startsWith('image/') ? (
-                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                            ) : (
-                              <File className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium truncate max-w-[200px]">
-                              {attachment.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatFileSize(attachment.size)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            asChild
-                          >
-                            <a href={attachment.url} download target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleRemoveAttachment(attachment)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <FileUpload
+                  bucket="documents"
+                  folder={`tickets/${ticketId}`}
+                  accept="all"
+                  multiple={true}
+                  maxFiles={20}
+                  existingFiles={(ticket.attachments || []).map((a, i) => ({
+                    id: a.path || `existing-${i}`,
+                    name: a.name,
+                    size: a.size,
+                    type: a.type,
+                    url: a.url,
+                    path: a.path,
+                  }))}
+                  onUpload={async (file) => {
+                    // Add to ticket attachments
+                    const updatedAttachments = [
+                      ...(ticket.attachments || []),
+                      {
+                        name: file.name,
+                        url: file.url,
+                        type: file.type,
+                        size: file.size,
+                        path: file.path,
+                        uploadedAt: file.uploadedAt,
+                      },
+                    ]
+                    await updateTicket(ticketId, { attachments: updatedAttachments })
+                    setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+                  }}
+                  onRemove={async (file) => {
+                    // Remove from ticket attachments
+                    const updatedAttachments = (ticket.attachments || []).filter(
+                      (a) => a.path !== file.path && a.url !== file.url
+                    )
+                    await updateTicket(ticketId, { attachments: updatedAttachments })
+                    setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+                  }}
+                />
               </TabsContent>
             </Tabs>
           </motion.div>
