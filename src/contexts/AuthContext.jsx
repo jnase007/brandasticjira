@@ -230,17 +230,37 @@ export function AuthProvider({ children }) {
   const updateUserProfile = async (updates) => {
     if (!user) return { error: new Error('Not authenticated') }
     
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single()
+    try {
+      // Filter out undefined values
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, v]) => v !== undefined)
+      )
+      
+      if (Object.keys(cleanUpdates).length === 0) {
+        return { data: profile, error: null }
+      }
 
-    if (data) {
-      setProfile(data)
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(cleanUpdates)
+        .eq('id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Profile update error:', error)
+        return { data: null, error }
+      }
+
+      if (data) {
+        setProfile(data)
+      }
+      
+      return { data, error: null }
+    } catch (err) {
+      console.error('Profile update exception:', err)
+      return { data: null, error: err }
     }
-    return { data, error }
   }
 
   // Upload avatar

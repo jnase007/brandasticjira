@@ -138,26 +138,71 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     setSaving(true)
     try {
-      const { error } = await updateUserProfile({ 
-        full_name: fullName,
-        tagline: tagline,
-        birthday: birthday || null,
-        work_start_date: workStartDate || null,
-        show_birthday: showBirthday,
-      })
-      if (error) throw error
+      // Build update object with only changed/valid fields
+      const updates = {}
+      
+      if (fullName && fullName !== profile?.full_name) {
+        updates.full_name = fullName
+      }
+      
+      // Only include optional fields if they have values or are being cleared
+      if (tagline !== undefined) {
+        updates.tagline = tagline || null
+      }
+      
+      if (birthday !== undefined) {
+        updates.birthday = birthday || null
+      }
+      
+      if (workStartDate !== undefined) {
+        updates.work_start_date = workStartDate || null
+      }
+      
+      if (showBirthday !== undefined) {
+        updates.show_birthday = showBirthday
+      }
+
+      // If nothing to update
+      if (Object.keys(updates).length === 0) {
+        toast({
+          title: 'No changes',
+          description: 'Nothing to save.',
+        })
+        setSaving(false)
+        return
+      }
+
+      const { error } = await updateUserProfile(updates)
+      
+      if (error) {
+        console.error('Profile update error:', error)
+        throw error
+      }
 
       toast({
-        title: '✅ Profile updated',
+        title: '✅ Profile updated!',
         description: 'Your changes have been saved successfully.',
         variant: 'success',
       })
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update profile.',
-        variant: 'destructive',
-      })
+      console.error('Save profile error:', error)
+      
+      // Check if it's a column not found error
+      const errorMessage = error?.message || 'Unknown error'
+      
+      if (errorMessage.includes('column') || errorMessage.includes('undefined')) {
+        toast({
+          title: '⚠️ Database needs update',
+          description: 'Run supabase/profiles-update.sql to add new columns.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: '❌ Failed to save',
+          description: errorMessage,
+          variant: 'destructive',
+        })
+      }
     } finally {
       setSaving(false)
     }

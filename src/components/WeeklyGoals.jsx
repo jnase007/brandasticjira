@@ -90,10 +90,22 @@ export function WeeklyGoals({ compact = false }) {
         description: 'Crush it this week!',
       })
     } catch (error) {
-      toast({
-        title: 'Failed to add goal',
-        variant: 'destructive',
-      })
+      console.error('Goal error:', error)
+      const errorMessage = error?.message || 'Unknown error'
+      
+      if (errorMessage.includes('does not exist') || errorMessage.includes('relation')) {
+        toast({
+          title: '⚠️ Setup needed',
+          description: 'Run supabase/all-features-setup.sql first',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: '❌ Failed to add goal',
+          description: errorMessage,
+          variant: 'destructive',
+        })
+      }
     } finally {
       setAdding(false)
     }

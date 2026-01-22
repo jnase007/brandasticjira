@@ -103,10 +103,22 @@ export function KudosWidget({ compact = false }) {
       setSelectedType(null)
       setMessage('')
     } catch (error) {
-      toast({
-        title: 'Failed to send kudos',
-        variant: 'destructive',
-      })
+      console.error('Kudos error:', error)
+      const errorMessage = error?.message || 'Unknown error'
+      
+      if (errorMessage.includes('does not exist') || errorMessage.includes('relation')) {
+        toast({
+          title: '⚠️ Setup needed',
+          description: 'Run supabase/all-features-setup.sql first',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: '❌ Failed to send kudos',
+          description: errorMessage,
+          variant: 'destructive',
+        })
+      }
     } finally {
       setSending(false)
     }

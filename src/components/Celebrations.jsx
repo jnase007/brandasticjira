@@ -55,11 +55,16 @@ export function CelebrationBanner() {
       const dismissedList = JSON.parse(localStorage.getItem(dismissedKey) || '[]')
       setDismissed(dismissedList)
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('upcoming_celebrations')
         .select('*')
         .or('is_birthday_today.eq.true,is_anniversary_today.eq.true')
 
+      if (error) {
+        console.log('Celebrations view not ready:', error.message)
+        // View might not exist yet, that's okay
+      }
+      
       setCelebrations(data || [])
       setLoading(false)
 
