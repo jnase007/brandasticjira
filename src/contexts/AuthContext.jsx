@@ -342,9 +342,37 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
+  // Admin emails that should always have admin access
+  const ADMIN_EMAILS = [
+    'justin@brandastic.com',
+    'admin@brandastic.com',
+  ]
+
   // Actual role from database
   const actualRole = profile?.role
-  const isActualAdmin = actualRole === 'admin'
+  const userEmail = user?.email?.toLowerCase() || profile?.email?.toLowerCase()
+  
+  // Check if user is admin by role OR by email whitelist
+  const isEmailAdmin = ADMIN_EMAILS.includes(userEmail)
+  const isActualAdmin = actualRole === 'admin' || isEmailAdmin
+  
+  // Auto-update database if email is in admin list but role isn't set
+  useEffect(() => {
+    const autoSetAdmin = async () => {
+      if (user && profile && isEmailAdmin && actualRole !== 'admin') {
+        console.log('Auto-setting admin role for:', userEmail)
+        await supabase
+          .from('profiles')
+          .update({ role: 'admin' })
+          .eq('id', user.id)
+        
+        // Refresh profile to get updated role
+        const { data } = await getProfile(user.id)
+        if (data) setProfile(data)
+      }
+    }
+    autoSetAdmin()
+  }, [user, profile, isEmailAdmin, actualRole])
   
   // Effective role (considering view mode toggle)
   const effectiveIsAdmin = isActualAdmin && viewMode !== 'team'
