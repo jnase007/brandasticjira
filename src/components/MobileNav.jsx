@@ -241,7 +241,8 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
                   onClick={async () => {
                     setShowMore(false)
                     await signOut()
-                    navigate('/login')
+                    // Use hard redirect to ensure all cached state is cleared
+                    window.location.href = '/login'
                   }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors w-full"
                 >

@@ -65,7 +65,8 @@ export default function Sidebar({
 
   const handleSignOut = async () => {
     await signOut()
-    navigate('/login')
+    // Use hard redirect to ensure all cached state is cleared
+    window.location.href = '/login'
   }
 
   return (

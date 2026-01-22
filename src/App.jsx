@@ -226,7 +226,8 @@ function MainLayout({ children }) {
 
   const handleSignOut = async () => {
     await signOut()
-    navigate('/login')
+    // Use hard redirect to ensure all cached state is cleared
+    window.location.href = '/login'
   }
 
   // Lazy load ClientPortal for preview mode

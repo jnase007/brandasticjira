@@ -243,23 +243,42 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
-  // Sign out
+  // Sign out - completely clear all auth state
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      // Always clear state, even if there's an error
+      // Clear React state first
       setUser(null)
       setProfile(null)
-      // Clear any cached data
+      
+      // Call Supabase signOut
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
+      
+      // Clear ALL cached data - be thorough
       localStorage.removeItem('viewMode')
       sessionStorage.removeItem('sb-session-cache')
+      
+      // Clear any Supabase auth tokens from localStorage
+      // These keys follow the pattern: sb-{project-ref}-auth-token
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.includes('-auth-')) {
+          localStorage.removeItem(key)
+        }
+      })
+      
+      // Clear sessionStorage too
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('sb-')) {
+          sessionStorage.removeItem(key)
+        }
+      })
+      
       return { error }
     } catch (err) {
       console.error('Sign out error:', err)
       // Still clear state on error
       setUser(null)
       setProfile(null)
-      sessionStorage.removeItem('sb-session-cache')
+      sessionStorage.clear()
       return { error: err }
     }
   }
