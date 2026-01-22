@@ -226,7 +226,7 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
-  // Update profile
+  // Update profile - uses upsert to create if doesn't exist
   const updateUserProfile = async (updates) => {
     if (!user) return { error: new Error('Not authenticated') }
     
@@ -240,23 +240,49 @@ export function AuthProvider({ children }) {
         return { data: profile, error: null }
       }
 
-      const { data, error } = await supabase
+      // First try to update
+      const { data: updateData, error: updateError } = await supabase
         .from('profiles')
         .update(cleanUpdates)
         .eq('id', user.id)
         .select()
-        .single()
 
-      if (error) {
-        console.error('Profile update error:', error)
-        return { data: null, error }
+      // If update returned data, use it
+      if (updateData && updateData.length > 0) {
+        setProfile(updateData[0])
+        return { data: updateData[0], error: null }
       }
 
-      if (data) {
-        setProfile(data)
+      // If no rows updated (profile doesn't exist), try upsert
+      if (!updateData || updateData.length === 0) {
+        console.log('Profile not found, creating with upsert...')
+        const { data: upsertData, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            email: user.email,
+            ...cleanUpdates,
+            updated_at: new Date().toISOString()
+          })
+          .select()
+
+        if (upsertError) {
+          console.error('Profile upsert error:', upsertError)
+          return { data: null, error: upsertError }
+        }
+
+        if (upsertData && upsertData.length > 0) {
+          setProfile(upsertData[0])
+          return { data: upsertData[0], error: null }
+        }
+      }
+
+      if (updateError) {
+        console.error('Profile update error:', updateError)
+        return { data: null, error: updateError }
       }
       
-      return { data, error: null }
+      return { data: profile, error: null }
     } catch (err) {
       console.error('Profile update exception:', err)
       return { data: null, error: err }
