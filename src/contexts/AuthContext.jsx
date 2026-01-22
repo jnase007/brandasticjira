@@ -28,16 +28,32 @@ export function AuthProvider({ children }) {
   })
 
   useEffect(() => {
-    // Safety timeout - if loading takes too long, stop it
+    // Fast timeout - if loading takes too long, stop it and let user proceed
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth loading timeout - forcing complete')
       setLoading(false)
-    }, 5000) // 5 second max wait (reduced from 10)
+    }, 2500) // 2.5 second max wait - faster!
 
-    // Get initial session
+    // Get initial session with optimizations
     const initAuth = async () => {
       try {
-        console.log('Initializing auth...')
+        // Check for cached session first (faster)
+        const cachedSession = sessionStorage.getItem('sb-session-cache')
+        if (cachedSession) {
+          try {
+            const parsed = JSON.parse(cachedSession)
+            if (parsed?.user && Date.now() - parsed.cached_at < 60000) {
+              // Use cached user immediately while we verify
+              setUser(parsed.user)
+              setProfile(parsed.profile)
+              setLoading(false)
+              clearTimeout(safetyTimeout)
+            }
+          } catch (e) {
+            // Ignore cache parse errors
+          }
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
@@ -48,24 +64,27 @@ export function AuthProvider({ children }) {
           return
         }
         
-        console.log('Session:', session ? 'Found' : 'None')
-        
         if (session?.user) {
           setUser(session.user)
-          // Fetch user profile - don't let this block loading
-          try {
-            const { data: profileData } = await getProfile(session.user.id)
-            setProfile(profileData)
-          } catch (profileError) {
-            console.error('Profile fetch error:', profileError)
-            // Continue without profile - don't block
-          }
+          // Fetch user profile in parallel, don't block
+          getProfile(session.user.id).then(({ data: profileData }) => {
+            if (profileData) {
+              setProfile(profileData)
+              // Cache for faster subsequent loads
+              sessionStorage.setItem('sb-session-cache', JSON.stringify({
+                user: session.user,
+                profile: profileData,
+                cached_at: Date.now()
+              }))
+            }
+          }).catch(() => {
+            // Ignore profile errors - non-blocking
+          })
         }
       } catch (error) {
         console.error('Auth init error:', error)
         setAuthError(error.message)
       } finally {
-        console.log('Auth init complete')
         setLoading(false)
         clearTimeout(safetyTimeout)
       }
@@ -233,12 +252,14 @@ export function AuthProvider({ children }) {
       setProfile(null)
       // Clear any cached data
       localStorage.removeItem('viewMode')
+      sessionStorage.removeItem('sb-session-cache')
       return { error }
     } catch (err) {
       console.error('Sign out error:', err)
       // Still clear state on error
       setUser(null)
       setProfile(null)
+      sessionStorage.removeItem('sb-session-cache')
       return { error: err }
     }
   }
