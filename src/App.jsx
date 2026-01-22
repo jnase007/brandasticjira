@@ -33,6 +33,17 @@ import ActivityFeed from './components/ActivityFeed'
 import Confetti, { useConfetti } from './components/Confetti'
 import EasterEggs from './components/EasterEggs'
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
+import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
+import { Badge } from './components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './components/ui/dropdown-menu'
+import { User, Settings as SettingsIcon, LogOut, ChevronDown } from 'lucide-react'
 import { QuickActionsFAB } from './components/QuickActions'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import { NotificationBell } from './components/NotificationCenter'
@@ -90,6 +101,8 @@ function AdminRoute({ children }) {
 
 // Main Layout with Sidebar
 function MainLayout({ children }) {
+  const { user, profile, signOut, isActualAdmin } = useAuth()
+  const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
@@ -151,6 +164,11 @@ function MainLayout({ children }) {
     }
   }, [])
 
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login')
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop Sidebar - hidden on mobile */}
@@ -162,6 +180,59 @@ function MainLayout({ children }) {
           onOpenActivity={() => setActivityOpen(true)}
           onOpenTimer={() => setTimerVisible(true)}
         />
+      </div>
+
+      {/* Desktop User Profile - Top Right */}
+      <div className="hidden lg:block fixed top-4 right-6 z-40">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 px-3 py-2 rounded-xl bg-background/80 backdrop-blur-sm border shadow-sm hover:shadow-md transition-all">
+              <Avatar className="h-9 w-9 border-2 border-brand-orange/20">
+                <AvatarImage src={profile?.avatar_url} />
+                <AvatarFallback className="bg-brand-orange text-white text-sm font-medium">
+                  {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-left hidden xl:block">
+                <p className="text-sm font-medium leading-none">
+                  {profile?.full_name || 'User'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                  {isActualAdmin ? (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-brand-orange text-brand-orange">
+                      Admin
+                    </Badge>
+                  ) : (
+                    <span className="capitalize">{profile?.role || 'Team'}</span>
+                  )}
+                </p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground hidden xl:block" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <span>{profile?.full_name || 'User'}</span>
+                <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <User className="h-4 w-4 mr-2" />
+              My Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <SettingsIcon className="h-4 w-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Mobile Header */}
