@@ -34,6 +34,7 @@ import { DonutChart, AreaChart, ProgressList, Sparkline } from '../components/Ch
 import { SmartInsights } from '../components/SmartInsights'
 import { WeeklyGoals } from '../components/WeeklyGoals'
 import { KudosWidget } from '../components/Kudos'
+import { CelebrationBanner, UpcomingCelebrations } from '../components/Celebrations'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -196,6 +197,9 @@ export default function Dashboard({ onConfetti }) {
       variants={containerVariants}
       className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto"
     >
+      {/* Celebration Banner - Shows when someone has birthday/anniversary today */}
+      <CelebrationBanner />
+
       {/* Header */}
       <motion.div
         variants={itemVariants}
@@ -597,6 +601,9 @@ export default function Dashboard({ onConfetti }) {
           <Card className="p-4">
             <KudosWidget compact />
           </Card>
+
+          {/* Upcoming Celebrations */}
+          <UpcomingCelebrations limit={3} />
 
           {/* Recent Tickets */}
           <Card>

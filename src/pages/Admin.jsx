@@ -37,6 +37,7 @@ import { supabase, seedSampleClients, deleteSampleClients } from '../lib/supabas
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, getInitials } from '../lib/utils'
 import ClientDialog from '../components/ClientDialog'
+import { UpcomingCelebrations } from '../components/Celebrations'
 import { useToast } from '../hooks/useToast'
 import {
   Dialog,
@@ -1136,6 +1137,9 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Upcoming Celebrations - Admin View */}
+            <UpcomingCelebrations showAll />
           </motion.div>
         </TabsContent>
       </Tabs>

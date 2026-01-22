@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, Bell, Shield, Palette, Save, Upload, Camera, Check, 
   Sparkles, Mail, Clock, Calendar, Trophy, X, Loader2,
-  Sun, Moon, Monitor, Zap, RefreshCw
+  Sun, Moon, Monitor, Zap, RefreshCw, Cake, PartyPopper
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
@@ -39,6 +39,9 @@ export default function Settings() {
 
   const [fullName, setFullName] = useState(profile?.full_name || '')
   const [tagline, setTagline] = useState(profile?.tagline || '')
+  const [birthday, setBirthday] = useState(profile?.birthday || '')
+  const [workStartDate, setWorkStartDate] = useState(profile?.work_start_date || '')
+  const [showBirthday, setShowBirthday] = useState(profile?.show_birthday ?? true)
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
@@ -79,6 +82,15 @@ export default function Settings() {
     }
     if (profile?.tagline !== undefined) {
       setTagline(profile.tagline || '')
+    }
+    if (profile?.birthday !== undefined) {
+      setBirthday(profile.birthday || '')
+    }
+    if (profile?.work_start_date !== undefined) {
+      setWorkStartDate(profile.work_start_date || '')
+    }
+    if (profile?.show_birthday !== undefined) {
+      setShowBirthday(profile.show_birthday ?? true)
     }
   }, [profile])
 
@@ -128,7 +140,10 @@ export default function Settings() {
     try {
       const { error } = await updateUserProfile({ 
         full_name: fullName,
-        tagline: tagline 
+        tagline: tagline,
+        birthday: birthday || null,
+        work_start_date: workStartDate || null,
+        show_birthday: showBirthday,
       })
       if (error) throw error
 
@@ -403,6 +418,57 @@ export default function Settings() {
                   </p>
                 </div>
 
+                {/* Birthday & Anniversary Section */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-orange-500/10 border border-pink-500/20 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PartyPopper className="h-5 w-5 text-pink-500" />
+                    <h3 className="font-semibold">Celebrations 🎉</h3>
+                  </div>
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="birthday" className="flex items-center gap-2">
+                        <Cake className="h-4 w-4 text-pink-500" />
+                        Your Birthday
+                      </Label>
+                      <Input
+                        id="birthday"
+                        type="date"
+                        value={birthday}
+                        onChange={(e) => setBirthday(e.target.value)}
+                        className="mt-1.5"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="workStartDate" className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-orange-500" />
+                        Started at Brandastic
+                      </Label>
+                      <Input
+                        id="workStartDate"
+                        type="date"
+                        value={workStartDate}
+                        onChange={(e) => setWorkStartDate(e.target.value)}
+                        className="mt-1.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <input
+                      type="checkbox"
+                      id="showBirthday"
+                      checked={showBirthday}
+                      onChange={(e) => setShowBirthday(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-pink-500 focus:ring-pink-500"
+                    />
+                    <label htmlFor="showBirthday" className="text-sm text-muted-foreground">
+                      Show my birthday to the team (we'll celebrate! 🎂)
+                    </label>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                   <div className="w-10 h-10 rounded-lg bg-brand-blue/10 flex items-center justify-center">
                     <Calendar className="h-5 w-5 text-brand-blue" />
@@ -418,7 +484,7 @@ export default function Settings() {
                 <div className="flex justify-end">
                   <Button 
                     onClick={handleSaveProfile} 
-                    disabled={saving || (fullName === profile?.full_name && tagline === (profile?.tagline || ''))}
+                    disabled={saving}
                     className="min-w-[140px]"
                   >
                     {saving ? (
