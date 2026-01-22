@@ -22,6 +22,7 @@ import {
   Eye,
   EyeOff,
   Building2,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -60,7 +61,7 @@ export default function Sidebar({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { signOut, isAdmin, isActualAdmin, viewMode, toggleViewMode } = useAuth()
+  const { signOut, isAdmin, isActualAdmin, viewMode, toggleViewMode, toggleClientPreview, clientPreviewMode } = useAuth()
 
   const handleSignOut = async () => {
     await signOut()
@@ -278,6 +279,37 @@ export default function Sidebar({
                   ) : (
                     <EyeOff className="h-5 w-5" />
                   )}
+                </button>
+              )}
+
+              {/* Preview Client Portal Button */}
+              {!collapsed ? (
+                <button
+                  onClick={() => toggleClientPreview()}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-2.5 mt-2 rounded-lg font-medium transition-all",
+                    clientPreviewMode
+                      ? "bg-brand-coral text-white hover:bg-brand-coral/90"
+                      : "bg-gradient-to-r from-brand-orange/10 to-brand-coral/10 text-brand-orange hover:from-brand-orange/20 hover:to-brand-coral/20 border border-brand-orange/20"
+                  )}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span className="text-sm">
+                    {clientPreviewMode ? 'Exit Client View' : 'Preview Client Portal'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => toggleClientPreview()}
+                  className={cn(
+                    "w-full flex items-center justify-center p-2.5 mt-2 rounded-lg font-medium transition-all",
+                    clientPreviewMode
+                      ? "bg-brand-coral text-white"
+                      : "bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/20"
+                  )}
+                  title={clientPreviewMode ? 'Exit Client View' : 'Preview Client Portal'}
+                >
+                  <Sparkles className="h-5 w-5" />
                 </button>
               )}
             </div>

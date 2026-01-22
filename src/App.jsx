@@ -56,7 +56,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './components/ui/dropdown-menu'
-import { User, Settings as SettingsIcon, LogOut, ChevronDown } from 'lucide-react'
+import { User, Settings as SettingsIcon, LogOut, ChevronDown, X, Sparkles, Eye } from 'lucide-react'
+import { Button } from './components/ui/button'
 import { QuickActionsFAB } from './components/QuickActions'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import { NotificationBell } from './components/NotificationCenter'
@@ -112,9 +113,37 @@ function AdminRoute({ children }) {
   )
 }
 
+// Client Preview Banner Component
+function ClientPreviewBanner({ onExit }) {
+  return (
+    <motion.div
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: -50, opacity: 0 }}
+      className="fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-brand-orange via-brand-coral to-brand-orange text-white px-4 py-2.5 flex items-center justify-center gap-4 shadow-lg"
+    >
+      <div className="flex items-center gap-2">
+        <Eye className="h-4 w-4" />
+        <span className="font-medium text-sm">
+          👀 You're previewing the <strong>Client Portal</strong>
+        </span>
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={onExit}
+        className="h-7 px-3 bg-white/20 hover:bg-white/30 text-white border-0"
+      >
+        <X className="h-3.5 w-3.5 mr-1" />
+        Exit Preview
+      </Button>
+    </motion.div>
+  )
+}
+
 // Main Layout with Sidebar
 function MainLayout({ children }) {
-  const { user, profile, signOut, isActualAdmin } = useAuth()
+  const { user, profile, signOut, isActualAdmin, clientPreviewMode, exitClientPreview } = useAuth()
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
@@ -182,10 +211,20 @@ function MainLayout({ children }) {
     navigate('/login')
   }
 
+  // Lazy load ClientPortal for preview mode
+  const ClientPortalPreview = lazy(() => import('./pages/ClientPortal'))
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar - hidden on mobile */}
-      <div className="hidden lg:block">
+      {/* Client Preview Banner */}
+      <AnimatePresence>
+        {clientPreviewMode && (
+          <ClientPreviewBanner onExit={exitClientPreview} />
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Sidebar - hidden on mobile and when in client preview */}
+      <div className={`hidden lg:block ${clientPreviewMode ? 'opacity-50 pointer-events-none' : ''}`}>
         <Sidebar
           collapsed={sidebarCollapsed}
           onCollapse={setSidebarCollapsed}
@@ -196,43 +235,45 @@ function MainLayout({ children }) {
       </div>
 
       {/* Desktop User Profile - Top Right - with more right padding to avoid overlap */}
-      <div className="hidden lg:block fixed top-4 right-4 z-50">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-background/95 backdrop-blur-md border shadow-lg hover:shadow-xl transition-all ring-1 ring-black/5">
-              <Avatar className="h-8 w-8 border-2 border-brand-orange/30">
-                <AvatarImage src={profile?.avatar_url} />
-                <AvatarFallback className="bg-brand-orange text-white text-xs font-medium">
-                  {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || '?'}
-                </AvatarFallback>
-              </Avatar>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span>{profile?.full_name || 'User'}</span>
-                <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <User className="h-4 w-4 mr-2" />
-              My Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <SettingsIcon className="h-4 w-4 mr-2" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {!clientPreviewMode && (
+        <div className="hidden lg:block fixed top-4 right-4 z-50">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-background/95 backdrop-blur-md border shadow-lg hover:shadow-xl transition-all ring-1 ring-black/5">
+                <Avatar className="h-8 w-8 border-2 border-brand-orange/30">
+                  <AvatarImage src={profile?.avatar_url} />
+                  <AvatarFallback className="bg-brand-orange text-white text-xs font-medium">
+                    {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span>{profile?.full_name || 'User'}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <User className="h-4 w-4 mr-2" />
+                My Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <SettingsIcon className="h-4 w-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       {/* Mobile Header */}
       <div className="lg:hidden">
@@ -242,20 +283,29 @@ function MainLayout({ children }) {
       {/* Main content */}
       {/* Mobile: full width with padding for header/tab bar */}
       {/* Desktop: sidebar margin with animation */}
-      <main className="min-h-screen pt-14 pb-20 lg:pt-0 lg:pb-0">
-        {/* Desktop layout with sidebar margin */}
-        <motion.div
-          initial={false}
-          animate={{ marginLeft: sidebarCollapsed ? 72 : 240 }}
-          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          className="hidden lg:block min-h-screen"
-        >
-          {children}
-        </motion.div>
-        {/* Mobile layout - no sidebar margin */}
-        <div className="lg:hidden">
-          {children}
-        </div>
+      <main className={`min-h-screen pt-14 pb-20 lg:pt-0 lg:pb-0 ${clientPreviewMode ? 'pt-12' : ''}`}>
+        {clientPreviewMode ? (
+          /* Client Portal Preview Mode */
+          <Suspense fallback={<PageLoader />}>
+            <ClientPortalPreview />
+          </Suspense>
+        ) : (
+          <>
+            {/* Desktop layout with sidebar margin */}
+            <motion.div
+              initial={false}
+              animate={{ marginLeft: sidebarCollapsed ? 72 : 240 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="hidden lg:block min-h-screen"
+            >
+              {children}
+            </motion.div>
+            {/* Mobile layout - no sidebar margin */}
+            <div className="lg:hidden">
+              {children}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Mobile Bottom Tab Bar */}

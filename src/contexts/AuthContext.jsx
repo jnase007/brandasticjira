@@ -385,6 +385,20 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
+  // Client preview mode (for admins to preview client portal)
+  const [clientPreviewMode, setClientPreviewMode] = useState(false)
+  const [previewClientId, setPreviewClientId] = useState(null)
+
+  const toggleClientPreview = useCallback((clientId = null) => {
+    setClientPreviewMode(prev => !prev)
+    setPreviewClientId(clientId)
+  }, [])
+
+  const exitClientPreview = useCallback(() => {
+    setClientPreviewMode(false)
+    setPreviewClientId(null)
+  }, [])
+
   // Admin emails that should always have admin access
   const ADMIN_EMAILS = [
     'justin@brandastic.com',
@@ -442,6 +456,11 @@ export function AuthProvider({ children }) {
     isClient: actualRole === 'client',
     viewMode,
     toggleViewMode,
+    // Client preview mode for admins
+    clientPreviewMode,
+    previewClientId,
+    toggleClientPreview,
+    exitClientPreview,
   }
 
   return (
