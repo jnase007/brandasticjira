@@ -17,6 +17,8 @@ const TEAM_PHOTOS = [
   'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC02954%20(1).jpg',
   'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC03001.jpg',
   'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC03013.jpg',
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC02926%20(1).jpg',
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/DSC03052.jpg',
 ]
 
 export default function Login() {
