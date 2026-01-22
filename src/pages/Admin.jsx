@@ -32,7 +32,18 @@ import {
   Copy,
   Eye,
   Zap,
+  UserCog,
+  ShieldCheck,
+  User,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 import { supabase, seedSampleClients, deleteSampleClients } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, getInitials } from '../lib/utils'
@@ -419,6 +430,33 @@ export default function Admin() {
     }
   }
 
+  // Handle changing user role
+  const handleChangeUserRole = async (userId, newRole) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      toast({
+        title: '✅ Role updated!',
+        description: `User role changed to ${newRole}`,
+        variant: 'success',
+      })
+
+      fetchData(true)
+    } catch (error) {
+      console.error('Error changing role:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update user role.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   // Handle opening edit dialog
   const handleEditClient = (client) => {
     setEditingClient(client)
@@ -764,9 +802,58 @@ export default function Admin() {
                               {formatDate(user.created_at)}
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <Button variant="ghost" size="icon-sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon-sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuLabel>Change Role</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleChangeUserRole(user.id, 'team')}
+                                    disabled={user.role === 'team'}
+                                    className="gap-2"
+                                  >
+                                    <User className="h-4 w-4 text-blue-500" />
+                                    <span>Team Member</span>
+                                    {user.role === 'team' && (
+                                      <CheckCircle className="h-3 w-3 ml-auto text-green-500" />
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleChangeUserRole(user.id, 'admin')}
+                                    disabled={user.role === 'admin'}
+                                    className="gap-2"
+                                  >
+                                    <ShieldCheck className="h-4 w-4 text-brand-purple" />
+                                    <span>Admin</span>
+                                    {user.role === 'admin' && (
+                                      <CheckCircle className="h-3 w-3 ml-auto text-green-500" />
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleChangeUserRole(user.id, 'client')}
+                                    disabled={user.role === 'client'}
+                                    className="gap-2"
+                                  >
+                                    <Building2 className="h-4 w-4 text-brand-orange" />
+                                    <span>Client</span>
+                                    {user.role === 'client' && (
+                                      <CheckCircle className="h-3 w-3 ml-auto text-green-500" />
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    className="gap-2"
+                                    onClick={() => navigate(`/team/${user.id}`)}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    <span>View Profile</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           </motion.tr>
                         ))
