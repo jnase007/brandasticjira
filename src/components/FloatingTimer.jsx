@@ -469,36 +469,46 @@ export default function FloatingTimer({
     setIsRunning(false)
     localStorage.removeItem('activeTimer')
     
-    if (seconds < 60) {
+    // Allow any time entry (even under 1 minute) - just need at least 1 second
+    if (seconds < 1) {
       toast({
-        title: 'Timer too short',
-        description: 'Time entries must be at least 1 minute',
+        title: 'Timer not started',
+        description: 'Start the timer before stopping',
         variant: 'destructive'
       })
-      setSeconds(0)
       return
     }
 
     // Save to database
     try {
+      // Calculate minutes (can be fractional for sub-minute entries)
+      const totalMinutes = Math.max(1, Math.round(seconds / 60)) // Minimum 1 minute for billing purposes
+      
       const { error } = await supabase.from('time_entries').insert({
         user_id: user.id,
         client_id: selectedClient?.id,
         ticket_id: selectedTicket?.id,
         description: description || selectedClient?.name || 'No description',
-        minutes: Math.round(seconds / 60),
+        minutes: totalMinutes,
         date: new Date().toISOString().split('T')[0],
         billable: isBillable
       })
 
       if (error) throw error
 
+      // Format time for display
       const hours = Math.floor(seconds / 3600)
       const mins = Math.floor((seconds % 3600) / 60)
+      const secs = seconds % 60
+      
+      let timeDisplay = ''
+      if (hours > 0) timeDisplay += `${hours}h `
+      if (mins > 0) timeDisplay += `${mins}m `
+      if (hours === 0 && mins === 0) timeDisplay = `${secs}s (rounded to 1m)`
       
       toast({
         title: '✅ Time saved!',
-        description: `Logged ${hours > 0 ? `${hours}h ` : ''}${mins}m for ${selectedClient?.name}`,
+        description: `Logged ${timeDisplay.trim()} for ${selectedClient?.name}`,
         variant: 'success'
       })
       
