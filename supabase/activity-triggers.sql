@@ -1,6 +1,6 @@
 -- =====================================================
--- ACTIVITY LOG TRIGGERS
--- Automatically logs all company activities for the feed
+-- ACTIVITY LOG TRIGGERS - MINIMAL VERSION
+-- Automatically logs company activities for the feed
 -- =====================================================
 
 -- First, ensure the activity_log table exists
@@ -35,36 +35,20 @@ CREATE POLICY "Activity log insert by authenticated users"
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON public.activity_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON public.activity_log(user_id);
-CREATE INDEX IF NOT EXISTS idx_activity_log_client_id ON public.activity_log(client_id);
 
 -- =====================================================
--- 1. TICKET ACTIVITIES
+-- 1. TICKET ACTIVITIES (minimal - only uses core columns)
 -- =====================================================
 
--- Log when tickets are created
 CREATE OR REPLACE FUNCTION log_ticket_created()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_client_name TEXT;
-  v_client_id UUID;
 BEGIN
-  -- Get client_id through board
-  IF NEW.board_id IS NOT NULL THEN
-    SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
-  END IF;
-  
-  -- Get client name if we have a client_id
-  IF v_client_id IS NOT NULL THEN
-    SELECT name INTO v_client_name FROM public.clients WHERE id = v_client_id;
-  END IF;
-  
   INSERT INTO public.activity_log (
     activity_type,
     entity_type,
     entity_id,
     entity_name,
     user_id,
-    client_id,
     metadata
   ) VALUES (
     'ticket_created',
@@ -72,16 +56,10 @@ BEGIN
     NEW.id,
     NEW.title,
     COALESCE(NEW.created_by, auth.uid()),
-    v_client_id,
-    jsonb_build_object(
-      'ticket_id', NEW.ticket_id,
-      'priority', NEW.priority,
-      'client_name', v_client_name
-    )
+    jsonb_build_object('priority', NEW.priority)
   );
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -95,22 +73,14 @@ CREATE TRIGGER trigger_log_ticket_created
 -- Log when ticket status changes
 CREATE OR REPLACE FUNCTION log_ticket_status_change()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_client_id UUID;
 BEGIN
   IF OLD.status IS DISTINCT FROM NEW.status THEN
-    -- Get client_id through board
-    IF NEW.board_id IS NOT NULL THEN
-      SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
-    END IF;
-    
     INSERT INTO public.activity_log (
       activity_type,
       entity_type,
       entity_id,
       entity_name,
       user_id,
-      client_id,
       metadata
     ) VALUES (
       'status_changed',
@@ -118,9 +88,7 @@ BEGIN
       NEW.id,
       NEW.title,
       COALESCE(auth.uid(), NEW.assigned_to, NEW.created_by),
-      v_client_id,
       jsonb_build_object(
-        'ticket_id', NEW.ticket_id,
         'from_status', OLD.status,
         'to_status', NEW.status
       )
@@ -128,7 +96,6 @@ BEGIN
   END IF;
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -139,24 +106,17 @@ CREATE TRIGGER trigger_log_ticket_status
   FOR EACH ROW
   EXECUTE FUNCTION log_ticket_status_change();
 
--- Log when ticket is completed (status = 'done')
+-- Log when ticket is completed
 CREATE OR REPLACE FUNCTION log_ticket_completed()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_client_id UUID;
 BEGIN
   IF NEW.status = 'done' AND (OLD.status IS NULL OR OLD.status != 'done') THEN
-    IF NEW.board_id IS NOT NULL THEN
-      SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
-    END IF;
-    
     INSERT INTO public.activity_log (
       activity_type,
       entity_type,
       entity_id,
       entity_name,
       user_id,
-      client_id,
       metadata
     ) VALUES (
       'ticket_completed',
@@ -164,15 +124,11 @@ BEGIN
       NEW.id,
       NEW.title,
       COALESCE(auth.uid(), NEW.assigned_to, NEW.created_by),
-      v_client_id,
-      jsonb_build_object(
-        'ticket_id', NEW.ticket_id
-      )
+      '{}'::jsonb
     );
   END IF;
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -188,14 +144,9 @@ CREATE OR REPLACE FUNCTION log_ticket_assigned()
 RETURNS TRIGGER AS $$
 DECLARE
   v_assignee_name TEXT;
-  v_client_id UUID;
 BEGIN
   IF NEW.assigned_to IS NOT NULL AND (OLD.assigned_to IS NULL OR OLD.assigned_to != NEW.assigned_to) THEN
     SELECT full_name INTO v_assignee_name FROM public.profiles WHERE id = NEW.assigned_to;
-    
-    IF NEW.board_id IS NOT NULL THEN
-      SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
-    END IF;
     
     INSERT INTO public.activity_log (
       activity_type,
@@ -203,7 +154,6 @@ BEGIN
       entity_id,
       entity_name,
       user_id,
-      client_id,
       metadata
     ) VALUES (
       'assigned',
@@ -211,9 +161,7 @@ BEGIN
       NEW.id,
       NEW.title,
       COALESCE(auth.uid(), NEW.created_by),
-      v_client_id,
       jsonb_build_object(
-        'ticket_id', NEW.ticket_id,
         'assigned_to', NEW.assigned_to,
         'assignee_name', v_assignee_name
       )
@@ -221,7 +169,6 @@ BEGIN
   END IF;
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -239,15 +186,9 @@ CREATE TRIGGER trigger_log_ticket_assigned
 CREATE OR REPLACE FUNCTION log_comment_added()
 RETURNS TRIGGER AS $$
 DECLARE
-  v_ticket RECORD;
-  v_client_id UUID;
+  v_ticket_title TEXT;
 BEGIN
-  SELECT id, title, ticket_id, board_id INTO v_ticket
-  FROM public.tickets WHERE id = NEW.ticket_id;
-  
-  IF v_ticket.board_id IS NOT NULL THEN
-    SELECT client_id INTO v_client_id FROM public.boards WHERE id = v_ticket.board_id;
-  END IF;
+  SELECT title INTO v_ticket_title FROM public.tickets WHERE id = NEW.ticket_id;
   
   INSERT INTO public.activity_log (
     activity_type,
@@ -255,23 +196,17 @@ BEGIN
     entity_id,
     entity_name,
     user_id,
-    client_id,
     metadata
   ) VALUES (
     'comment_added',
     'ticket',
-    v_ticket.id,
-    v_ticket.title,
+    NEW.ticket_id,
+    v_ticket_title,
     NEW.user_id,
-    v_client_id,
-    jsonb_build_object(
-      'ticket_id', v_ticket.ticket_id,
-      'comment_preview', LEFT(NEW.content, 100)
-    )
+    jsonb_build_object('comment_preview', LEFT(NEW.content, 100))
   );
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -283,41 +218,23 @@ CREATE TRIGGER trigger_log_comment_added
   EXECUTE FUNCTION log_comment_added();
 
 -- =====================================================
--- 3. TIME TRACKING ACTIVITIES
--- Gets client through ticket -> board relationship only
+-- 3. TIME TRACKING ACTIVITIES (minimal)
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION log_time_entry()
 RETURNS TRIGGER AS $$
 DECLARE
-  v_ticket RECORD;
-  v_client_name TEXT;
-  v_client_id UUID;
+  v_ticket_title TEXT;
   v_minutes INT;
-  v_entity_name TEXT;
 BEGIN
-  v_minutes := COALESCE(NEW.minutes, NEW.duration_minutes, 0);
+  -- Get minutes from whichever column exists
+  v_minutes := COALESCE(NEW.minutes, 0);
   
-  -- Only log when time entry is stopped (has minutes > 0)
+  -- Only log when time entry is stopped and has time
   IF NEW.is_running = false AND v_minutes > 0 THEN
-    -- Get ticket info if available
+    -- Get ticket title if we have a ticket
     IF NEW.ticket_id IS NOT NULL THEN
-      SELECT id, title, ticket_id, board_id INTO v_ticket FROM public.tickets WHERE id = NEW.ticket_id;
-      v_entity_name := v_ticket.title;
-      
-      IF v_ticket.board_id IS NOT NULL THEN
-        SELECT client_id INTO v_client_id FROM public.boards WHERE id = v_ticket.board_id;
-      END IF;
-    END IF;
-    
-    -- Fallback entity name
-    IF v_entity_name IS NULL THEN
-      v_entity_name := COALESCE(NEW.description, 'Time entry');
-    END IF;
-    
-    -- Get client name
-    IF v_client_id IS NOT NULL THEN
-      SELECT name INTO v_client_name FROM public.clients WHERE id = v_client_id;
+      SELECT title INTO v_ticket_title FROM public.tickets WHERE id = NEW.ticket_id;
     END IF;
     
     INSERT INTO public.activity_log (
@@ -326,30 +243,22 @@ BEGIN
       entity_id,
       entity_name,
       user_id,
-      client_id,
       metadata
     ) VALUES (
       'time_logged',
       'time_entry',
       NEW.id,
-      v_entity_name,
+      COALESCE(v_ticket_title, NEW.description, 'Time entry'),
       NEW.user_id,
-      v_client_id,
-      jsonb_build_object(
-        'minutes', v_minutes,
-        'ticket_id', v_ticket.ticket_id,
-        'billable', COALESCE(NEW.billable, true)
-      )
+      jsonb_build_object('minutes', v_minutes)
     );
   END IF;
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger on INSERT (for manual entries) and UPDATE (for stopping running timers)
 DROP TRIGGER IF EXISTS trigger_log_time_entry_insert ON public.time_entries;
 CREATE TRIGGER trigger_log_time_entry_insert
   AFTER INSERT ON public.time_entries
@@ -384,14 +293,10 @@ BEGIN
     NEW.name,
     COALESCE(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid),
     NEW.id,
-    jsonb_build_object(
-      'slug', NEW.slug,
-      'monthly_hours', NEW.monthly_hours
-    )
+    '{}'::jsonb
   );
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -408,20 +313,13 @@ CREATE TRIGGER trigger_log_client_created
 
 CREATE OR REPLACE FUNCTION log_board_created()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_client_name TEXT;
 BEGIN
-  IF NEW.client_id IS NOT NULL THEN
-    SELECT name INTO v_client_name FROM public.clients WHERE id = NEW.client_id;
-  END IF;
-  
   INSERT INTO public.activity_log (
     activity_type,
     entity_type,
     entity_id,
     entity_name,
     user_id,
-    client_id,
     metadata
   ) VALUES (
     'board_created',
@@ -429,14 +327,10 @@ BEGIN
     NEW.id,
     NEW.name,
     COALESCE(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid),
-    NEW.client_id,
-    jsonb_build_object(
-      'client_name', v_client_name
-    )
+    '{}'::jsonb
   );
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
