@@ -48,11 +48,15 @@ END $$;
 -- Allow team members to insert/update clients (not just admins)
 -- ============================================
 
--- Drop existing policies
+-- Drop ALL existing client policies first
 DROP POLICY IF EXISTS "Team members can view all clients" ON public.clients;
 DROP POLICY IF EXISTS "Clients can view their own client record" ON public.clients;
 DROP POLICY IF EXISTS "Admins can manage clients" ON public.clients;
 DROP POLICY IF EXISTS "Team members can manage clients" ON public.clients;
+DROP POLICY IF EXISTS "Team members can insert clients" ON public.clients;
+DROP POLICY IF EXISTS "Team members can update clients" ON public.clients;
+DROP POLICY IF EXISTS "Team members can delete clients" ON public.clients;
+DROP POLICY IF EXISTS "Clients can view own record" ON public.clients;
 
 -- Create new policies: Team members can fully manage clients
 CREATE POLICY "Team members can view all clients" ON public.clients
@@ -101,6 +105,9 @@ CREATE POLICY "Clients can view own record" ON public.clients
 -- ============================================
 
 DROP POLICY IF EXISTS "Team members can manage boards" ON public.boards;
+DROP POLICY IF EXISTS "Team members can insert boards" ON public.boards;
+DROP POLICY IF EXISTS "Team members can update boards" ON public.boards;
+DROP POLICY IF EXISTS "Team members can delete boards" ON public.boards;
 
 CREATE POLICY "Team members can insert boards" ON public.boards
   FOR INSERT WITH CHECK (
@@ -131,6 +138,9 @@ CREATE POLICY "Team members can delete boards" ON public.boards
 -- ============================================
 
 DROP POLICY IF EXISTS "Team members can manage tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Team members can insert tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Team members can update tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Team members can delete tickets" ON public.tickets;
 
 CREATE POLICY "Team members can insert tickets" ON public.tickets
   FOR INSERT WITH CHECK (
