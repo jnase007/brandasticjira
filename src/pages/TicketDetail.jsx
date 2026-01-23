@@ -726,7 +726,7 @@ export default function TicketDetail() {
 
               <TabsContent value="attachments" className="mt-4">
                 <FileUpload
-                  bucket="attachments"
+                  bucket="documents"
                   folder={`${ticket.client_id}/${activeTicketId || ticketId}`}
                   accept="all"
                   multiple={true}

@@ -700,7 +700,7 @@ export async function uploadAttachment(file, clientId, ticketId) {
   const filePath = `${clientId}/${ticketId}/${fileName}`
 
   const { data, error } = await supabase.storage
-    .from('attachments')
+    .from('documents')
     .upload(filePath, file)
 
   if (error) {
@@ -709,7 +709,7 @@ export async function uploadAttachment(file, clientId, ticketId) {
 
   // Get the public URL (or signed URL for private buckets)
   const { data: urlData } = supabase.storage
-    .from('attachments')
+    .from('documents')
     .getPublicUrl(filePath)
 
   return {
@@ -726,14 +726,14 @@ export async function uploadAttachment(file, clientId, ticketId) {
 
 export async function deleteAttachment(filePath) {
   const { error } = await supabase.storage
-    .from('attachments')
+    .from('documents')
     .remove([filePath])
   return { error }
 }
 
 export async function getAttachmentUrl(filePath) {
   const { data } = await supabase.storage
-    .from('attachments')
+    .from('documents')
     .createSignedUrl(filePath, 3600) // 1 hour expiry
   return data?.signedUrl
 }
