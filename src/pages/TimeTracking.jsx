@@ -131,6 +131,13 @@ export default function TimeTracking() {
     else setLoading(true)
 
     try {
+      const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
+      const endDate = selectedMonth === 12
+        ? `${selectedYear + 1}-01-01`
+        : `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`
+
+      // Fetch time entries with a simpler, more reliable query
+      // We'll filter by date OR start_time, handling entries that might only have one
       const [employeesRes, clientsRes, clientRatesRes, timeEntriesRes] = await Promise.all([
         supabase
           .from('profiles')
@@ -140,22 +147,32 @@ export default function TimeTracking() {
         supabase
           .from('clients')
           .select('*')
-          .eq('is_active', true)
+          .or('is_active.is.true,is_active.is.null')
           .order('name'),
         supabase
           .from('client_rates')
           .select('*'),
+        // Simpler query: fetch all entries and filter client-side for reliability
         supabase
           .from('time_entries')
-          .select('*, client:clients(name, color), user:profiles(full_name, avatar_url, hourly_cost)')
-          .gte('date', `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`)
-          .lt('date', selectedMonth === 12 
-            ? `${selectedYear + 1}-01-01` 
-            : `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`)
-          .order('date', { ascending: false }),
+          .select('*, client:clients(name, color), user:profiles(full_name, avatar_url, hourly_cost), ticket:tickets(id, title, ticket_id)')
+          .order('created_at', { ascending: false }),
       ])
 
-      const normalizedEntries = (timeEntriesRes.data || []).map((entry) => ({
+      // Filter time entries by date range client-side for reliability
+      const allEntries = timeEntriesRes.data || []
+      const filteredEntries = allEntries.filter(entry => {
+        // Determine the entry date from multiple possible fields
+        const entryDate = entry.date || 
+          (entry.start_time ? entry.start_time.split('T')[0] : null) ||
+          (entry.created_at ? entry.created_at.split('T')[0] : null)
+        
+        if (!entryDate) return false
+        
+        return entryDate >= startDate && entryDate < endDate
+      })
+
+      const normalizedEntries = filteredEntries.map((entry) => ({
         ...entry,
         minutes: entry.minutes ?? entry.duration_minutes ?? 0,
         date:
@@ -168,7 +185,23 @@ export default function TimeTracking() {
       setClients(clientsRes.data || [])
       setClientRates(clientRatesRes.data || [])
       setTimeEntries(normalizedEntries)
-      setMyTimeEntries(normalizedEntries.filter(te => te.user_id === user?.id))
+      
+      // Filter for current user's entries
+      const currentUserId = user?.id
+      const myEntries = currentUserId 
+        ? normalizedEntries.filter(te => te.user_id === currentUserId)
+        : []
+      setMyTimeEntries(myEntries)
+      
+      // Debug logging for troubleshooting
+      console.log('[TimeTracking] Fetched entries:', {
+        totalFetched: allEntries.length,
+        afterDateFilter: filteredEntries.length,
+        normalized: normalizedEntries.length,
+        myEntries: myEntries.length,
+        dateRange: { startDate, endDate },
+        userId: currentUserId
+      })
     } catch (error) {
       console.error('Error fetching time tracking data:', error)
       toast({
@@ -183,8 +216,10 @@ export default function TimeTracking() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [selectedMonth, selectedYear])
+    if (user?.id) {
+      fetchData()
+    }
+  }, [selectedMonth, selectedYear, user?.id])
 
   // Calculate employee stats
   const getEmployeeStats = (employeeId) => {
