@@ -5,7 +5,8 @@ import {
   Building2, Users, Plus, Search, Bell, MessageSquare, Calendar,
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
-  ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight
+  ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
+  Trophy, TrendingUp, PartyPopper
 } from 'lucide-react'
 import { supabase, seedSampleClients } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -355,7 +356,7 @@ export default function ClientManagement() {
 
       if (error) throw error
 
-      toast({ title: 'Project added to portfolio!', variant: 'success' })
+      toast({ title: '🎉 Win shared with the team!', variant: 'success' })
       setProjectDialogOpen(false)
       resetProjectForm()
       fetchData(true)
@@ -485,11 +486,11 @@ export default function ClientManagement() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-purple-500/10">
-                  <Award className="h-5 w-5 text-purple-500" />
+                <div className="p-2 rounded-xl bg-yellow-500/10">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Portfolio Projects</p>
+                  <p className="text-sm text-muted-foreground">Client Wins 🎉</p>
                   <p className="text-2xl font-bold">
                     <AnimatedCounter value={projects.length} />
                   </p>
@@ -598,9 +599,9 @@ export default function ClientManagement() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="portfolio" className="gap-2">
-            <Star className="h-4 w-4" />
-            Portfolio
+          <TabsTrigger value="wins" className="gap-2">
+            <Trophy className="h-4 w-4" />
+            Client Wins
           </TabsTrigger>
         </TabsList>
 
@@ -859,71 +860,86 @@ export default function ClientManagement() {
           </Card>
         </TabsContent>
 
-        {/* Portfolio Tab */}
-        <TabsContent value="portfolio">
+        {/* Client Wins Tab */}
+        <TabsContent value="wins">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Client Portfolio</CardTitle>
-                  <CardDescription>Showcase completed work for clients</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    🏆 Client Wins
+                  </CardTitle>
+                  <CardDescription>Celebrate team achievements and client successes</CardDescription>
                 </div>
-                <Button onClick={() => setProjectDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Project
+                <Button onClick={() => setProjectDialogOpen(true)} className="bg-yellow-500 hover:bg-yellow-600">
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Share a Win
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {projects.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <Award className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <p>No portfolio projects yet</p>
-                  <Button variant="outline" className="mt-4" onClick={() => setProjectDialogOpen(true)}>
-                    Add your first project
+                  <Trophy className="h-12 w-12 mx-auto mb-4 opacity-30 text-yellow-500" />
+                  <p className="text-lg font-medium mb-1">No wins shared yet</p>
+                  <p className="text-sm mb-4">Be the first to celebrate a client success!</p>
+                  <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => setProjectDialogOpen(true)}>
+                    <PartyPopper className="h-4 w-4 mr-2" />
+                    Share Your First Win
                   </Button>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {projects.map((project) => (
-                    <div
+                    <motion.div
                       key={project.id}
-                      className="p-4 rounded-xl border hover:shadow-md transition-all group"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-5 rounded-xl border-2 border-yellow-200 dark:border-yellow-900/30 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10 hover:shadow-lg transition-all group"
                     >
-                      {project.image_url && (
-                        <div className="aspect-video rounded-lg bg-muted overflow-hidden mb-3">
-                          <img
-                            src={project.image_url}
-                            alt={project.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold">{project.title}</h3>
-                          <p className="text-sm text-muted-foreground">{project.client?.name}</p>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-yellow-500/20">
+                            <Trophy className="h-5 w-5 text-yellow-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-lg">{project.title}</h3>
+                            <p className="text-sm text-muted-foreground">{project.client?.name}</p>
+                          </div>
                         </div>
                         {project.is_featured && (
-                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                          <Badge className="bg-yellow-500 text-white">
+                            <Star className="h-3 w-3 mr-1 fill-current" />
+                            Featured
+                          </Badge>
                         )}
                       </div>
-                      {project.category && (
-                        <Badge variant="outline" className="mb-2">{project.category}</Badge>
+                      
+                      {project.description && (
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
                       )}
-                      <div className="flex items-center gap-2 mt-3">
-                        <Badge variant={project.is_visible_to_client ? 'default' : 'secondary'}>
-                          {project.is_visible_to_client ? 'Visible' : 'Hidden'}
+                      
+                      {project.category && (
+                        <Badge variant="outline" className="mb-3 bg-white/50 dark:bg-white/10">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          {project.category}
                         </Badge>
+                      )}
+                      
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-yellow-200 dark:border-yellow-800/30">
+                        <span className="text-xs text-muted-foreground">
+                          {project.created_at ? formatRelativeDate(new Date(project.created_at)) : 'Recently'}
+                        </span>
                         {project.url && (
-                          <Button variant="ghost" size="sm" asChild>
+                          <Button variant="ghost" size="sm" asChild className="text-yellow-600 hover:text-yellow-700">
                             <a href={project.url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
+                              View Details
+                              <ExternalLink className="h-3 w-3 ml-1" />
                             </a>
                           </Button>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               )}
@@ -1142,7 +1158,7 @@ export default function ClientManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Project Dialog */}
+      {/* Share a Win Dialog */}
       <Dialog open={projectDialogOpen} onOpenChange={(open) => {
         setProjectDialogOpen(open)
         if (!open) resetProjectForm()
@@ -1150,11 +1166,11 @@ export default function ClientManagement() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-purple-500" />
-              Add Portfolio Project
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              Share a Client Win 🎉
             </DialogTitle>
             <DialogDescription>
-              Showcase completed work for a client
+              Celebrate a success! Share great results, milestones, or achievements.
             </DialogDescription>
           </DialogHeader>
           
@@ -1163,7 +1179,7 @@ export default function ClientManagement() {
               <Label>Client *</Label>
               <Select value={projectClient} onValueChange={setProjectClient}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select client" />
+                  <SelectValue placeholder="Which client is this win for?" />
                 </SelectTrigger>
                 <SelectContent>
                   {activeClients.map(client => (
@@ -1176,34 +1192,47 @@ export default function ClientManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label>Project Title *</Label>
+              <Label>Win Title *</Label>
               <Input
-                placeholder="e.g., Website Redesign"
+                placeholder="e.g., 150% increase in conversions!"
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Category</Label>
-              <Input
-                placeholder="e.g., Web Design, Branding, SEO"
-                value={projectCategory}
-                onChange={(e) => setProjectCategory(e.target.value)}
-              />
+              <Label>Category / Type</Label>
+              <Select value={projectCategory} onValueChange={setProjectCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select win type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Conversion Rate">📈 Conversion Rate</SelectItem>
+                  <SelectItem value="Traffic Growth">🚀 Traffic Growth</SelectItem>
+                  <SelectItem value="ROI / ROAS">💰 ROI / ROAS</SelectItem>
+                  <SelectItem value="Lead Generation">🎯 Lead Generation</SelectItem>
+                  <SelectItem value="Campaign Performance">📊 Campaign Performance</SelectItem>
+                  <SelectItem value="SEO Rankings">🔍 SEO Rankings</SelectItem>
+                  <SelectItem value="Social Engagement">💬 Social Engagement</SelectItem>
+                  <SelectItem value="Client Milestone">🏆 Client Milestone</SelectItem>
+                  <SelectItem value="Project Launch">🎉 Project Launch</SelectItem>
+                  <SelectItem value="Other">✨ Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label>Details / Story</Label>
               <Textarea
-                placeholder="Brief description of the project..."
+                placeholder="Share the details! What did we achieve? What was the result?"
                 value={projectDescription}
                 onChange={(e) => setProjectDescription(e.target.value)}
+                rows={3}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Image URL</Label>
+              <Label>Screenshot / Image URL (optional)</Label>
               <Input
                 placeholder="https://..."
                 value={projectImageUrl}
@@ -1212,15 +1241,15 @@ export default function ClientManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label>Live URL</Label>
+              <Label>Link to Report/Dashboard (optional)</Label>
               <Input
-                placeholder="https://example.com"
+                placeholder="https://analytics.google.com/..."
                 value={projectUrl}
                 onChange={(e) => setProjectUrl(e.target.value)}
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
               <input
                 type="checkbox"
                 id="featured"
@@ -1230,16 +1259,20 @@ export default function ClientManagement() {
               />
               <Label htmlFor="featured" className="text-sm cursor-pointer flex items-center gap-2">
                 <Star className="h-4 w-4 text-yellow-500" />
-                Mark as featured project
+                Feature this win (show at top)
               </Label>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateProject} disabled={projectSaving || !projectClient || !projectTitle}>
-              {projectSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-              Add Project
+            <Button 
+              onClick={handleCreateProject} 
+              disabled={projectSaving || !projectClient || !projectTitle}
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              {projectSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PartyPopper className="h-4 w-4 mr-2" />}
+              Share Win
             </Button>
           </DialogFooter>
         </DialogContent>
