@@ -398,6 +398,38 @@ function App() {
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
 
+  // Auto-recover from stale chunk caches after deploys
+  useEffect(() => {
+    const alreadyRetried = () => sessionStorage.getItem('chunk_reload_attempted') === 'true'
+    const markRetried = () => sessionStorage.setItem('chunk_reload_attempted', 'true')
+    const clearRetried = () => sessionStorage.removeItem('chunk_reload_attempted')
+
+    // Clear retry flag once app loads successfully
+    clearRetried()
+
+    const isChunkLoadError = (message = '') =>
+      message.includes('Failed to fetch dynamically imported module') ||
+      message.includes('Loading chunk') ||
+      message.includes('ChunkLoadError')
+
+    const handleError = (event) => {
+      const message = event?.reason?.message || event?.message || ''
+      if (isChunkLoadError(message)) {
+        if (!alreadyRetried()) {
+          markRetried()
+          window.location.reload()
+        }
+      }
+    }
+
+    window.addEventListener('error', handleError)
+    window.addEventListener('unhandledrejection', handleError)
+    return () => {
+      window.removeEventListener('error', handleError)
+      window.removeEventListener('unhandledrejection', handleError)
+    }
+  }, [])
+
   // Initialize theme from localStorage (user-specific when available)
   useEffect(() => {
     const applyTheme = (themeName) => {
