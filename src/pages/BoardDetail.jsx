@@ -18,6 +18,7 @@ import {
   createTicket, 
   updateTicketPositions,
   getTeamMembers,
+  logActivity,
 } from '../lib/supabase'
 import { useBoardRealtime } from '../hooks/useRealtime'
 import { useAuth } from '../contexts/AuthContext'
@@ -112,8 +113,8 @@ export default function BoardDetail() {
   // Group tickets by status
   const groupedTickets = groupTicketsByStatus(
     tickets.filter((t) => 
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.ticket_id.toLowerCase().includes(searchQuery.toLowerCase())
+      (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.ticket_id || '').toLowerCase().includes(searchQuery.toLowerCase())
     )
   )
 
@@ -168,6 +169,19 @@ export default function BoardDetail() {
         })
         // Revert on error
         fetchData()
+      } else {
+        logActivity({
+          activity_type: 'status_changed',
+          user_id: user?.id,
+          client_id: board?.client_id,
+          entity_type: 'ticket',
+          entity_id: ticket.id,
+          entity_name: ticket.ticket_id || ticket.title,
+          metadata: {
+            from_status: ticket.status,
+            to_status: newStatus,
+          },
+        })
       }
     }
   }
@@ -202,6 +216,15 @@ export default function BoardDetail() {
       if (error) throw error
 
       setTickets((prev) => [...prev, data])
+      logActivity({
+        activity_type: 'ticket_created',
+        user_id: user?.id,
+        client_id: board?.client_id,
+        entity_type: 'ticket',
+        entity_id: data.id,
+        entity_name: data.ticket_id || data.title,
+        metadata: { board_id: boardId },
+      })
       setCreateDialogOpen(false)
       setNewTicket({
         title: '',
@@ -383,8 +406,12 @@ export default function BoardDetail() {
 
                       {/* Empty state */}
                       {columnTickets.length === 0 && !snapshot.isDraggingOver && (
-                        <div className="text-center py-8 text-sm text-muted-foreground">
-                          No tickets
+                        <div className="text-center py-8 text-sm text-muted-foreground space-y-3">
+                          <p>No tasks yet.</p>
+                          <Button variant="outline" size="sm" onClick={() => setCreateDialogOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add a Task
+                          </Button>
                         </div>
                       )}
                     </div>

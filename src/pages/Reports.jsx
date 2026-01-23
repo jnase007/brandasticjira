@@ -6,6 +6,9 @@ import {
   ChevronLeft, ChevronRight, FileText, PieChart, Target,
   ArrowUpRight, ArrowDownRight, Minus, Eye, EyeOff, Printer
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, getInitials } from '../lib/utils'
@@ -13,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Progress } from '../components/ui/progress'
+import { Input } from '../components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Skeleton } from '../components/ui/skeleton'
@@ -25,6 +29,58 @@ import {
 } from '../components/ui/select'
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
+import { BarChart, DonutChart, AreaChart } from '../components/Charts'
+
+const BRAND_LOGO =
+  'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png'
+let cachedLogoDataUrl = null
+
+async function loadLogoDataUrl() {
+  if (cachedLogoDataUrl) return cachedLogoDataUrl
+  try {
+    const res = await fetch(BRAND_LOGO)
+    const blob = await res.blob()
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+    cachedLogoDataUrl = dataUrl
+    return dataUrl
+  } catch {
+    return null
+  }
+}
+
+function ReportHeader({ title, subtitle }) {
+  return (
+    <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-6 mb-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <img src={BRAND_LOGO} alt="Brandastic" className="h-8 w-auto" />
+          <div>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Brandastic Report</p>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          </div>
+        </div>
+        <Badge variant="secondary" className="hidden sm:inline-flex">Internal</Badge>
+      </div>
+    </div>
+  )
+}
+
+function ReportFooter() {
+  return (
+    <div className="mt-8 flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
+      <span>© {new Date().getFullYear()} Brandastic</span>
+      <div className="flex items-center gap-2">
+        <img src={BRAND_LOGO} alt="Brandastic" className="h-5 w-auto opacity-70" />
+        <span>Report generated in Brandastic PM</span>
+      </div>
+    </div>
+  )
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -68,6 +124,16 @@ function formatHours(minutes) {
 
 function formatDecimalHours(hours) {
   return `${hours.toFixed(1)}h`
+}
+
+function formatDayLabel(date) {
+  return date.toLocaleDateString('en-US', { weekday: 'short' })
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate()
 }
 
 function getChangeIndicator(current, previous) {
@@ -193,6 +259,10 @@ function ClientReport({ clients, timeEntries, clientRates, selectedYear, selecte
 
   return (
     <div className="space-y-6">
+      <ReportHeader
+        title="Client Report"
+        subtitle={`${FULL_MONTHS[selectedMonth - 1]} ${selectedYear} • ${viewMode === 'monthly' ? 'Monthly' : viewMode === 'yearly' ? 'Yearly' : 'Lifetime'}`}
+      />
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center">
         <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -460,6 +530,7 @@ function ClientReport({ clients, timeEntries, clientRates, selectedYear, selecte
           </CardContent>
         </Card>
       )}
+      <ReportFooter />
     </div>
   )
 }
@@ -519,6 +590,10 @@ function TeamReport({ employees, timeEntries, selectedYear, selectedMonth }) {
 
   return (
     <div className="space-y-6">
+      <ReportHeader
+        title="Team Report"
+        subtitle={`${FULL_MONTHS[selectedMonth - 1]} ${selectedYear}`}
+      />
       {/* Team Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -690,6 +765,519 @@ function TeamReport({ employees, timeEntries, selectedYear, selectedMonth }) {
           </div>
         </CardContent>
       </Card>
+      <ReportFooter />
+    </div>
+  )
+}
+
+function TimeReports({ employees, clients, timeEntries, selectedYear, selectedMonth }) {
+  const [activeTab, setActiveTab] = useState('summary')
+  const [selectedClient, setSelectedClient] = useState('all')
+  const [selectedEmployee, setSelectedEmployee] = useState('all')
+  const [billableFilter, setBillableFilter] = useState('all')
+  const [searchText, setSearchText] = useState('')
+  const [weeklyLimit, setWeeklyLimit] = useState('20')
+
+  const normalizedEntries = useMemo(() => {
+    return (timeEntries || []).map((entry) => {
+      const minutes = entry.minutes ?? entry.duration_minutes ?? 0
+      const date = entry.date || (entry.start_time ? entry.start_time.split('T')[0] : null)
+      return {
+        ...entry,
+        minutes,
+        date,
+        billable: Boolean(entry.billable),
+      }
+    }).filter((entry) => entry.date)
+  }, [timeEntries])
+
+  const monthEntries = useMemo(() => {
+    return normalizedEntries.filter((entry) => {
+      const d = new Date(entry.date)
+      return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear
+    })
+  }, [normalizedEntries, selectedMonth, selectedYear])
+
+  const totalMinutes = monthEntries.reduce((sum, entry) => sum + (entry.minutes || 0), 0)
+  const billableMinutes = monthEntries.filter((entry) => entry.billable).reduce((sum, entry) => sum + (entry.minutes || 0), 0)
+  const nonBillableMinutes = Math.max(totalMinutes - billableMinutes, 0)
+  const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate()
+  const avgDailyMinutes = daysInMonth ? totalMinutes / daysInMonth : 0
+
+  const dailyTotals = useMemo(() => {
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(selectedYear, selectedMonth - 1, index + 1)
+      const dayMinutes = monthEntries
+        .filter((entry) => isSameDay(new Date(entry.date), date))
+        .reduce((sum, entry) => sum + entry.minutes, 0)
+      return {
+        label: `${index + 1}`,
+        value: dayMinutes / 60,
+      }
+    })
+  }, [daysInMonth, monthEntries, selectedMonth, selectedYear])
+
+  const topClients = useMemo(() => {
+    const clientMap = new Map()
+    monthEntries.forEach((entry) => {
+      const id = entry.client_id || entry.client?.id
+      if (!id) return
+      const current = clientMap.get(id) || { id, name: entry.client?.name || 'Unknown', minutes: 0 }
+      current.minutes += entry.minutes || 0
+      clientMap.set(id, current)
+    })
+    return Array.from(clientMap.values())
+      .sort((a, b) => b.minutes - a.minutes)
+      .slice(0, 5)
+  }, [monthEntries])
+
+  const topEmployees = useMemo(() => {
+    const employeeMap = new Map()
+    monthEntries.forEach((entry) => {
+      const id = entry.user_id || entry.user?.id
+      if (!id) return
+      const current = employeeMap.get(id) || {
+        id,
+        name: entry.user?.full_name || 'Unknown',
+        avatar: entry.user?.avatar_url,
+        minutes: 0,
+      }
+      current.minutes += entry.minutes || 0
+      employeeMap.set(id, current)
+    })
+    return Array.from(employeeMap.values())
+      .sort((a, b) => b.minutes - a.minutes)
+      .slice(0, 5)
+  }, [monthEntries])
+
+  const weeklyDates = useMemo(() => {
+    const today = new Date()
+    return Array.from({ length: 7 }, (_, idx) => {
+      const d = new Date(today)
+      d.setDate(today.getDate() - (6 - idx))
+      return d
+    })
+  }, [])
+
+  const weeklyTotals = useMemo(() => {
+    return weeklyDates.map((date) => {
+      const minutes = normalizedEntries
+        .filter((entry) => isSameDay(new Date(entry.date), date))
+        .reduce((sum, entry) => sum + entry.minutes, 0)
+      return {
+        label: formatDayLabel(date),
+        value: minutes / 60,
+      }
+    })
+  }, [normalizedEntries, weeklyDates])
+
+  const weeklyEntries = useMemo(() => {
+    return normalizedEntries
+      .filter((entry) => {
+        const entryDate = new Date(entry.date)
+        return weeklyDates.some((date) => isSameDay(entryDate, date))
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [normalizedEntries, weeklyDates])
+
+  const mostActive = useMemo(() => {
+    const map = new Map()
+    weeklyEntries.forEach((entry) => {
+      const id = entry.user_id || entry.user?.id
+      if (!id) return
+      const current = map.get(id) || {
+        id,
+        name: entry.user?.full_name || 'Unknown',
+        avatar: entry.user?.avatar_url,
+        minutes: 0,
+      }
+      current.minutes += entry.minutes || 0
+      map.set(id, current)
+    })
+    return Array.from(map.values())
+      .sort((a, b) => b.minutes - a.minutes)
+      .slice(0, 3)
+  }, [weeklyEntries])
+
+  const detailedEntries = useMemo(() => {
+    return normalizedEntries
+      .filter((entry) => {
+        if (selectedClient !== 'all' && (entry.client_id || entry.client?.id) !== selectedClient) return false
+        if (selectedEmployee !== 'all' && (entry.user_id || entry.user?.id) !== selectedEmployee) return false
+        if (billableFilter === 'billable' && !entry.billable) return false
+        if (billableFilter === 'non-billable' && entry.billable) return false
+        if (searchText.trim()) {
+          const haystack = [
+            entry.description,
+            entry.ticket?.title,
+            entry.ticket?.ticket_id,
+            entry.client?.name,
+            entry.user?.full_name,
+          ].filter(Boolean).join(' ').toLowerCase()
+          return haystack.includes(searchText.trim().toLowerCase())
+        }
+        return true
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [billableFilter, normalizedEntries, searchText, selectedClient, selectedEmployee])
+
+  const maxClientMinutes = Math.max(...topClients.map((client) => client.minutes), 1)
+  const maxEmployeeMinutes = Math.max(...topEmployees.map((emp) => emp.minutes), 1)
+
+  return (
+    <div className="space-y-6">
+      <ReportHeader
+        title="Time Reports"
+        subtitle={`${FULL_MONTHS[selectedMonth - 1]} ${selectedYear}`}
+      />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="summary">Summary</TabsTrigger>
+          <TabsTrigger value="weekly">Weekly</TabsTrigger>
+          <TabsTrigger value="detailed">Detailed</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="summary">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Total Hours</p>
+                  <p className="text-2xl font-bold">{formatDecimalHours(totalMinutes / 60)}</p>
+                  <p className="text-xs text-muted-foreground">This month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Billable Hours</p>
+                  <p className="text-2xl font-bold">{formatDecimalHours(billableMinutes / 60)}</p>
+                  <p className="text-xs text-muted-foreground">Billable</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Non-billable Hours</p>
+                  <p className="text-2xl font-bold">{formatDecimalHours(nonBillableMinutes / 60)}</p>
+                  <p className="text-xs text-muted-foreground">Internal</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Avg Daily Hours</p>
+                  <p className="text-2xl font-bold">{formatDecimalHours(avgDailyMinutes / 60)}</p>
+                  <p className="text-xs text-muted-foreground">Across month</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Daily hours trend
+                  </CardTitle>
+                  <CardDescription>Hours logged per day this month</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AreaChart data={dailyTotals} height={220} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-4 w-4" />
+                    Billable split
+                  </CardTitle>
+                  <CardDescription>Billable vs non-billable</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-3">
+                  <DonutChart
+                    value={billableMinutes}
+                    total={Math.max(totalMinutes, 1)}
+                    label="Billable"
+                  />
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <span>Billable: {formatDecimalHours(billableMinutes / 60)}</span>
+                    <span>Non-billable: {formatDecimalHours(nonBillableMinutes / 60)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Clients</CardTitle>
+                  <CardDescription>Highest hours this month</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {topClients.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No client activity this month.</p>
+                  )}
+                  {topClients.map((client) => (
+                    <div key={client.id} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{client.name}</span>
+                        <span>{formatDecimalHours(client.minutes / 60)}</span>
+                      </div>
+                      <Progress value={(client.minutes / maxClientMinutes) * 100} />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Team Members</CardTitle>
+                  <CardDescription>Most hours logged this month</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {topEmployees.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No team activity this month.</p>
+                  )}
+                  {topEmployees.map((member) => (
+                    <div key={member.id} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{member.name}</span>
+                        <span>{formatDecimalHours(member.minutes / 60)}</span>
+                      </div>
+                      <Progress value={(member.minutes / maxEmployeeMinutes) * 100} />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="weekly">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Weekly project report
+                  </CardTitle>
+                  <CardDescription>Last 7 days of time tracked</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <BarChart data={weeklyTotals} height={220} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Most Active</CardTitle>
+                  <CardDescription>Last 7 days</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {mostActive.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No time tracked this week.</p>
+                  )}
+                  {mostActive.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.avatar} />
+                          <AvatarFallback className="text-xs">{getInitials(member.name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{member.name}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {formatDecimalHours(member.minutes / 60)}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Latest time entries</CardTitle>
+                  <CardDescription>Recent time tracked this week</CardDescription>
+                </div>
+                <Select value={weeklyLimit} onValueChange={setWeeklyLimit}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Show latest entries" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">Show latest 10</SelectItem>
+                    <SelectItem value="20">Show latest 20</SelectItem>
+                    <SelectItem value="50">Show latest 50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-medium">Team Member</th>
+                        <th className="text-left p-3 font-medium">Description</th>
+                        <th className="text-left p-3 font-medium">Client</th>
+                        <th className="text-right p-3 font-medium">Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weeklyEntries.slice(0, Number(weeklyLimit)).map((entry) => (
+                        <tr key={entry.id} className="border-b hover:bg-muted/50">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={entry.user?.avatar_url} />
+                                <AvatarFallback className="text-[10px]">{getInitials(entry.user?.full_name || 'NA')}</AvatarFallback>
+                              </Avatar>
+                              <span>{entry.user?.full_name || 'Unknown'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{entry.description || entry.ticket?.title || 'No description'}</span>
+                              {entry.ticket?.ticket_id && (
+                                <span className="text-xs text-muted-foreground">{entry.ticket.ticket_id}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span>{entry.client?.name || 'Unassigned'}</span>
+                          </td>
+                          <td className="p-3 text-right">
+                            {formatHours(entry.minutes || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                      {weeklyEntries.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-6 text-center text-sm text-muted-foreground">
+                            No time entries recorded this week.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="detailed">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed time report</CardTitle>
+                <CardDescription>Filter and drill into time entries</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-3">
+                  <Select value={selectedClient} onValueChange={setSelectedClient}>
+                    <SelectTrigger className="w-60">
+                      <SelectValue placeholder="Client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                    <SelectTrigger className="w-60">
+                      <SelectValue placeholder="Team member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Team Members</SelectItem>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={billableFilter} onValueChange={setBillableFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Billable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="billable">Billable</SelectItem>
+                      <SelectItem value="non-billable">Non-billable</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder="Search description, client, ticket..."
+                    className="flex-1 min-w-[240px]"
+                  />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-medium">Date</th>
+                        <th className="text-left p-3 font-medium">Team Member</th>
+                        <th className="text-left p-3 font-medium">Client</th>
+                        <th className="text-left p-3 font-medium">Work</th>
+                        <th className="text-right p-3 font-medium">Duration</th>
+                        <th className="text-right p-3 font-medium">Billable</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailedEntries.slice(0, 100).map((entry) => (
+                        <tr key={entry.id} className="border-b hover:bg-muted/50">
+                          <td className="p-3 text-sm">{formatDate(entry.date)}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={entry.user?.avatar_url} />
+                                <AvatarFallback className="text-[10px]">{getInitials(entry.user?.full_name || 'NA')}</AvatarFallback>
+                              </Avatar>
+                              <span>{entry.user?.full_name || 'Unknown'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">{entry.client?.name || 'Unassigned'}</td>
+                          <td className="p-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{entry.description || entry.ticket?.title || 'No description'}</span>
+                              {entry.ticket?.ticket_id && (
+                                <span className="text-xs text-muted-foreground">{entry.ticket.ticket_id}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">{formatHours(entry.minutes || 0)}</td>
+                          <td className="p-3 text-right">
+                            <Badge variant={entry.billable ? 'default' : 'secondary'}>
+                              {entry.billable ? 'Billable' : 'Non-billable'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                      {detailedEntries.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                            No time entries match your filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+      <ReportFooter />
     </div>
   )
 }
@@ -791,6 +1379,10 @@ function ProfitabilityReport({ employees, clients, timeEntries, clientRates, sel
 
   return (
     <div className="space-y-6">
+      <ReportHeader
+        title="Profitability Report"
+        subtitle={`${FULL_MONTHS[selectedMonth - 1]} ${selectedYear}`}
+      />
       {/* Toggle */}
       <div className="flex items-center gap-4">
         <Button
@@ -1030,6 +1622,7 @@ function ProfitabilityReport({ employees, clients, timeEntries, clientRates, sel
           </div>
         </CardContent>
       </Card>
+      <ReportFooter />
     </div>
   )
 }
@@ -1053,7 +1646,7 @@ export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   
   // Default tab based on role
-  const defaultTab = isAdmin ? 'profitability' : 'team'
+  const defaultTab = 'time'
 
   // Fetch data
   const fetchData = async (showRefresh = false) => {
@@ -1070,14 +1663,14 @@ export default function Reports() {
         supabase
           .from('clients')
           .select('*')
-          .eq('is_active', true)
+          .neq('is_active', false)
           .order('name'),
         supabase
           .from('client_rates')
           .select('*'),
         supabase
           .from('time_entries')
-          .select('*')
+          .select('*, user:profiles(id, full_name, email, avatar_url), client:clients(id, name, color), ticket:tickets(id, title, ticket_id)')
           .order('date', { ascending: false }),
       ])
 
@@ -1104,47 +1697,13 @@ export default function Reports() {
 
   // Export to CSV
   const exportCSV = (type) => {
-    let data = []
-    let filename = ''
-    
-    if (type === 'team') {
-      data = employees.map(emp => ({
-        Name: emp.full_name,
-        Email: emp.email,
-        'Target Hours': emp.target_hours_monthly || 120,
-        'Hourly Cost': emp.hourly_cost || 50,
-      }))
-      filename = `team-report-${selectedYear}-${selectedMonth}.csv`
-    } else if (type === 'entries') {
-      data = timeEntries
-        .filter(e => {
-          const d = new Date(e.date)
-          return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear
-        })
-        .map(entry => {
-          const emp = employees.find(e => e.id === entry.user_id)
-          const client = clients.find(c => c.id === entry.client_id)
-          return {
-            Date: entry.date,
-            Employee: emp?.full_name || 'Unknown',
-            Client: client?.name || 'Unknown',
-            Description: entry.description,
-            Minutes: entry.minutes,
-            Hours: (entry.minutes / 60).toFixed(2),
-            Billable: entry.billable ? 'Yes' : 'No',
-          }
-        })
-      filename = `time-entries-${selectedYear}-${selectedMonth}.csv`
-    }
-    
-    // Create CSV
+    const { data, filename } = buildExportData(type)
     const headers = Object.keys(data[0] || {})
     const csv = [
       headers.join(','),
-      ...data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+      ...data.map((row) => headers.map((h) => `"${row[h] ?? ''}"`).join(',')),
     ].join('\n')
-    
-    // Download
+
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -1152,8 +1711,107 @@ export default function Reports() {
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
-    
-    toast({ title: 'Report exported!', variant: 'success' })
+
+    toast({ title: 'CSV exported!', variant: 'success' })
+  }
+
+  const exportExcel = (type) => {
+    const { data, filename } = buildExportData(type)
+    const worksheet = XLSX.utils.json_to_sheet(data)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report')
+    XLSX.writeFile(workbook, filename.replace('.csv', '.xlsx'))
+    toast({ title: 'Excel exported!', variant: 'success' })
+  }
+
+  const exportPDF = async (type) => {
+    const { data, filename, title } = buildExportData(type, true)
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const logoDataUrl = await loadLogoDataUrl()
+
+    const headerY = 40
+    doc.setFillColor(255, 247, 237)
+    doc.roundedRect(30, 20, pageWidth - 60, 70, 8, 8, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text('Brandastic', 110, headerY + 10)
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text(title, 110, headerY + 30)
+    doc.text(`Generated ${formatDate(new Date())}`, 110, headerY + 48)
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, 'PNG', 50, 30, 44, 44, undefined, 'FAST')
+    }
+
+    autoTable(doc, {
+      startY: 110,
+      head: [Object.keys(data[0] || { Report: 'No data' })],
+      body: data.map((row) => Object.values(row)),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 158, 11] },
+      margin: { left: 30, right: 30 },
+    })
+
+    doc.setFontSize(9)
+    doc.setTextColor(120)
+    doc.text(
+      'Brandastic PM • Confidential',
+      40,
+      pageHeight - 20
+    )
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, 'PNG', pageWidth - 100, pageHeight - 40, 32, 32, undefined, 'FAST')
+    }
+    doc.save(filename.replace('.csv', '.pdf'))
+    toast({ title: 'PDF exported!', variant: 'success' })
+  }
+
+  const buildExportData = (type, includeTitle = false) => {
+    let data = []
+    let filename = ''
+    let title = 'Brandastic Report'
+
+    if (type === 'team') {
+      data = employees.map((emp) => ({
+        Name: emp.full_name,
+        Email: emp.email,
+        Role: emp.role,
+        'Target Hours': emp.target_hours_monthly || 120,
+        'Hourly Cost': emp.hourly_cost || 50,
+      }))
+      filename = `team-report-${selectedYear}-${selectedMonth}.csv`
+      title = `Team Report • ${FULL_MONTHS[selectedMonth - 1]} ${selectedYear}`
+    } else if (type === 'entries') {
+      data = timeEntries
+        .filter((entry) => {
+          const d = new Date(entry.date)
+          return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear
+        })
+        .map((entry) => ({
+          Date: formatDate(entry.date),
+          Employee: entry.user?.full_name || 'Unknown',
+          Client: entry.client?.name || 'Unknown',
+          Description: entry.description || '',
+          Minutes: entry.minutes || 0,
+          Hours: ((entry.minutes || 0) / 60).toFixed(2),
+          Billable: entry.billable ? 'Yes' : 'No',
+        }))
+      filename = `time-entries-${selectedYear}-${selectedMonth}.csv`
+      title = `Time Entries • ${FULL_MONTHS[selectedMonth - 1]} ${selectedYear}`
+    } else {
+      data = clients.map((client) => ({
+        Client: client.name,
+        'Monthly Hours': client.monthly_hours || 0,
+        'Monthly Revenue': (client.monthly_hours || 0) * 175,
+        Active: client.is_active !== false ? 'Yes' : 'No',
+      }))
+      filename = `client-report-${selectedYear}-${selectedMonth}.csv`
+      title = `Client Report • ${FULL_MONTHS[selectedMonth - 1]} ${selectedYear}`
+    }
+
+    return includeTitle ? { data, filename, title } : { data, filename }
   }
 
   if (loading) {
@@ -1241,11 +1899,29 @@ export default function Reports() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => exportExcel('entries')}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportPDF('entries')}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => exportCSV('entries')}
               className="gap-2"
             >
               <Download className="h-4 w-4" />
-              Export
+              CSV
             </Button>
           </div>
         </div>
@@ -1254,6 +1930,10 @@ export default function Reports() {
       {/* Tabs */}
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="bg-muted/50">
+          <TabsTrigger value="time" className="gap-2">
+            <Clock className="h-4 w-4" />
+            Time Reports
+          </TabsTrigger>
           <TabsTrigger value="client" className="gap-2">
             <Building2 className="h-4 w-4" />
             Client Reports
@@ -1286,6 +1966,18 @@ export default function Reports() {
           <motion.div variants={itemVariants}>
             <TeamReport
               employees={employees}
+              timeEntries={timeEntries}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+            />
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="time">
+          <motion.div variants={itemVariants}>
+            <TimeReports
+              employees={employees}
+              clients={clients}
               timeEntries={timeEntries}
               selectedYear={selectedYear}
               selectedMonth={selectedMonth}

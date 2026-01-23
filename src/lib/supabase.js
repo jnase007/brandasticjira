@@ -192,10 +192,7 @@ export async function updateBoard(boardId, updates) {
 export async function getTickets(boardId = null, clientId = null) {
   let query = supabase
     .from('tickets')
-    .select(`
-      *,
-      assigned_user:profiles!tickets_assigned_to_fkey(id, full_name, avatar_url)
-    `)
+    .select('*, client:clients(id, name, slug)')
     .order('position')
 
   if (boardId) {
@@ -205,63 +202,171 @@ export async function getTickets(boardId = null, clientId = null) {
     query = query.eq('client_id', clientId)
   }
 
-  const { data, error } = await query
-  return { data, error }
+  const { data: tickets, error } = await query
+  if (error || !tickets) {
+    return { data: null, error }
+  }
+
+  const assignedIds = [...new Set(tickets.map((t) => t.assigned_to).filter(Boolean))]
+  let assignedProfiles = []
+  if (assignedIds.length > 0) {
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', assignedIds)
+    assignedProfiles = profilesData || []
+  }
+
+  const assignedMap = assignedProfiles.reduce((acc, profile) => {
+    acc[profile.id] = profile
+    return acc
+  }, {})
+
+  const enrichedTickets = tickets.map((ticket) => ({
+    ...ticket,
+    assigned_user: ticket.assigned_to ? assignedMap[ticket.assigned_to] : null,
+  }))
+
+  return { data: enrichedTickets, error: null }
 }
 
 export async function getTicket(ticketId) {
-  const { data, error } = await supabase
+  // First get the ticket with basic joins
+  const { data: ticket, error } = await supabase
     .from('tickets')
     .select(`
       *,
       board:boards(id, name, client_id),
-      client:clients(id, name, color),
-      assigned_user:profiles!tickets_assigned_to_fkey(id, full_name, avatar_url, email),
-      creator:profiles!tickets_created_by_fkey(id, full_name, avatar_url)
+      client:clients(id, name, color, slug)
     `)
     .eq('id', ticketId)
-    .single()
-  return { data, error }
+    .maybeSingle()
+  
+  if (error || !ticket) {
+    return { data: null, error }
+  }
+  
+  // Fetch assigned user and creator profiles separately to avoid foreign key issues
+  let assigned_user = null
+  let creator = null
+  
+  if (ticket.assigned_to) {
+    const { data: assignee } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, email')
+      .eq('id', ticket.assigned_to)
+      .maybeSingle()
+    assigned_user = assignee
+  }
+  
+  if (ticket.created_by) {
+    const { data: creatorData } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', ticket.created_by)
+      .maybeSingle()
+    creator = creatorData
+  }
+  
+  return { 
+    data: { ...ticket, assigned_user, creator }, 
+    error: null 
+  }
 }
 
 export async function getTicketByTicketId(ticketIdString) {
-  const { data, error } = await supabase
+  // First get the ticket with basic joins
+  const { data: ticket, error } = await supabase
     .from('tickets')
     .select(`
       *,
       board:boards(id, name, client_id),
-      client:clients(id, name, color),
-      assigned_user:profiles!tickets_assigned_to_fkey(id, full_name, avatar_url, email),
-      creator:profiles!tickets_created_by_fkey(id, full_name, avatar_url)
+      client:clients(id, name, color, slug)
     `)
     .eq('ticket_id', ticketIdString)
-    .single()
-  return { data, error }
+    .maybeSingle()
+  
+  if (error || !ticket) {
+    return { data: null, error }
+  }
+  
+  // Fetch assigned user and creator profiles separately
+  let assigned_user = null
+  let creator = null
+  
+  if (ticket.assigned_to) {
+    const { data: assignee } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, email')
+      .eq('id', ticket.assigned_to)
+      .maybeSingle()
+    assigned_user = assignee
+  }
+  
+  if (ticket.created_by) {
+    const { data: creatorData } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', ticket.created_by)
+      .maybeSingle()
+    creator = creatorData
+  }
+  
+  return { 
+    data: { ...ticket, assigned_user, creator }, 
+    error: null 
+  }
 }
 
 export async function createTicket(ticketData) {
-  const { data, error } = await supabase
+  const { data: ticket, error } = await supabase
     .from('tickets')
     .insert(ticketData)
-    .select(`
-      *,
-      assigned_user:profiles!tickets_assigned_to_fkey(id, full_name, avatar_url)
-    `)
+    .select('*')
     .single()
-  return { data, error }
+  
+  if (error || !ticket) {
+    return { data: null, error }
+  }
+  
+  // Fetch assigned user profile separately
+  let assigned_user = null
+  if (ticket.assigned_to) {
+    const { data: assignee } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', ticket.assigned_to)
+      .maybeSingle()
+    assigned_user = assignee
+  }
+  
+  return { data: { ...ticket, assigned_user }, error: null }
 }
 
 export async function updateTicket(ticketId, updates) {
-  const { data, error } = await supabase
+  const { data: ticket, error } = await supabase
     .from('tickets')
     .update(updates)
     .eq('id', ticketId)
-    .select(`
-      *,
-      assigned_user:profiles!tickets_assigned_to_fkey(id, full_name, avatar_url)
-    `)
+    .select('*')
     .single()
-  return { data, error }
+  
+  if (error || !ticket) {
+    return { data: null, error }
+  }
+  
+  // Fetch assigned user profile separately if needed
+  let assigned_user = null
+  if (ticket.assigned_to) {
+    const { data: assignee } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', ticket.assigned_to)
+      .maybeSingle()
+    assigned_user = assignee
+  }
+  
+  return { data: { ...ticket, assigned_user }, error: null }
 }
 
 export async function deleteTicket(ticketId) {
@@ -376,13 +481,15 @@ export async function getRunningTimeEntry(userId) {
 }
 
 export async function startTimeEntry(ticketId, clientId, userId, notes = '') {
+  const startTime = new Date()
   const { data, error } = await supabase
     .from('time_entries')
     .insert({
       ticket_id: ticketId,
       client_id: clientId,
       user_id: userId,
-      start_time: new Date().toISOString(),
+      start_time: startTime.toISOString(),
+      date: startTime.toISOString().split('T')[0],
       is_running: true,
       notes,
     })
@@ -392,12 +499,24 @@ export async function startTimeEntry(ticketId, clientId, userId, notes = '') {
 }
 
 export async function stopTimeEntry(entryId) {
-  const endTime = new Date().toISOString()
+  const endTime = new Date()
+  const { data: existingEntry } = await supabase
+    .from('time_entries')
+    .select('start_time')
+    .eq('id', entryId)
+    .single()
+
+  const startTime = existingEntry?.start_time ? new Date(existingEntry.start_time) : endTime
+  const durationMinutes = Math.round((endTime - startTime) / 60000)
+
   const { data, error } = await supabase
     .from('time_entries')
     .update({
-      end_time: endTime,
+      end_time: endTime.toISOString(),
       is_running: false,
+      duration_minutes: durationMinutes,
+      minutes: durationMinutes,
+      date: endTime.toISOString().split('T')[0],
     })
     .eq('id', entryId)
     .select()
@@ -406,14 +525,18 @@ export async function stopTimeEntry(entryId) {
 }
 
 export async function createManualTimeEntry(entryData) {
+  const startDate = entryData.start_time ? new Date(entryData.start_time) : new Date()
+  const endDate = entryData.end_time ? new Date(entryData.end_time) : new Date()
+  const durationMinutes = Math.round((endDate - startDate) / 60000)
   const { data, error } = await supabase
     .from('time_entries')
     .insert({
       ...entryData,
       is_running: false,
-      duration_minutes: Math.round(
-        (new Date(entryData.end_time) - new Date(entryData.start_time)) / 60000
-      ),
+      duration_minutes: durationMinutes,
+      minutes: entryData.minutes ?? durationMinutes,
+      date: entryData.date ?? startDate.toISOString().split('T')[0],
+      billable: entryData.billable ?? true,
     })
     .select()
     .single()
@@ -522,10 +645,42 @@ export async function searchTickets(query) {
     .select(`
       *,
       board:boards(id, name),
-      client:clients(id, name, color)
+      client:clients(id, name, color, slug)
     `)
     .or(`title.ilike.%${query}%,ticket_id.ilike.%${query}%,description.ilike.%${query}%`)
     .limit(20)
+  return { data, error }
+}
+
+// ============================================
+// ACTIVITY LOG
+// ============================================
+
+export async function logActivity({
+  activity_type,
+  user_id,
+  client_id = null,
+  entity_type = null,
+  entity_id = null,
+  entity_name = null,
+  metadata = {},
+}) {
+  if (!user_id || !activity_type) {
+    return { data: null, error: null }
+  }
+  const { data, error } = await supabase
+    .from('activity_log')
+    .insert({
+      activity_type,
+      user_id,
+      client_id,
+      entity_type,
+      entity_id,
+      entity_name,
+      metadata,
+    })
+    .select()
+    .single()
   return { data, error }
 }
 
@@ -732,7 +887,7 @@ function getTicketsForServices(services) {
 }
 
 export async function deleteSampleClients() {
-  const slugs = SAMPLE_CLIENTS.map(c => c.slug)
+  const slugs = BRANDASTIC_CLIENTS.map(c => c.slug)
   
   // Get client IDs
   const { data: clients } = await supabase

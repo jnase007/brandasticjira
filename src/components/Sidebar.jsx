@@ -23,6 +23,7 @@ import {
   EyeOff,
   Building2,
   Sparkles,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -38,6 +39,7 @@ const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
+  { path: '/how-it-works', icon: BookOpen, label: 'How It Works', shortcut: 'G W' },
   { path: '/time', icon: Clock, label: 'Time Tracking', shortcut: 'G T' },
   { path: '/clients', icon: Building2, label: 'Clients', shortcut: 'G C' },
   { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },
@@ -50,6 +52,7 @@ const navItems = [
 const adminNavItems = [
   { path: '/admin', icon: Shield, label: 'Admin', shortcut: 'G A' },
   { path: '/import', icon: Upload, label: 'JIRA Import', shortcut: 'G I' },
+  { path: '/diagnostics', icon: Activity, label: 'Diagnostics', shortcut: 'G X' },
 ]
 
 export default function Sidebar({ 

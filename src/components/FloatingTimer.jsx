@@ -222,7 +222,7 @@ export default function FloatingTimer({
         const { data: ticketsData, error: ticketsError } = await supabase
           .from('tickets')
           .select(`
-            id, title, key,
+            id, title, ticket_id,
             boards (id, name, client_id, clients (id, name, color))
           `)
           .order('updated_at', { ascending: false })
@@ -299,7 +299,7 @@ export default function FloatingTimer({
               type: 'ticket',
               id: ticket.id,
               name: ticket.title,
-              key: ticket.key,
+              ticket_id: ticket.ticket_id,
               boardName: ticket.boards?.name,
               score,
               ranges,
@@ -311,7 +311,7 @@ export default function FloatingTimer({
             type: 'ticket',
             id: ticket.id,
             name: ticket.title,
-            key: ticket.key,
+            ticket_id: ticket.ticket_id,
             boardName: ticket.boards?.name,
             score: 50,
             ranges: [],
@@ -488,7 +488,7 @@ export default function FloatingTimer({
       // Refresh tickets list
       const { data: ticketsData } = await supabase
         .from('tickets')
-        .select(`id, title, key, boards (id, name, client_id, clients (id, name, color))`)
+        .select(`id, title, ticket_id, boards (id, name, client_id, clients (id, name, color))`)
         .order('updated_at', { ascending: false })
         .limit(500)
       if (ticketsData) setTickets(ticketsData)
@@ -513,6 +513,11 @@ export default function FloatingTimer({
   useEffect(() => {
     if (initialClient && !isRunning && !selectedClient) {
       setSelectedClient(initialClient)
+      // Automatically open task picker when client is pre-selected
+      setSelectionStep('task')
+      setShowPicker(true)
+      // Focus search input after a brief delay
+      setTimeout(() => searchInputRef.current?.focus(), 150)
     }
     if (initialDescription && !isRunning) {
       setDescription(initialDescription)
@@ -618,22 +623,27 @@ export default function FloatingTimer({
 
       // Calculate minutes (can be fractional for sub-minute entries)
       const totalMinutes = Math.max(1, Math.round(seconds / 60)) // Minimum 1 minute for billing purposes
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - seconds * 1000)
       
       const timeEntry = {
         user_id: user.id,
         client_id: selectedClient.id,
         description: description || selectedClient.name || 'No description',
+        notes: description || '',
         minutes: totalMinutes,
-        date: new Date().toISOString().split('T')[0],
-        billable: isBillable
+        date: endTime.toISOString().split('T')[0],
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        duration_minutes: totalMinutes,
+        is_running: false,
+        billable: isBillable,
       }
       
       // Only add ticket_id if we have one
       if (selectedTicket?.id) {
         timeEntry.ticket_id = selectedTicket.id
       }
-      
-      console.log('Saving time entry:', timeEntry)
       
       const { error } = await supabase.from('time_entries').insert(timeEntry)
 
@@ -877,7 +887,7 @@ export default function FloatingTimer({
                           <>
                             <Ticket className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                             <p className="text-sm text-muted-foreground truncate flex-1">
-                              {selectedTicket.key && `${selectedTicket.key}: `}{selectedTicket.title}
+                              {selectedTicket.ticket_id && `${selectedTicket.ticket_id}: `}{selectedTicket.title}
                             </p>
                             {!isRunning && (
                               <button
@@ -1021,9 +1031,9 @@ export default function FloatingTimer({
                                     ranges={item.ranges}
                                     className="font-medium truncate"
                                   />
-                                  {item.type === 'ticket' && item.key && (
+                                  {item.type === 'ticket' && item.ticket_id && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-                                      {item.key}
+                                      {item.ticket_id}
                                     </span>
                                   )}
                                 </div>

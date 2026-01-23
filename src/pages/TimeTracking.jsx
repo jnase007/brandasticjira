@@ -155,11 +155,20 @@ export default function TimeTracking() {
           .order('date', { ascending: false }),
       ])
 
+      const normalizedEntries = (timeEntriesRes.data || []).map((entry) => ({
+        ...entry,
+        minutes: entry.minutes ?? entry.duration_minutes ?? 0,
+        date:
+          entry.date ||
+          (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
+        billable: entry.billable ?? true,
+      }))
+
       setEmployees(employeesRes.data || [])
       setClients(clientsRes.data || [])
       setClientRates(clientRatesRes.data || [])
-      setTimeEntries(timeEntriesRes.data || [])
-      setMyTimeEntries((timeEntriesRes.data || []).filter(te => te.user_id === user?.id))
+      setTimeEntries(normalizedEntries)
+      setMyTimeEntries(normalizedEntries.filter(te => te.user_id === user?.id))
     } catch (error) {
       console.error('Error fetching time tracking data:', error)
       toast({
@@ -237,6 +246,10 @@ export default function TimeTracking() {
     }
 
     try {
+      const startTime = new Date(timeEntry.date)
+      startTime.setHours(9, 0, 0, 0)
+      const endTime = new Date(startTime.getTime() + totalMinutes * 60000)
+
       await supabase.from('time_entries').insert({
         user_id: user.id,
         client_id: timeEntry.client_id,
@@ -244,6 +257,10 @@ export default function TimeTracking() {
         minutes: totalMinutes,
         date: timeEntry.date,
         billable: timeEntry.billable,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        duration_minutes: totalMinutes,
+        is_running: false,
       })
 
       toast({ title: 'Time logged!', variant: 'success' })

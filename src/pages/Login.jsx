@@ -59,6 +59,14 @@ export default function Login() {
       if (mode === 'login') {
         const { data, error } = await signIn(email, password)
         if (error) throw error
+        if (!data?.user) {
+          toast({
+            title: 'Login incomplete',
+            description: 'Please check your email and password and try again.',
+            variant: 'destructive',
+          })
+          return
+        }
         
         // Show success toast - redirect will happen via useEffect when user state updates
         toast({
@@ -87,9 +95,8 @@ export default function Login() {
         description: error.message || 'Something went wrong. Please try again.',
         variant: 'destructive',
       })
-      setLoading(false)
     }
-    // Don't set loading to false on success - let redirect happen
+    setLoading(false)
   }
 
   const handleGoogleSignIn = async () => {

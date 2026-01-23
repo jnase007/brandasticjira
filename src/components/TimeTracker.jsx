@@ -9,6 +9,7 @@ import {
   getTimeEntries,
   createManualTimeEntry,
   deleteTimeEntry,
+  logActivity,
 } from '../lib/supabase'
 import { formatTimerDisplay, formatDuration, formatDate, cn } from '../lib/utils'
 import { Button } from './ui/button'
@@ -125,6 +126,16 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
       await fetchData()
       onTimeLogged?.()
 
+      logActivity({
+        activity_type: 'time_logged',
+        user_id: user?.id,
+        client_id: clientId,
+        entity_type: 'ticket',
+        entity_id: ticketId,
+        entity_name: ticketId,
+        metadata: { minutes: data.duration_minutes || data.minutes || 0, ticket_id: ticketId },
+      })
+
       toast({
         title: 'Timer stopped',
         description: `Logged ${formatDuration(data.duration_minutes)}.`,
@@ -180,6 +191,16 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
       await fetchData()
       onTimeLogged?.()
 
+      logActivity({
+        activity_type: 'time_logged',
+        user_id: user?.id,
+        client_id: clientId,
+        entity_type: 'ticket',
+        entity_id: ticketId,
+        entity_name: ticketId,
+        metadata: { minutes: totalMinutes, ticket_id: ticketId },
+      })
+
       toast({
         title: 'Time logged',
         description: `Added ${formatDuration(totalMinutes)} to this task.`,
@@ -216,7 +237,10 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
   }
 
   // Calculate total time
-  const totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0)
+  const totalMinutes = timeEntries.reduce(
+    (sum, entry) => sum + (entry.duration_minutes || entry.minutes || 0),
+    0
+  )
 
   if (loading) {
     return (
@@ -335,11 +359,11 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium">
-                      {formatDuration(entry.duration_minutes)}
+                      {formatDuration(entry.duration_minutes || entry.minutes || 0)}
                     </span>
                     <span className="text-muted-foreground">·</span>
                     <span className="text-muted-foreground text-xs">
-                      {formatDate(entry.start_time, 'MMM d, h:mm a')}
+                      {formatDate(entry.start_time || entry.date, 'MMM d, h:mm a')}
                     </span>
                   </div>
                   {entry.notes && (

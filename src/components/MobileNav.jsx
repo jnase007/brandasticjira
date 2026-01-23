@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, X, LayoutDashboard, Kanban, Building2, Clock, BarChart3,
   Users2, Trophy, Settings, Shield, LogOut, Timer, Activity,
-  Search, ChevronRight, Zap, Bell,
+  Search, ChevronRight, Zap, Bell, BookOpen, ActivitySquare,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -16,6 +16,7 @@ const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/how-it-works', icon: BookOpen, label: 'How It Works' },
   { path: '/time', icon: Clock, label: 'Time Tracking' },
   { path: '/clients', icon: Building2, label: 'Clients' },
   { path: '/reports', icon: BarChart3, label: 'Reports' },
@@ -27,6 +28,7 @@ const navItems = [
 
 const adminNavItems = [
   { path: '/admin', icon: Shield, label: 'Admin' },
+  { path: '/diagnostics', icon: ActivitySquare, label: 'Diagnostics' },
 ]
 
 // Bottom tab bar for quick access

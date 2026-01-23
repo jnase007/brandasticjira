@@ -23,10 +23,12 @@ import {
 } from 'lucide-react'
 import {
   getTicket,
+  getTicketByTicketId,
   updateTicket,
   deleteTicket,
   getComments,
   createComment,
+  logActivity,
   getTeamMembers,
   uploadAttachment,
   deleteAttachment,
@@ -42,6 +44,7 @@ import {
   getInitials,
   formatFileSize,
   getFileIcon,
+  isUuid,
 } from '../lib/utils'
 import TimeTracker from '../components/TimeTracker'
 import { Button } from '../components/ui/button'
@@ -82,6 +85,7 @@ export default function TicketDetail() {
   const { toast } = useToast()
 
   const [ticket, setTicket] = useState(null)
+  const [resolvedTicketId, setResolvedTicketId] = useState(null)
   const [comments, setComments] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -94,11 +98,13 @@ export default function TicketDetail() {
   const [uploadingFile, setUploadingFile] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
 
+  const activeTicketId = resolvedTicketId || (isUuid(ticketId) ? ticketId : null)
+
   // Autosave function
   const autosaveFn = useCallback(async (data) => {
-    if (!ticketId || !editMode) return
+    if (!activeTicketId || !editMode) return
     
-    await updateTicket(ticketId, {
+    await updateTicket(activeTicketId, {
       title: data.title,
       description: data.description,
       status: data.status,
@@ -110,7 +116,7 @@ export default function TicketDetail() {
     })
     
     setTicket((prev) => ({ ...prev, ...data }))
-  }, [ticketId, editMode])
+  }, [activeTicketId, editMode])
 
   // Use autosave hook
   const { 
@@ -130,16 +136,21 @@ export default function TicketDetail() {
 
     setLoading(true)
     try {
-      const [ticketRes, commentsRes, teamRes] = await Promise.all([
-        getTicket(ticketId),
-        getComments(ticketId),
-        getTeamMembers(),
-      ])
+      const ticketRes = isUuid(ticketId)
+        ? await getTicket(ticketId)
+        : await getTicketByTicketId(ticketId)
 
       if (ticketRes.data) {
         setTicket(ticketRes.data)
         setEditedTicket(ticketRes.data)
+        setResolvedTicketId(ticketRes.data.id)
       }
+
+      const [commentsRes, teamRes] = await Promise.all([
+        ticketRes.data ? getComments(ticketRes.data.id) : Promise.resolve({ data: [] }),
+        getTeamMembers(),
+      ])
+
       if (commentsRes.data) setComments(commentsRes.data)
       if (teamRes.data) setTeamMembers(teamRes.data)
     } catch (error) {
@@ -154,7 +165,7 @@ export default function TicketDetail() {
   }, [fetchData])
 
   // Real-time comments
-  useCommentsRealtime(ticketId, {
+  useCommentsRealtime(activeTicketId, {
     onInsert: (comment) => {
       // Avoid duplicates
       setComments((prev) => {
@@ -166,9 +177,17 @@ export default function TicketDetail() {
 
   // Save ticket edits
   const handleSave = async () => {
+    if (!activeTicketId) {
+      toast({
+        title: 'Unable to save',
+        description: 'Ticket is still loading. Please try again in a moment.',
+        variant: 'destructive',
+      })
+      return
+    }
     setSaving(true)
     try {
-      const { data, error } = await updateTicket(ticketId, {
+      const { data, error } = await updateTicket(activeTicketId, {
         title: editedTicket.title,
         description: editedTicket.description,
         status: editedTicket.status,
@@ -201,15 +220,23 @@ export default function TicketDetail() {
 
   // Delete ticket
   const handleDelete = async () => {
+    if (!activeTicketId) {
+      toast({
+        title: 'Unable to delete',
+        description: 'Ticket is still loading. Please try again in a moment.',
+        variant: 'destructive',
+      })
+      return
+    }
     try {
-      const { error } = await deleteTicket(ticketId)
+      const { error } = await deleteTicket(activeTicketId)
       if (error) throw error
 
       toast({
         title: 'Task deleted',
         description: 'The task has been removed.',
       })
-      navigate(`/boards/${ticket.board_id}`)
+      navigate(ticket?.board_id ? `/boards/${ticket.board_id}` : '/boards')
     } catch (error) {
       toast({
         title: 'Error',
@@ -222,11 +249,19 @@ export default function TicketDetail() {
   // Add comment
   const handleAddComment = async () => {
     if (!newComment.trim()) return
+    if (!activeTicketId) {
+      toast({
+        title: 'Unable to add comment',
+        description: 'Ticket is still loading. Please try again in a moment.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     setSendingComment(true)
     try {
       const { data, error } = await createComment({
-        ticket_id: ticketId,
+        ticket_id: activeTicketId,
         user_id: user.id,
         content: newComment,
       })
@@ -235,6 +270,14 @@ export default function TicketDetail() {
 
       setComments((prev) => [...prev, { ...data, user: profile }])
       setNewComment('')
+      logActivity({
+        activity_type: 'comment_added',
+        user_id: user?.id,
+        client_id: ticket?.client_id || ticket?.client?.id,
+        entity_type: 'ticket',
+        entity_id: activeTicketId,
+        entity_name: ticket?.ticket_id || ticket?.title,
+      })
     } catch (error) {
       toast({
         title: 'Error',
@@ -250,11 +293,19 @@ export default function TicketDetail() {
   const handleFileUpload = async (e) => {
     const files = e.target.files
     if (!files?.length) return
+    if (!activeTicketId) {
+      toast({
+        title: 'Unable to upload files',
+        description: 'Ticket is still loading. Please try again in a moment.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     setUploadingFile(true)
     try {
       const uploadPromises = Array.from(files).map((file) =>
-        uploadAttachment(file, ticket.client_id, ticketId)
+        uploadAttachment(file, ticket.client_id, activeTicketId)
       )
       const results = await Promise.all(uploadPromises)
 
@@ -264,7 +315,7 @@ export default function TicketDetail() {
 
       if (newAttachments.length > 0) {
         const updatedAttachments = [...(ticket.attachments || []), ...newAttachments]
-        const { error } = await updateTicket(ticketId, { attachments: updatedAttachments })
+        const { error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
 
         if (error) throw error
 
@@ -292,7 +343,7 @@ export default function TicketDetail() {
     try {
       await deleteAttachment(attachment.path)
       const updatedAttachments = ticket.attachments.filter((a) => a.path !== attachment.path)
-      await updateTicket(ticketId, { attachments: updatedAttachments })
+      await updateTicket(activeTicketId, { attachments: updatedAttachments })
       setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
       toast({
         title: 'Attachment removed',
@@ -328,6 +379,9 @@ export default function TicketDetail() {
         <p className="text-muted-foreground mb-4">
           This ticket may have been deleted or you don't have access.
         </p>
+        <p className="text-xs text-muted-foreground mb-4 font-mono">
+          Attempted ID: {ticketId}
+        </p>
         <Button asChild>
           <Link to="/boards">Back to Boards</Link>
         </Button>
@@ -336,6 +390,7 @@ export default function TicketDetail() {
   }
 
   const priorityInfo = getPriorityInfo(ticket.priority)
+  const boardLink = ticket?.board_id ? `/boards/${ticket.board_id}` : '/boards'
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -343,7 +398,7 @@ export default function TicketDetail() {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/boards/${ticket.board_id}`}>
+            <Link to={boardLink}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -652,7 +707,7 @@ export default function TicketDetail() {
               <TabsContent value="attachments" className="mt-4">
                 <FileUpload
                   bucket="documents"
-                  folder={`tickets/${ticketId}`}
+                  folder={`tickets/${activeTicketId || ticketId}`}
                   accept="all"
                   multiple={true}
                   maxFiles={20}
@@ -677,7 +732,7 @@ export default function TicketDetail() {
                         uploadedAt: file.uploadedAt,
                       },
                     ]
-                    await updateTicket(ticketId, { attachments: updatedAttachments })
+                    await updateTicket(activeTicketId, { attachments: updatedAttachments })
                     setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
                   }}
                   onRemove={async (file) => {
@@ -685,7 +740,7 @@ export default function TicketDetail() {
                     const updatedAttachments = (ticket.attachments || []).filter(
                       (a) => a.path !== file.path && a.url !== file.url
                     )
-                    await updateTicket(ticketId, { attachments: updatedAttachments })
+                    await updateTicket(activeTicketId, { attachments: updatedAttachments })
                     setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
                   }}
                 />
@@ -703,7 +758,7 @@ export default function TicketDetail() {
             transition={{ delay: 0.2 }}
           >
             <TimeTracker
-              ticketId={ticketId}
+              ticketId={activeTicketId || ticketId}
               clientId={ticket.client_id}
               onTimeLogged={fetchData}
             />
@@ -721,7 +776,7 @@ export default function TicketDetail() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Board</span>
                 <Link
-                  to={`/boards/${ticket.board_id}`}
+                  to={boardLink}
                   className="text-primary hover:underline"
                 >
                   {ticket.board?.name}

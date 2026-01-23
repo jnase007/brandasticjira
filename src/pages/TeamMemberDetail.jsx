@@ -94,7 +94,7 @@ export default function TeamMemberDetail() {
       // Fetch time entries for this member
       const { data: timeData } = await supabase
         .from('time_entries')
-        .select('*, clients:client_id(id, name, color)')
+        .select('*, clients:client_id(id, name, color, slug)')
         .eq('user_id', memberId)
         .order('date', { ascending: false })
         .limit(100)
@@ -104,8 +104,8 @@ export default function TeamMemberDetail() {
       // Fetch tickets assigned to this member
       const { data: ticketData } = await supabase
         .from('tickets')
-        .select('*, boards(name, clients(id, name, color))')
-        .eq('assignee_id', memberId)
+        .select('*, boards(name, clients(id, name, color)), client:clients(id, name, color, slug)')
+        .eq('assigned_to', memberId)
         .order('updated_at', { ascending: false })
         .limit(50)
 
@@ -507,7 +507,7 @@ export default function TeamMemberDetail() {
                     {clientsWorkedOn.map((client) => (
                       <Link
                         key={client.id}
-                        to={`/clients/${client.id}`}
+                        to={`/clients/${client.slug || client.id}`}
                         className="p-4 rounded-xl border hover:shadow-md hover:border-brand-orange/30 transition-all group"
                       >
                         <div className="flex items-center gap-3 mb-3">
@@ -561,7 +561,7 @@ export default function TeamMemberDetail() {
                     {tickets.map((ticket) => (
                       <Link
                         key={ticket.id}
-                        to={`/tickets/${ticket.id}`}
+                        to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
                         className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm hover:border-brand-orange/30 transition-all"
                       >
                         <div className={cn(
@@ -581,7 +581,7 @@ export default function TeamMemberDetail() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{ticket.title}</p>
                           <p className="text-sm text-muted-foreground">
-                            {ticket.boards?.clients?.name || ticket.boards?.name || 'No board'}
+                            {ticket.client?.name || ticket.boards?.clients?.name || ticket.boards?.name || 'No board'}
                           </p>
                         </div>
                         <Badge variant={

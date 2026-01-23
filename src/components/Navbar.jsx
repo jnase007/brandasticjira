@@ -275,7 +275,7 @@ export default function Navbar() {
               {searchResults.map((ticket) => (
                 <Link
                   key={ticket.id}
-                  to={`/tickets/${ticket.id}`}
+                  to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
                   onClick={() => setSearchOpen(false)}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
                 >

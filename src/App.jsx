@@ -23,6 +23,8 @@ const ClientManagement = lazy(() => import('./pages/ClientManagement'))
 const ClientDetail = lazy(() => import('./pages/ClientDetail'))
 const TeamMemberDetail = lazy(() => import('./pages/TeamMemberDetail'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const WorkflowGuide = lazy(() => import('./pages/WorkflowGuide'))
+const Diagnostics = lazy(() => import('./pages/Diagnostics'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -74,7 +76,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './components/ui/dropdown-menu'
-import { User, Settings as SettingsIcon, LogOut, ChevronDown, X, Sparkles, Eye } from 'lucide-react'
+import { User, Settings as SettingsIcon, LogOut, ChevronDown, X, Sparkles, Eye, BookOpen } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { QuickActionsFAB } from './components/QuickActions'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
@@ -285,6 +287,10 @@ function MainLayout({ children }) {
               <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <SettingsIcon className="h-4 w-4 mr-2" />
                 Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/how-it-works')}>
+                <BookOpen className="h-4 w-4 mr-2" />
+                How It Works
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
@@ -578,6 +584,30 @@ function App() {
                   <TeamRoute>
                     <ClientDetail />
                   </TeamRoute>
+                }
+              />
+              <Route
+                path="/clients/:clientSlug/tickets/:ticketId"
+                element={
+                  <TeamRoute>
+                    <TicketDetail />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/how-it-works"
+                element={
+                  <TeamRoute>
+                    <WorkflowGuide />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/diagnostics"
+                element={
+                  <AdminRoute>
+                    <Diagnostics />
+                  </AdminRoute>
                 }
               />
               <Route

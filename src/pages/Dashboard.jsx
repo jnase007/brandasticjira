@@ -19,7 +19,7 @@ import {
   RefreshCw,
   Building2,
 } from 'lucide-react'
-import { getClients, getBoards, getClientHoursSummary, getTickets } from '../lib/supabase'
+import { supabase, getClients, getBoards, getClientHoursSummary, getTickets } from '../lib/supabase'
 import ClientDialog from '../components/ClientDialog'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDuration, calculateProgress, getProgressColor, formatRelativeDate } from '../lib/utils'
@@ -88,11 +88,14 @@ export default function Dashboard({ onConfetti }) {
   const [boards, setBoards] = useState([])
   const [hoursSummary, setHoursSummary] = useState([])
   const [recentTickets, setRecentTickets] = useState([])
+  const [allTickets, setAllTickets] = useState([])
+  const [recentActivity, setRecentActivity] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [fetchError, setFetchError] = useState(null)
+  const [viewMode, setViewMode] = useState('personal')
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
@@ -124,7 +127,26 @@ export default function Dashboard({ onConfetti }) {
       setClients(clientsRes.status === 'fulfilled' && clientsRes.value?.data ? clientsRes.value.data : [])
       setBoards(boardsRes.status === 'fulfilled' && boardsRes.value?.data ? boardsRes.value.data : [])
       setHoursSummary(hoursRes.status === 'fulfilled' && hoursRes.value?.data ? hoursRes.value.data : [])
-      setRecentTickets(ticketsRes.status === 'fulfilled' && ticketsRes.value?.data ? ticketsRes.value.data.slice(0, 5) : [])
+      const ticketsData = ticketsRes.status === 'fulfilled' && ticketsRes.value?.data ? ticketsRes.value.data : []
+      setAllTickets(ticketsData)
+      setRecentTickets(ticketsData.slice(0, 5))
+
+      // Fetch personal activity if available
+      if (profile?.id) {
+        try {
+          const { data: activityData, error: activityError } = await supabase
+            .from('activity_log')
+            .select('id, activity_type, entity_name, metadata, created_at')
+            .eq('user_id', profile.id)
+            .order('created_at', { ascending: false })
+            .limit(5)
+          if (!activityError) {
+            setRecentActivity(activityData || [])
+          }
+        } catch {
+          setRecentActivity([])
+        }
+      }
       
       // Only show error if ALL critical data failed
       if (clientsRes.status === 'rejected' && boardsRes.status === 'rejected') {
@@ -141,7 +163,7 @@ export default function Dashboard({ onConfetti }) {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [profile?.id])
 
   // Calculate totals
   const totalClients = clients.length
@@ -157,6 +179,13 @@ export default function Dashboard({ onConfetti }) {
 
   // Completed tickets count
   const completedTickets = recentTickets.filter(t => t.status === 'done').length
+  const myTickets = allTickets.filter((t) => t.assigned_to === profile?.id)
+  const myActiveTickets = myTickets.filter((t) => t.status !== 'done')
+  const myClients = myTickets.reduce((acc, ticket) => {
+    const client = ticket.client
+    if (client && !acc.find((item) => item.id === client.id)) acc.push(client)
+    return acc
+  }, [])
 
   if (loading) {
     return (
@@ -256,7 +285,7 @@ export default function Dashboard({ onConfetti }) {
         variants={itemVariants}
         className="mb-10"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-4xl font-display font-bold mb-2 flex items-center gap-3">
               {getFunGreeting(profile?.full_name)}
@@ -272,24 +301,44 @@ export default function Dashboard({ onConfetti }) {
               {getFunFact()}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchData(true)}
-            disabled={refreshing}
-            className="gap-2"
-          >
-            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1 rounded-full border bg-muted p-1">
+              <Button
+                variant={viewMode === 'personal' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('personal')}
+              >
+                My Dashboard
+              </Button>
+              <Button
+                variant={viewMode === 'company' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('company')}
+              >
+                Company Overview
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </motion.div>
 
-      {/* Stats Grid */}
-      <motion.div
-        variants={containerVariants}
-        className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8"
-      >
+      {viewMode === 'company' && (
+        <>
+          {/* Stats Grid */}
+          <motion.div
+            variants={containerVariants}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8"
+          >
         <motion.div variants={itemVariants}>
           <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
             <CardContent className="pt-6">
@@ -394,10 +443,10 @@ export default function Dashboard({ onConfetti }) {
             <div className="absolute inset-0 bg-gradient-to-r from-brand-teal/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </Card>
         </motion.div>
-      </motion.div>
+          </motion.div>
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Content Grid */}
+          <div className="grid gap-6 lg:grid-cols-3">
         {/* Client Hours - Left Column */}
         <motion.div
           variants={itemVariants}
@@ -453,7 +502,7 @@ export default function Dashboard({ onConfetti }) {
                       return (
                         <Link
                           key={client.client_id}
-                          to={`/clients/${client.client_id}`}
+                          to={`/clients/${clients.find((c) => c.id === client.client_id)?.slug || client.client_id}`}
                         >
                         <motion.div
                           layout
@@ -694,7 +743,7 @@ export default function Dashboard({ onConfetti }) {
                       transition={{ delay: index * 0.1 }}
                     >
                       <Link
-                        to={`/tickets/${ticket.id}`}
+                        to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
                         className="flex items-start gap-3 p-3 -mx-2 rounded-xl hover:bg-muted/50 transition-colors group"
                       >
                         <Badge 
@@ -720,7 +769,165 @@ export default function Dashboard({ onConfetti }) {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+          </div>
+        </>
+      )}
+
+      {viewMode === 'personal' && (
+        <div className="space-y-6">
+          {/* Personal Stats */}
+          <motion.div
+            variants={containerVariants}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            <motion.div variants={itemVariants}>
+              <Card className="relative overflow-hidden">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-muted-foreground">My Active Tasks</p>
+                  <p className="text-4xl font-display font-bold mt-2">{myActiveTickets.length}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <Card className="relative overflow-hidden">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-muted-foreground">My Clients</p>
+                  <p className="text-4xl font-display font-bold mt-2">{myClients.length}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <Card className="relative overflow-hidden">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
+                  <p className="text-4xl font-display font-bold mt-2">
+                    {myTickets.filter((t) => t.status === 'done').length}
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+
+          {/* Personal Content */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-xl">My Tasks</CardTitle>
+                  <Badge variant="outline" className="font-normal">
+                    {myTickets.filter(t => t.status === 'done').length}/{myTickets.length} done
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {myTickets.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                          <Award className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">No tasks assigned yet</p>
+                      </div>
+                    ) : (
+                      myTickets.slice(0, 6).map((ticket, index) => (
+                        <motion.div
+                          key={ticket.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <Link
+                            to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
+                            className="flex items-start gap-3 p-3 -mx-2 rounded-xl hover:bg-muted/50 transition-colors group"
+                          >
+                            <Badge 
+                              variant={ticket.status} 
+                              className="mt-0.5 text-[10px] uppercase tracking-wide"
+                            >
+                              {ticket.status === 'inprogress' ? 'WIP' : ticket.status}
+                            </Badge>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate group-hover:text-brand-orange transition-colors">
+                                {ticket.title}
+                              </p>
+                              <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                {ticket.ticket_id}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </Link>
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">My Clients</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {myClients.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No clients assigned yet.</p>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {myClients.slice(0, 6).map((client) => (
+                        <Link
+                          key={client.id}
+                          to={`/clients/${client.slug || client.id}`}
+                          className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm hover:border-brand-orange/30 transition-all"
+                        >
+                          <div
+                            className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                            style={{ backgroundColor: client.color || '#F7931E' }}
+                          >
+                            {client.name?.charAt(0)}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{client.name}</p>
+                            <p className="text-xs text-muted-foreground">Assigned client</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Latest Updates</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recentActivity.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No recent updates yet.</p>
+                  ) : (
+                    recentActivity.map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-3">
+                        <div className="h-2 w-2 rounded-full bg-brand-orange mt-2" />
+                        <div>
+                          <p className="text-sm">
+                            {activity.activity_type.replace('_', ' ')}{' '}
+                            <span className="font-medium text-brand-orange">
+                              {activity.entity_name || activity.metadata?.ticket_id || 'item'}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatRelativeDate(new Date(activity.created_at))}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       {/* Client Dialog */}
       <ClientDialog

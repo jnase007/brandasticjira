@@ -2,6 +2,23 @@
   command = "npm run build"
   publish = "dist"
 
+# Netlify Functions
+[functions]
+  directory = "netlify/functions"
+
+# 301 redirects for legacy URLs
+[[redirects]]
+  from = "/clients/:id"
+  to = "/.netlify/functions/redirect-client?id=:id"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/tickets/:id"
+  to = "/.netlify/functions/redirect-ticket?id=:id"
+  status = 301
+  force = true
+
 # Redirect all routes to index.html for SPA routing
 [[redirects]]
   from = "/*"

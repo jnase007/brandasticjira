@@ -18,6 +18,9 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
   const hasAttachments = ticket.attachments?.length > 0
   const hasDueDate = !!ticket.due_date
   const isOverdue = hasDueDate && new Date(ticket.due_date) < new Date() && ticket.status !== 'done'
+  const clientSlug = ticket.client?.slug || ticket.client_id
+  const ticketKey = ticket.ticket_id || ticket.id
+  const ticketLink = clientSlug ? `/clients/${clientSlug}/tickets/${ticketKey}` : `/tickets/${ticketKey}`
 
   return (
     <motion.div
@@ -44,7 +47,7 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
         )}
       />
 
-      <Link to={`/tickets/${ticket.id}`} className="block pl-2">
+      <Link to={ticketLink} className="block pl-2">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="text-xs font-mono text-muted-foreground">

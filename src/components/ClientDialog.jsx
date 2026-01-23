@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { 
   Building2, Palette, Clock, Mail, User, FileText, 
   Upload, X, Image as ImageIcon, Check, ChevronRight, ChevronLeft,
@@ -70,13 +71,16 @@ export default function ClientDialog({
   onSuccess 
 }) {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [createdClient, setCreatedClient] = useState(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const fileInputRef = useRef(null)
+  const bannerInputRef = useRef(null)
   const nameInputRef = useRef(null)
   
   const [formData, setFormData] = useState({
@@ -89,6 +93,7 @@ export default function ClientDialog({
     account_services: '',
     is_active: true,
     logo_url: '',
+    banner_url: '',
   })
 
   const [errors, setErrors] = useState({})
@@ -119,6 +124,7 @@ export default function ClientDialog({
             : client.account_services || '',
           is_active: client.is_active !== false,
           logo_url: client.logo_url || '',
+          banner_url: client.banner_url || '',
         })
         setStep(1)
       } else {
@@ -132,6 +138,7 @@ export default function ClientDialog({
           account_services: '',
           is_active: true,
           logo_url: '',
+          banner_url: '',
         })
         setStep(1)
         setShowSuccess(false)
@@ -236,6 +243,51 @@ export default function ClientDialog({
     if (file) handleLogoUpload(file)
   }
 
+  // Banner upload with drag & drop
+  const handleBannerUpload = async (file) => {
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please upload an image file', variant: 'destructive' })
+      return
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'Image must be under 50MB', variant: 'destructive' })
+      return
+    }
+
+    setUploadingBanner(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `client-banners/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+
+      const { error } = await supabase.storage
+        .from('images')
+        .upload(fileName, file, { upsert: true })
+
+      if (error) throw error
+
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(fileName)
+
+      setFormData(prev => ({ ...prev, banner_url: urlData.publicUrl }))
+      toast({ title: 'Banner uploaded!', variant: 'success' })
+    } catch (error) {
+      toast({ title: 'Upload failed', variant: 'destructive' })
+    } finally {
+      setUploadingBanner(false)
+    }
+  }
+
+  const handleBannerDrop = (e) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) handleBannerUpload(file)
+  }
+
   // Submit form
   const handleSubmit = async () => {
     if (!validateStep()) return
@@ -255,6 +307,7 @@ export default function ClientDialog({
           : [],
         is_active: formData.is_active,
         logo_url: formData.logo_url || null,
+        banner_url: formData.banner_url || null,
       }
 
       console.log('Saving client data:', dataToSave)
@@ -395,7 +448,7 @@ export default function ClientDialog({
                     className="w-full h-12 gap-2 bg-gradient-to-r from-brand-orange to-brand-coral" 
                     onClick={() => {
                       handleClose()
-                      window.location.href = `/clients/${createdClient?.id}`
+                      navigate(`/clients/${createdClient?.slug || createdClient?.id}`)
                     }}
                   >
                     <Building2 className="h-4 w-4" />
@@ -408,7 +461,7 @@ export default function ClientDialog({
                     className="w-full h-11 gap-2"
                     onClick={() => {
                       handleClose()
-                      window.location.href = `/boards?new=true&client=${createdClient?.id}`
+                      navigate(`/boards?new=true&client=${createdClient?.id}`)
                     }}
                   >
                     <Kanban className="h-4 w-4" />
@@ -431,6 +484,7 @@ export default function ClientDialog({
                         account_services: '',
                         is_active: true,
                         logo_url: '',
+                        banner_url: '',
                       })
                     }}
                   >
@@ -578,6 +632,27 @@ export default function ClientDialog({
                         exit={{ opacity: 0, x: -20 }}
                         className="space-y-4"
                       >
+                        <div>
+                          <Label className="text-sm font-medium">Status</Label>
+                          <Select
+                            value={formData.is_active ? 'active' : 'inactive'}
+                            onValueChange={(value) =>
+                              setFormData(prev => ({ ...prev, is_active: value === 'active' }))
+                            }
+                          >
+                            <SelectTrigger className="mt-1.5 h-11">
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Inactive clients are hidden from dashboards and reports.
+                          </p>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label className="text-sm font-medium">Contact Name</Label>
@@ -661,6 +736,60 @@ export default function ClientDialog({
                         exit={{ opacity: 0, x: -20 }}
                         className="space-y-4"
                       >
+                        {/* Banner Upload */}
+                        <div>
+                          <Label className="text-sm font-medium mb-1.5 block">Client Banner (optional)</Label>
+                          <div
+                            onDrop={handleBannerDrop}
+                            onDragOver={(e) => e.preventDefault()}
+                            className={cn(
+                              "border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer",
+                              "hover:border-brand-orange hover:bg-brand-orange/5"
+                            )}
+                            onClick={() => bannerInputRef.current?.click()}
+                          >
+                            <input
+                              ref={bannerInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleBannerUpload(e.target.files?.[0])}
+                              className="hidden"
+                            />
+
+                            {formData.banner_url ? (
+                              <div className="space-y-2">
+                                <img 
+                                  src={formData.banner_url} 
+                                  alt="Banner" 
+                                  className="w-full h-24 rounded-lg object-cover bg-white border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setFormData(prev => ({ ...prev, banner_url: '' }))
+                                  }}
+                                  className="text-xs text-muted-foreground hover:text-destructive"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-3">
+                                {uploadingBanner ? (
+                                  <div className="w-8 h-8 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                )}
+                                <div className="text-left">
+                                  <p className="font-medium text-sm">Drop banner here or click to upload</p>
+                                  <p className="text-xs text-muted-foreground">PNG, JPG up to 50MB</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Logo Upload */}
                         <div>
                           <Label className="text-sm font-medium mb-1.5 block">Client Logo (optional)</Label>

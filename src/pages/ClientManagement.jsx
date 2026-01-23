@@ -116,6 +116,7 @@ export default function ClientManagement() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState('clients')
   
   // Data
   const [clients, setClients] = useState([])
@@ -174,7 +175,6 @@ export default function ClientManagement() {
       const clientsPromise = supabase
         .from('clients')
         .select('*')
-        .eq('is_active', true)
         .order('name')
       
       const clientsRes = await Promise.race([clientsPromise, timeout])
@@ -377,7 +377,9 @@ export default function ClientManagement() {
   }
 
   // Filter
-  const filteredClients = clients.filter(c =>
+  const activeClients = clients.filter((c) => c.is_active !== false)
+
+  const filteredClients = activeClients.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -453,7 +455,7 @@ export default function ClientManagement() {
                 <div>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={clients.length} />
+                    <AnimatedCounter value={activeClients.length} />
                   </p>
                 </div>
               </div>
@@ -517,7 +519,7 @@ export default function ClientManagement() {
       </motion.div>
 
       {/* No Clients Banner - Shows prominently at top */}
-      {clients.length === 0 && (
+      {activeClients.length === 0 && (
         <motion.div
           variants={itemVariants}
           className="mb-8 p-6 rounded-2xl border-2 border-dashed border-brand-orange/40 bg-gradient-to-r from-brand-orange/10 to-brand-coral/10"
@@ -581,8 +583,12 @@ export default function ClientManagement() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="requests" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-muted/50">
+          <TabsTrigger value="clients" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            Clients
+          </TabsTrigger>
           <TabsTrigger value="requests" className="gap-2">
             <Bell className="h-4 w-4" />
             Requests
@@ -596,11 +602,183 @@ export default function ClientManagement() {
             <Star className="h-4 w-4" />
             Portfolio
           </TabsTrigger>
-          <TabsTrigger value="clients" className="gap-2">
-            <Building2 className="h-4 w-4" />
-            Clients
-          </TabsTrigger>
         </TabsList>
+
+        {/* Clients Tab */}
+        <TabsContent value="clients">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Client Directory</CardTitle>
+                  <CardDescription>All clients with portal access</CardDescription>
+                </div>
+                <div className="flex gap-3">
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search clients..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button onClick={() => setInviteDialogOpen(true)}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Invite
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {activeClients.length === 0 ? (
+                <EmptyClientsState onImport={async () => {
+                  setRefreshing(true)
+                  try {
+                    const results = await seedSampleClients()
+                    toast({
+                      title: '🎉 Clients Imported!',
+                      description: `Added ${results.clients.length} clients with ${results.boards.length} boards`,
+                      variant: 'success',
+                    })
+                    fetchData(true)
+                  } catch (error) {
+                    toast({
+                      title: 'Error importing clients',
+                      description: error.message,
+                      variant: 'destructive',
+                    })
+                    setRefreshing(false)
+                  }
+                }} loading={refreshing} />
+              ) : (
+              <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredClients.map((client) => {
+                  const clientUserCount = clientUsers.filter(u => u.client_id === client.id).length
+                  const clientRequestCount = requests.filter(r => r.client_id === client.id).length
+                  const clientProjectCount = projects.filter(p => p.client_id === client.id).length
+                  const monthlyRevenue = (client.monthly_hours || 0) * 175
+                  
+                  return (
+                    <Link
+                      key={client.id}
+                      to={`/clients/${client.slug || client.id}`}
+                      className="block"
+                    >
+                    <motion.div
+                      variants={itemVariants}
+                      whileHover={{ y: -2 }}
+                      className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        {client.logo_url ? (
+                          <img
+                            src={client.logo_url}
+                            alt={client.name}
+                            className="h-12 w-12 rounded-xl object-contain bg-white border"
+                          />
+                        ) : (
+                          <div
+                            className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                            style={{ backgroundColor: client.color || '#F7931E' }}
+                          >
+                            {client.name[0]}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{client.name}</h3>
+                          {client.account_services && client.account_services.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {client.account_services.slice(0, 2).map((service, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                  {service}
+                                </span>
+                              ))}
+                              {client.account_services.length > 2 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{client.account_services.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Monthly Stats */}
+                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Monthly</p>
+                            <p className="font-bold text-green-600">${monthlyRevenue.toLocaleString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Hours</p>
+                            <p className="font-bold">{client.monthly_hours || 0}h</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                        <div className="p-1.5 rounded-lg bg-muted/50">
+                          <p className="font-semibold">{clientUserCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Users</p>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-muted/50">
+                          <p className="font-semibold">{clientRequestCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Requests</p>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-muted/50">
+                          <p className="font-semibold">{clientProjectCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Projects</p>
+                        </div>
+                      </div>
+                      
+                      {/* Contact & View Link */}
+                      <div className="flex items-center justify-between mt-3">
+                        {client.contact_email ? (
+                          <p className="text-xs text-muted-foreground truncate flex-1">
+                            📧 {client.contact_email}
+                          </p>
+                        ) : (
+                          <div />
+                        )}
+                        <span className="text-xs text-brand-orange font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          View Dashboard <ArrowRight className="h-3 w-3" />
+                        </span>
+                      </div>
+                    </motion.div>
+                    </Link>
+                  )
+                })}
+              </div>
+              
+              {/* Summary Footer */}
+              <div className="mt-6 p-4 rounded-xl bg-muted/50 border">
+                <div className="flex flex-wrap gap-6 justify-center text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-brand-orange">{activeClients.length}</p>
+                    <p className="text-sm text-muted-foreground">Active Clients</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-600">
+                      ${activeClients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * 175), 0).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Monthly Revenue</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {activeClients.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)}h
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Hours/Month</p>
+                  </div>
+                </div>
+              </div>
+              </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Requests Tab */}
         <TabsContent value="requests">
@@ -752,182 +930,6 @@ export default function ClientManagement() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Clients Tab */}
-        <TabsContent value="clients">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Client Directory</CardTitle>
-                  <CardDescription>All clients with portal access</CardDescription>
-                </div>
-                <div className="flex gap-3">
-                  <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search clients..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Button onClick={() => setInviteDialogOpen(true)}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    Invite
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {clients.length === 0 ? (
-                <EmptyClientsState onImport={async () => {
-                  setRefreshing(true)
-                  try {
-                    const results = await seedSampleClients()
-                    toast({
-                      title: '🎉 Clients Imported!',
-                      description: `Added ${results.clients.length} clients with ${results.boards.length} boards`,
-                      variant: 'success',
-                    })
-                    fetchData(true)
-                  } catch (error) {
-                    toast({
-                      title: 'Error importing clients',
-                      description: error.message,
-                      variant: 'destructive',
-                    })
-                    setRefreshing(false)
-                  }
-                }} loading={refreshing} />
-              ) : (
-              <>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredClients.map((client) => {
-                  const clientUserCount = clientUsers.filter(u => u.client_id === client.id).length
-                  const clientRequestCount = requests.filter(r => r.client_id === client.id).length
-                  const clientProjectCount = projects.filter(p => p.client_id === client.id).length
-                  const monthlyRevenue = (client.monthly_hours || 0) * 175
-                  
-                  return (
-                    <Link
-                      key={client.id}
-                      to={`/clients/${client.id}`}
-                      className="block"
-                    >
-                    <motion.div
-                      variants={itemVariants}
-                      whileHover={{ y: -2 }}
-                      className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        {client.logo_url ? (
-                          <img
-                            src={client.logo_url}
-                            alt={client.name}
-                            className="h-12 w-12 rounded-xl object-contain bg-white border"
-                          />
-                        ) : (
-                          <div
-                            className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                            style={{ backgroundColor: client.color || '#F7931E' }}
-                          >
-                            {client.name[0]}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate">{client.name}</h3>
-                          {client.account_services && client.account_services.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {client.account_services.slice(0, 2).map((service, i) => (
-                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                  {service}
-                                </span>
-                              ))}
-                              {client.account_services.length > 2 && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  +{client.account_services.length - 2}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Monthly Stats */}
-                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Monthly</p>
-                            <p className="font-bold text-green-600">${monthlyRevenue.toLocaleString()}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Hours</p>
-                            <p className="font-bold">{client.monthly_hours || 0}h</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                        <div className="p-1.5 rounded-lg bg-muted/50">
-                          <p className="font-semibold">{clientUserCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Users</p>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-muted/50">
-                          <p className="font-semibold">{clientRequestCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Requests</p>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-muted/50">
-                          <p className="font-semibold">{clientProjectCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Projects</p>
-                        </div>
-                      </div>
-                      
-                      {/* Contact & View Link */}
-                      <div className="flex items-center justify-between mt-3">
-                        {client.contact_email ? (
-                          <p className="text-xs text-muted-foreground truncate flex-1">
-                            📧 {client.contact_email}
-                          </p>
-                        ) : (
-                          <div />
-                        )}
-                        <span className="text-xs text-brand-orange font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          View Dashboard <ArrowRight className="h-3 w-3" />
-                        </span>
-                      </div>
-                    </motion.div>
-                    </Link>
-                  )
-                })}
-              </div>
-              
-              {/* Summary Footer */}
-              <div className="mt-6 p-4 rounded-xl bg-muted/50 border">
-                <div className="flex flex-wrap gap-6 justify-center text-center">
-                  <div>
-                    <p className="text-2xl font-bold text-brand-orange">{clients.length}</p>
-                    <p className="text-sm text-muted-foreground">Active Clients</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-green-600">
-                      ${clients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * 175), 0).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">
-                      {clients.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)}h
-                    </p>
-                    <p className="text-sm text-muted-foreground">Total Hours/Month</p>
-                  </div>
-                </div>
-              </div>
-              </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Invite Client Dialog */}
@@ -959,7 +961,7 @@ export default function ClientManagement() {
                   <SelectValue placeholder="Choose client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map(client => (
+                  {activeClients.map(client => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>
@@ -1042,7 +1044,7 @@ export default function ClientManagement() {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map(client => (
+                    {activeClients.map(client => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name}
                       </SelectItem>
@@ -1164,7 +1166,7 @@ export default function ClientManagement() {
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map(client => (
+                  {activeClients.map(client => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>

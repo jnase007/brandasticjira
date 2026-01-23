@@ -454,6 +454,11 @@ export function AuthProvider({ children }) {
   const [clientPreviewMode, setClientPreviewMode] = useState(false)
   const [previewClientId, setPreviewClientId] = useState(null)
 
+  const startClientPreview = useCallback((clientId) => {
+    setClientPreviewMode(true)
+    setPreviewClientId(clientId || null)
+  }, [])
+
   const toggleClientPreview = useCallback((clientId = null) => {
     setClientPreviewMode(prev => !prev)
     setPreviewClientId(clientId)
@@ -524,6 +529,7 @@ export function AuthProvider({ children }) {
     // Client preview mode for admins
     clientPreviewMode,
     previewClientId,
+    startClientPreview,
     toggleClientPreview,
     exitClientPreview,
   }

@@ -4,15 +4,15 @@ import { motion } from 'framer-motion'
 import {
   Building2, Clock, DollarSign, Users, ArrowLeft, Calendar,
   TrendingUp, FileText, Timer, CheckCircle, AlertCircle,
-  BarChart3, PieChart, Activity, ExternalLink, Edit2,
+  BarChart3, PieChart, Activity, ExternalLink, Edit2, Eye,
   Play, Ticket, Loader2, ChevronRight, Target, Zap,
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, logActivity } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { cn, formatDate } from '../lib/utils'
+import { cn, formatDate, isUuid } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
@@ -81,16 +81,24 @@ const itemVariants = {
 export default function ClientDetail() {
   const { clientId } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isTeam, startClientPreview } = useAuth()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [client, setClient] = useState(null)
+  const [loadError, setLoadError] = useState(null)
   const [timeEntries, setTimeEntries] = useState([])
   const [tickets, setTickets] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [monthlyStats, setMonthlyStats] = useState([])
   const [refreshing, setRefreshing] = useState(false)
+  const resolvedClientId = client?.id || (isUuid(clientId) ? clientId : null)
+  const logoSrc = client?.logo_url
+    ? `${client.logo_url}${client.logo_url.includes('?') ? '&' : '?'}v=${client.updated_at || client.id}`
+    : null
+  const bannerSrc = client?.banner_url
+    ? `${client.banner_url}${client.banner_url.includes('?') ? '&' : '?'}v=${client.updated_at || client.id}`
+    : null
   
   // Notes state
   const [notes, setNotes] = useState([])
@@ -101,6 +109,7 @@ export default function ClientDetail() {
     note_type: 'note',
   })
   const [savingNote, setSavingNote] = useState(false)
+  const [replyDrafts, setReplyDrafts] = useState({})
   
   // Pipeline stage editing
   const [editingStage, setEditingStage] = useState(false)
@@ -216,51 +225,99 @@ export default function ClientDetail() {
 
     try {
       // Fetch client
-      const { data: clientData, error: clientError } = await supabase
+      let clientQuery = supabase
         .from('clients')
         .select('*')
-        .eq('id', clientId)
-        .maybeSingle()
+
+      if (isUuid(clientId)) {
+        clientQuery = clientQuery.eq('id', clientId)
+      } else {
+        clientQuery = clientQuery.eq('slug', clientId)
+      }
+
+      const { data: clientData, error: clientError } = await clientQuery.maybeSingle()
 
       if (clientError || !clientData) {
-        toast({ title: 'Client not found', variant: 'destructive' })
-        navigate('/clients')
+        setClient(null)
+        setLoadError('Client not found or you no longer have access.')
         return
       }
 
       setClient(clientData)
+      setLoadError(null)
+      if (isUuid(clientId) && clientData.slug && clientId !== clientData.slug) {
+        navigate(`/clients/${clientData.slug}`, { replace: true })
+      }
+      const resolvedClientId = clientData.id
 
       // Fetch time entries for this client
       const { data: timeData } = await supabase
         .from('time_entries')
         .select('*, profiles:user_id(full_name, avatar_url)')
-        .eq('client_id', clientId)
+        .eq('client_id', resolvedClientId)
         .order('date', { ascending: false })
         .limit(100)
 
-      setTimeEntries(timeData || [])
+      const normalizedTimeEntries = (timeData || []).map((entry) => ({
+        ...entry,
+        minutes: entry.minutes ?? entry.duration_minutes ?? 0,
+        date:
+          entry.date ||
+          (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
+        billable: entry.billable ?? true,
+      }))
+
+      setTimeEntries(normalizedTimeEntries)
 
       // Fetch tickets for this client
       const { data: ticketData } = await supabase
         .from('tickets')
         .select('*, boards(name)')
-        .eq('client_id', clientId)
+        .eq('client_id', resolvedClientId)
         .order('updated_at', { ascending: false })
         .limit(50)
+      
+      const assignedIds = [...new Set((ticketData || []).map((t) => t.assigned_to).filter(Boolean))]
+      let assignedProfiles = []
+      if (assignedIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', assignedIds)
+        assignedProfiles = profilesData || []
+      }
 
-      setTickets(ticketData || [])
+      const assignedMap = assignedProfiles.reduce((acc, profile) => {
+        acc[profile.id] = profile
+        return acc
+      }, {})
+
+      const timeByTicket = normalizedTimeEntries.reduce((acc, entry) => {
+        if (entry.ticket_id) {
+          acc[entry.ticket_id] = (acc[entry.ticket_id] || 0) + (entry.minutes || 0)
+        }
+        return acc
+      }, {})
+
+      const enrichedTickets = (ticketData || []).map((ticket) => ({
+        ...ticket,
+        assigned_user: ticket.assigned_to ? assignedMap[ticket.assigned_to] : null,
+        tracked_minutes: timeByTicket[ticket.id] || 0,
+      }))
+
+      setTickets(enrichedTickets)
 
       // Get unique team members who worked on this client
-      if (timeData && timeData.length > 0) {
+      if (normalizedTimeEntries.length > 0) {
         const uniqueMembers = []
         const seenIds = new Set()
-        for (const entry of timeData) {
+        for (const entry of normalizedTimeEntries) {
           if (entry.profiles && !seenIds.has(entry.user_id)) {
             seenIds.add(entry.user_id)
             uniqueMembers.push({
               id: entry.user_id,
               ...entry.profiles,
-              totalMinutes: timeData
+              totalMinutes: normalizedTimeEntries
                 .filter(e => e.user_id === entry.user_id)
                 .reduce((sum, e) => sum + (e.minutes || 0), 0)
             })
@@ -277,7 +334,7 @@ export default function ClientDetail() {
         const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
         const monthName = month.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
         
-        const monthEntries = (timeData || []).filter(e => {
+        const monthEntries = normalizedTimeEntries.filter(e => {
           const entryDate = new Date(e.date)
           return entryDate >= month && entryDate <= monthEnd
         })
@@ -294,12 +351,12 @@ export default function ClientDetail() {
       }
       setMonthlyStats(stats)
       
-      // Fetch client notes
+      // Fetch client notes (messages)
       try {
         const { data: notesData } = await supabase
           .from('client_notes')
           .select('*, creator:created_by(full_name, avatar_url)')
-          .eq('client_id', clientId)
+          .eq('client_id', resolvedClientId)
           .order('created_at', { ascending: false })
         setNotes(notesData || [])
       } catch (err) {
@@ -311,7 +368,7 @@ export default function ClientDetail() {
         const { data: assignmentsData } = await supabase
           .from('client_team_assignments')
           .select('*, user:user_id(id, full_name, avatar_url, email)')
-          .eq('client_id', clientId)
+          .eq('client_id', resolvedClientId)
         setTeamAssignments(assignmentsData || [])
       } catch (err) {
         console.log('Team assignments table may not exist yet:', err)
@@ -333,8 +390,8 @@ export default function ClientDetail() {
       try {
         const { data: boardsData } = await supabase
           .from('boards')
-          .select('*, tickets(id, title, status, assignee_id)')
-          .eq('client_id', clientId)
+          .select('*, tickets(id, title, status, assigned_to)')
+          .eq('client_id', resolvedClientId)
           .eq('is_archived', false)
           .order('created_at', { ascending: false })
         setBoards(boardsData || [])
@@ -344,6 +401,8 @@ export default function ClientDetail() {
 
     } catch (error) {
       console.error('Error fetching client data:', error)
+      setClient(null)
+      setLoadError('Something went wrong while loading this client. Please refresh and try again.')
       toast({ title: 'Error loading client', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -359,6 +418,10 @@ export default function ClientDetail() {
 
   // Add a new note
   const handleAddNote = async () => {
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
     if (!newNote.content.trim()) {
       toast({ title: 'Please enter note content', variant: 'destructive' })
       return
@@ -369,7 +432,7 @@ export default function ClientDetail() {
       const { data, error } = await supabase
         .from('client_notes')
         .insert({
-          client_id: clientId,
+          client_id: resolvedClientId,
           created_by: user.id,
           title: newNote.title || null,
           content: newNote.content,
@@ -400,6 +463,38 @@ export default function ClientDetail() {
       setSavingNote(false)
     }
   }
+
+  const handleAddReply = async (parentId) => {
+    const replyText = replyDrafts[parentId]?.trim()
+    if (!replyText) return
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('client_notes')
+        .insert({
+          client_id: resolvedClientId,
+          created_by: user.id,
+          content: replyText,
+          note_type: 'note',
+          parent_id: parentId,
+        })
+
+      if (error) throw error
+
+      setReplyDrafts((prev) => ({ ...prev, [parentId]: '' }))
+      fetchClientData(true)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send reply.',
+        variant: 'destructive',
+      })
+    }
+  }
   
   // Update client pipeline stage
   const updatePipelineStage = async (newStage) => {
@@ -414,7 +509,7 @@ export default function ClientDetail() {
       const { error: clientError } = await supabase
         .from('clients')
         .update({ pipeline_stage: newStage })
-        .eq('id', clientId)
+        .eq('id', resolvedClientId)
       
       if (clientError) throw clientError
       
@@ -422,7 +517,7 @@ export default function ClientDetail() {
       await supabase
         .from('client_notes')
         .insert({
-          client_id: clientId,
+          client_id: resolvedClientId,
           created_by: user.id,
           content: `Pipeline stage changed from "${PIPELINE_STAGES.find(s => s.value === oldStage)?.label || oldStage}" to "${PIPELINE_STAGES.find(s => s.value === newStage)?.label || newStage}"`,
           note_type: 'milestone',
@@ -455,6 +550,10 @@ export default function ClientDetail() {
       toast({ title: 'Please select a role and team member', variant: 'destructive' })
       return
     }
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
     
     setSavingAssignment(true)
     try {
@@ -464,7 +563,7 @@ export default function ClientDetail() {
       const { error } = await supabase
         .from('client_team_assignments')
         .upsert({
-          client_id: clientId,
+          client_id: resolvedClientId,
           role: selectedRole,
           user_id: selectedUserId,
           user_name: selectedMember?.full_name || 'Unknown',
@@ -496,6 +595,10 @@ export default function ClientDetail() {
       toast({ title: 'Board name is required', variant: 'destructive' })
       return
     }
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
     
     setSavingBoard(true)
     try {
@@ -504,7 +607,7 @@ export default function ClientDetail() {
         .insert({
           name: newBoard.name,
           description: newBoard.description,
-          client_id: clientId,
+          client_id: resolvedClientId,
           created_by: user.id,
           is_archived: false,
         })
@@ -541,6 +644,10 @@ export default function ClientDetail() {
       toast({ title: 'Task title is required', variant: 'destructive' })
       return
     }
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
     
     setSavingTask(true)
     try {
@@ -552,7 +659,7 @@ export default function ClientDetail() {
         const { data: existingBoard } = await supabase
           .from('boards')
           .select('id')
-          .eq('client_id', clientId)
+          .eq('client_id', resolvedClientId)
           .eq('name', 'General Tasks')
           .maybeSingle()
         
@@ -565,7 +672,7 @@ export default function ClientDetail() {
             .insert({
               name: 'General Tasks',
               description: 'Quick tasks and one-off items',
-              client_id: clientId,
+              client_id: resolvedClientId,
               created_by: user.id,
               is_archived: false,
             })
@@ -577,18 +684,20 @@ export default function ClientDetail() {
         }
       }
       
-      const { error } = await supabase
+      const { data: createdTicket, error } = await supabase
         .from('tickets')
         .insert({
           title: newTask.title,
           description: newTask.description,
           board_id: boardId,
-          client_id: clientId,
+          client_id: resolvedClientId,
           assigned_to: newTask.assignee_id || user.id, // Default to current user
           status: 'todo',
           priority: newTask.priority || 'medium',
           created_by: user.id,
         })
+        .select()
+        .single()
       
       if (error) throw error
       
@@ -596,6 +705,16 @@ export default function ClientDetail() {
         title: '✅ Task created',
         description: `"${newTask.title}" has been assigned`,
         variant: 'success',
+      })
+
+      logActivity({
+        activity_type: 'ticket_created',
+        user_id: user?.id,
+        client_id: resolvedClientId,
+        entity_type: 'ticket',
+        entity_id: createdTicket.id,
+        entity_name: createdTicket.ticket_id || createdTicket.title,
+        metadata: { board_id: boardId },
       })
       
       setCreateTaskOpen(false)
@@ -615,6 +734,10 @@ export default function ClientDetail() {
       toast({ title: 'Select at least one template', variant: 'destructive' })
       return
     }
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
     
     setCreatingFromTemplate(true)
     try {
@@ -631,7 +754,7 @@ export default function ClientDetail() {
           .insert({
             name: template.name,
             description: template.description,
-            client_id: clientId,
+            client_id: resolvedClientId,
             created_by: user.id,
             is_archived: false,
           })
@@ -649,7 +772,7 @@ export default function ClientDetail() {
         const tasksToInsert = template.tasks.map((task, index) => ({
           title: task.title,
           board_id: boardData.id,
-          client_id: clientId,
+          client_id: resolvedClientId,
           status: 'todo',
           priority: task.priority || 'medium',
           time_estimate: task.estimate ? Math.round(task.estimate * 60) : null,
@@ -665,12 +788,23 @@ export default function ClientDetail() {
           console.error('Error creating tasks:', tasksError)
         } else {
           tasksCreated += template.tasks.length
+        tasksToInsert.forEach((task) => {
+          logActivity({
+            activity_type: 'ticket_created',
+            user_id: user?.id,
+            client_id: resolvedClientId,
+            entity_type: 'ticket',
+            entity_id: null,
+            entity_name: task.title,
+            metadata: { board_id: boardData.id },
+          })
+        })
         }
       }
       
       toast({
         title: '🚀 Project created!',
-        description: `Created ${boardsCreated} boards with ${tasksCreated} tasks`,
+        description: `Created ${boardsCreated} boards with ${tasksCreated} tasks. Open a board or the Tasks tab to track time.`,
         variant: 'success',
       })
       
@@ -706,6 +840,24 @@ export default function ClientDetail() {
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
         <Skeleton className="h-96" />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Unavailable</CardTitle>
+            <CardDescription>{loadError}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate('/clients')} variant="outline">
+              Back to Clients
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -755,25 +907,26 @@ export default function ClientDetail() {
         <Card className="overflow-hidden">
           {/* Banner */}
           <div 
-            className="h-36 md:h-40 relative"
-            style={{ 
-              background: `linear-gradient(135deg, ${client.color || '#F7931E'}dd, ${client.color || '#F7931E'}88, ${client.color || '#F7931E'}44)` 
-            }}
+            className="h-28 md:h-32 relative overflow-hidden"
+            style={bannerSrc
+              ? { backgroundImage: `url(${bannerSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : { background: `linear-gradient(135deg, ${client.color || '#F7931E'}dd, ${client.color || '#F7931E'}88, ${client.color || '#F7931E'}44)` }
+            }
           >
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
           </div>
           
           {/* Profile Info - Properly spaced below banner */}
-          <CardContent className="relative pt-0 pb-6">
-            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+          <CardContent className="relative pt-0 pb-4">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
               {/* Logo - overlaps banner */}
-              <div className="-mt-14 md:-mt-16 relative z-10 flex-shrink-0">
+              <div className="-mt-12 md:-mt-14 relative z-10 flex-shrink-0">
                 <div 
-                  className="w-24 h-24 md:w-28 md:h-28 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-background overflow-hidden"
+                  className="w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-background overflow-hidden"
                   style={{ backgroundColor: client.color || '#F7931E' }}
                 >
-                  {client.logo_url ? (
-                    <img src={client.logo_url} alt={client.name} className="w-full h-full object-cover" />
+                  {logoSrc ? (
+                    <img src={logoSrc} alt={client.name} className="w-full h-full object-cover" />
                   ) : (
                     client.name[0]
                   )}
@@ -781,11 +934,11 @@ export default function ClientDetail() {
               </div>
               
               {/* Info */}
-              <div className="flex-1 pt-1 md:pt-4">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  <div>
+              <div className="flex-1 pt-1 md:pt-3">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  <div className="min-w-0">
                     {/* Name & Badges */}
-                    <div className="flex items-center gap-3 flex-wrap mb-2">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
                       <h1 className="text-2xl md:text-3xl font-display font-bold">{client.name}</h1>
                       
                       {/* Pipeline Stage Badge */}
@@ -853,7 +1006,7 @@ export default function ClientDetail() {
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                  <div className="flex flex-wrap gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -888,6 +1041,19 @@ export default function ClientDetail() {
                       <FileText className="h-4 w-4" />
                       <span className="ml-2 hidden sm:inline">New Board</span>
                     </Button>
+                    {isTeam && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          startClientPreview(client.id)
+                          navigate('/portal')
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span className="ml-2 hidden sm:inline">Client View</span>
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       onClick={() => setCreateTaskOpen(true)}
@@ -911,6 +1077,26 @@ export default function ClientDetail() {
                       <Play className="h-4 w-4" />
                       <span className="ml-2 hidden sm:inline">Start Timer</span>
                     </Button>
+                  </div>
+                </div>
+
+                {/* Quick Summary */}
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">Monthly Hours</p>
+                    <p className="font-semibold">{monthlyBudget}h</p>
+                  </div>
+                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">Hours Used</p>
+                    <p className="font-semibold">{currentMonthHours}h</p>
+                  </div>
+                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">Remaining</p>
+                    <p className="font-semibold">{Math.max(monthlyBudget - currentMonthHours, 0)}h</p>
+                  </div>
+                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">Open Tasks</p>
+                    <p className="font-semibold">{ticketsByStatus.todo + ticketsByStatus.inprogress}</p>
                   </div>
                 </div>
               </div>
@@ -1022,13 +1208,22 @@ export default function ClientDetail() {
 
       {/* Tabs */}
       <motion.div variants={itemVariants}>
-        <Tabs defaultValue="notes" className="space-y-6">
+        <Tabs defaultValue="tickets" className="space-y-6">
           <TabsList className="flex-wrap">
+            <TabsTrigger value="tickets" className="flex items-center gap-2">
+              <Ticket className="h-4 w-4" />
+              Tasks
+              {tickets.length > 0 && (
+                <span className="ml-1 text-xs bg-brand-orange text-white px-1.5 rounded-full">
+                  {tickets.length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="notes" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Notes
+              Messages
               {notes.length > 0 && (
-                <span className="ml-1 text-xs bg-brand-orange text-white px-1.5 rounded-full">
+                <span className="ml-1 text-xs bg-muted-foreground/20 px-1.5 rounded-full">
                   {notes.length}
                 </span>
               )}
@@ -1041,10 +1236,6 @@ export default function ClientDetail() {
               <Timer className="h-4 w-4" />
               Time Entries
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="flex items-center gap-2">
-              <Ticket className="h-4 w-4" />
-              Tasks
-            </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Reports
@@ -1055,7 +1246,7 @@ export default function ClientDetail() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Notes Tab */}
+          {/* Messages Tab */}
           <TabsContent value="notes">
             <Card>
               <CardHeader>
@@ -1063,13 +1254,13 @@ export default function ClientDetail() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <MessageSquare className="h-5 w-5 text-brand-orange" />
-                      Client Notes & Communication
+                      Client Messages
                     </CardTitle>
-                    <CardDescription>Track meetings, calls, and important updates</CardDescription>
+                    <CardDescription>Team messages for this client with replies</CardDescription>
                   </div>
                   <Button onClick={() => setAddNoteOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Note
+                    New Message
                   </Button>
                 </div>
               </CardHeader>
@@ -1077,94 +1268,92 @@ export default function ClientDetail() {
                 {notes.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="font-medium">No notes yet</p>
-                    <p className="text-sm mb-4">Start adding notes to track your communication with this client</p>
+                    <p className="font-medium">No messages yet</p>
+                    <p className="text-sm mb-4">Start a message thread for this client</p>
                     <Button onClick={() => setAddNoteOpen(true)} variant="outline">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add First Note
+                      Start Message
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {notes.map((note) => {
-                      const noteType = NOTE_TYPES.find(t => t.value === note.note_type) || NOTE_TYPES[0]
-                      const IconComponent = noteType.icon
-                      const isStageChange = note.stage_change_from && note.stage_change_to
-                      
+                    {notes.filter((note) => !note.parent_id).map((note) => {
+                      const replies = notes.filter((reply) => reply.parent_id === note.id)
                       return (
-                        <div 
-                          key={note.id} 
-                          className={cn(
-                            "p-4 rounded-xl border bg-card hover:shadow-md transition-all",
-                            note.is_pinned && "border-brand-orange/50 bg-brand-orange/5",
-                            isStageChange && "border-purple-500/30 bg-purple-500/5"
-                          )}
+                        <div
+                          key={note.id}
+                          className="p-4 rounded-xl border bg-card hover:shadow-md transition-all"
                         >
                           <div className="flex items-start gap-3">
-                            {/* Icon */}
-                            <div className={cn(
-                              "p-2 rounded-lg flex-shrink-0",
-                              note.note_type === 'win' && "bg-green-500/10",
-                              note.note_type === 'issue' && "bg-red-500/10",
-                              note.note_type === 'milestone' && "bg-purple-500/10",
-                              !['win', 'issue', 'milestone'].includes(note.note_type) && "bg-muted"
-                            )}>
-                              <IconComponent className={cn(
-                                "h-4 w-4",
-                                note.note_type === 'win' && "text-green-500",
-                                note.note_type === 'issue' && "text-red-500",
-                                note.note_type === 'milestone' && "text-purple-500",
-                                !['win', 'issue', 'milestone'].includes(note.note_type) && "text-muted-foreground"
-                              )} />
-                            </div>
-                            
-                            {/* Content */}
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={note.creator?.avatar_url} />
+                              <AvatarFallback className="text-xs">
+                                {note.creator?.full_name?.[0] || '?'}
+                              </AvatarFallback>
+                            </Avatar>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                {note.title && (
-                                  <span className="font-semibold">{note.title}</span>
-                                )}
-                                <Badge variant="outline" className="text-xs">
-                                  {noteType.label}
-                                </Badge>
-                                {note.is_pinned && (
-                                  <Pin className="h-3 w-3 text-brand-orange" />
-                                )}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold">
+                                  {note.creator?.full_name || 'Unknown'}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(note.created_at, 'MMM d, h:mm a')}
+                                </span>
                               </div>
-                              
-                              <p className="text-sm whitespace-pre-wrap">{note.content}</p>
-                              
-                              {/* Stage change visualization */}
-                              {isStageChange && (
-                                <div className="mt-2 flex items-center gap-2 text-xs">
-                                  <Badge variant="outline" className="bg-muted">
-                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_from)?.icon}{' '}
-                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_from)?.label}
-                                  </Badge>
-                                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                  <Badge className={cn(
-                                    PIPELINE_STAGES.find(s => s.value === note.stage_change_to)?.color,
-                                    "text-white border-0"
-                                  )}>
-                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_to)?.icon}{' '}
-                                    {PIPELINE_STAGES.find(s => s.value === note.stage_change_to)?.label}
-                                  </Badge>
+                              {note.title && (
+                                <p className="text-sm font-medium mt-1">{note.title}</p>
+                              )}
+                              <p className="text-sm whitespace-pre-wrap mt-2">{note.content}</p>
+
+                              {replies.length > 0 && (
+                                <div className="mt-4 space-y-3 border-l pl-4">
+                                  {replies.map((reply) => (
+                                    <div key={reply.id} className="flex items-start gap-2">
+                                      <Avatar className="h-6 w-6">
+                                        <AvatarImage src={reply.creator?.avatar_url} />
+                                        <AvatarFallback className="text-[10px]">
+                                          {reply.creator?.full_name?.[0] || '?'}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-medium">
+                                            {reply.creator?.full_name || 'Unknown'}
+                                          </span>
+                                          <span className="text-[11px] text-muted-foreground">
+                                            {formatDate(reply.created_at, 'MMM d, h:mm a')}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1">
+                                          {reply.content}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
-                              
-                              {/* Meta */}
-                              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1.5">
-                                  <Avatar className="h-5 w-5">
-                                    <AvatarImage src={note.creator?.avatar_url} />
-                                    <AvatarFallback className="text-[10px]">
-                                      {note.creator?.full_name?.[0] || '?'}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span>{note.creator?.full_name || 'Unknown'}</span>
+
+                              <div className="mt-4 space-y-2">
+                                <Textarea
+                                  placeholder="Reply to this message..."
+                                  value={replyDrafts[note.id] || ''}
+                                  onChange={(e) =>
+                                    setReplyDrafts((prev) => ({
+                                      ...prev,
+                                      [note.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="min-h-[60px]"
+                                />
+                                <div className="flex justify-end">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAddReply(note.id)}
+                                    disabled={!replyDrafts[note.id]?.trim()}
+                                  >
+                                    Reply
+                                  </Button>
                                 </div>
-                                <span>•</span>
-                                <span>{formatDate(note.created_at)}</span>
                               </div>
                             </div>
                           </div>
@@ -1294,10 +1483,10 @@ export default function ClientDetail() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {tickets.map((ticket) => (
-                      <Link
-                        key={ticket.id}
-                        to={`/tickets/${ticket.id}`}
+        {tickets.map((ticket) => (
+          <Link
+            key={ticket.id}
+            to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`}
                         className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm hover:border-brand-orange/30 transition-all"
                       >
                         <div className={cn(
@@ -1317,8 +1506,34 @@ export default function ClientDetail() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{ticket.title}</p>
                           <p className="text-sm text-muted-foreground">
-                            {ticket.boards?.name || 'No board'} • {ticket.key}
+                            {ticket.boards?.name || 'General Tasks'} • {ticket.ticket_id || ticket.id?.substring(0, 8)}
                           </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            {ticket.assigned_user ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarImage src={ticket.assigned_user.avatar_url} />
+                                  <AvatarFallback className="text-[10px]">
+                                    {ticket.assigned_user.full_name?.[0] || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span>{ticket.assigned_user.full_name}</span>
+                              </div>
+                            ) : (
+                              <span>Unassigned</span>
+                            )}
+                            <span>•</span>
+                            <span>
+                              Tracked: {Math.round((ticket.tracked_minutes || 0) / 60)}h{' '}
+                              {(ticket.tracked_minutes || 0) % 60}m
+                            </span>
+                            {ticket.estimated_hours && (
+                              <>
+                                <span>•</span>
+                                <span>Est: {ticket.estimated_hours}h</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <Badge variant={
                           ticket.priority === 'high' ? 'destructive' : 
@@ -1540,55 +1755,30 @@ export default function ClientDetail() {
         </Tabs>
       </motion.div>
 
-      {/* Add Note Dialog */}
+      {/* New Message Dialog */}
       <Dialog open={addNoteOpen} onOpenChange={setAddNoteOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-brand-orange" />
-              Add Note for {client.name}
+              New Message for {client.name}
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Note Type</Label>
-              <Select 
-                value={newNote.note_type} 
-                onValueChange={(value) => setNewNote(prev => ({ ...prev, note_type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {NOTE_TYPES.map(type => {
-                    const TypeIcon = type.icon
-                    return (
-                      <SelectItem key={type.value} value={type.value}>
-                        <span className="flex items-center gap-2">
-                          <TypeIcon className="h-4 w-4" />
-                          {type.label}
-                        </span>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
               <Label>Title (optional)</Label>
               <Input
-                placeholder="e.g., Kickoff Meeting Notes"
+                placeholder="e.g., Quick update"
                 value={newNote.title}
                 onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))}
               />
             </div>
             
             <div className="space-y-2">
-              <Label>Note Content *</Label>
+              <Label>Message *</Label>
               <Textarea
-                placeholder="What happened? What are the next steps? Any important details to remember..."
+                placeholder="Write your message here..."
                 value={newNote.content}
                 onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))}
                 rows={6}
@@ -1604,12 +1794,12 @@ export default function ClientDetail() {
               {savingNote ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  Sending...
                 </>
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Add Note
+                  Send Message
                 </>
               )}
             </Button>
@@ -1967,7 +2157,7 @@ export default function ClientDetail() {
       
       {/* Template Selector Dialog */}
       <Dialog open={templateSelectorOpen} onOpenChange={setTemplateSelectorOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-6 w-6 text-brand-purple" />
@@ -1977,14 +2167,18 @@ export default function ClientDetail() {
               Select the service packages for <strong>{client?.name}</strong>. Each template creates a board with pre-configured tasks.
             </p>
           </DialogHeader>
-          
+
+          <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+            After creating templates, open the new board or the client’s Tasks tab to start tracking time on any task.
+          </div>
+
           <div className="flex-1 overflow-y-auto py-4 space-y-6">
             {Object.entries(templatesByCategory).map(([category, templates]) => (
-              <div key={category}>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <div key={category} className="rounded-2xl border bg-background p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                   {category}
                 </h3>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
                   {templates.map(template => {
                     const isSelected = selectedTemplates.includes(template.id)
                     return (
@@ -1992,14 +2186,14 @@ export default function ClientDetail() {
                         key={template.id}
                         onClick={() => toggleTemplate(template.id)}
                         className={cn(
-                          "p-4 rounded-xl border-2 text-left transition-all hover:shadow-md",
+                          "group relative flex h-full flex-col gap-3 rounded-2xl border-2 p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple/50",
                           isSelected 
                             ? "border-brand-purple bg-brand-purple/5 shadow-sm" 
-                            : "border-muted hover:border-muted-foreground/30"
+                            : "border-muted bg-white hover:border-muted-foreground/30 hover:shadow-md"
                         )}
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3">
                             <span className="text-2xl">{template.icon}</span>
                             <div>
                               <p className="font-semibold">{template.name}</p>
@@ -2009,7 +2203,7 @@ export default function ClientDetail() {
                             </div>
                           </div>
                           <div className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                            "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
                             isSelected 
                               ? "border-brand-purple bg-brand-purple" 
                               : "border-muted-foreground/30"
@@ -2020,6 +2214,14 @@ export default function ClientDetail() {
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {template.description}
                         </p>
+                        <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="rounded-full bg-muted px-2 py-1">
+                            {template.tasks.length} tasks
+                          </span>
+                          <span className="rounded-full bg-muted px-2 py-1">
+                            ~{template.estimatedHours}h
+                          </span>
+                        </div>
                       </button>
                     )
                   })}
@@ -2089,6 +2291,7 @@ export default function ClientDetail() {
         client={client}
         onSuccess={(updatedClient) => {
           setClient(updatedClient)
+          fetchClientData(true)
           toast({ title: 'Client updated!', variant: 'success' })
         }}
       />
