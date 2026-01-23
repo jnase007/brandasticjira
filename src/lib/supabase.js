@@ -463,7 +463,35 @@ export async function getTimeEntries(ticketId = null, clientId = null, startDate
     query = query.lte('start_time', endDate)
   }
 
-  const { data, error } = await query
+  let { data, error } = await query
+
+  // Fallback for older schemas without start_time
+  if (error && error.message?.includes('start_time')) {
+    let fallbackQuery = supabase
+      .from('time_entries')
+      .select(`
+        *,
+        ticket:tickets(id, ticket_id, title),
+        user:profiles(id, full_name, avatar_url)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (ticketId) {
+      fallbackQuery = fallbackQuery.eq('ticket_id', ticketId)
+    }
+    if (clientId) {
+      fallbackQuery = fallbackQuery.eq('client_id', clientId)
+    }
+    if (startDate) {
+      fallbackQuery = fallbackQuery.gte('created_at', startDate)
+    }
+    if (endDate) {
+      fallbackQuery = fallbackQuery.lte('created_at', endDate)
+    }
+
+    ;({ data, error } = await fallbackQuery)
+  }
+
   return { data, error }
 }
 

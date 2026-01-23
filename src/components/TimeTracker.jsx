@@ -34,6 +34,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
   const [elapsedTime, setElapsedTime] = useState('00:00:00')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
+  const [localStartTime, setLocalStartTime] = useState(null)
   const [manualDialogOpen, setManualDialogOpen] = useState(false)
   const [manualEntry, setManualEntry] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -98,12 +99,25 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
       if (error) throw error
 
       setRunningEntry(data)
+      setLocalStartTime(null)
       toast({
         title: 'Timer started',
         description: 'Time tracking has begun for this task.',
         duration: 2500,
       })
     } catch (error) {
+      const message = error?.message || ''
+      if (message.includes('column')) {
+        const start = new Date().toISOString()
+        setRunningEntry({ id: 'local', start_time: start, notes })
+        setLocalStartTime(start)
+        toast({
+          title: 'Timer started',
+          description: 'Tracking locally. Time will save on stop.',
+          duration: 2500,
+        })
+        return
+      }
       toast({
         title: 'Error',
         description: 'Failed to start timer. Please try again.',
@@ -116,12 +130,39 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
     if (!runningEntry) return
 
     try {
-      const { data, error } = await stopTimeEntry(runningEntry.id)
-      
+      let data = null
+      let error = null
+
+      if (runningEntry.id === 'local') {
+        const startTime = localStartTime ? new Date(localStartTime) : new Date()
+        const endTime = new Date()
+        const durationMinutes = Math.max(1, Math.ceil((endTime - startTime) / 60000))
+
+        const res = await createManualTimeEntry({
+          ticket_id: ticketId,
+          client_id: clientId,
+          user_id: user.id,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          notes,
+          minutes: durationMinutes,
+          date: endTime.toISOString().split('T')[0],
+          billable: true,
+          description: notes || 'Time entry',
+        })
+        data = res.data
+        error = res.error
+      } else {
+        const res = await stopTimeEntry(runningEntry.id)
+        data = res.data
+        error = res.error
+      }
+
       if (error) throw error
 
       setRunningEntry(null)
       setNotes('')
+      setLocalStartTime(null)
       
       // Refresh entries
       await fetchData()
@@ -146,7 +187,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to stop timer. Please try again.',
+        description: error?.message || 'Failed to stop timer. Please try again.',
         variant: 'destructive',
       })
     }
