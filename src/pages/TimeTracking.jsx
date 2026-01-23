@@ -152,11 +152,10 @@ export default function TimeTracking() {
         supabase
           .from('client_rates')
           .select('*'),
-        // Simpler query: fetch all entries and filter client-side for reliability
-        // Note: Only join on columns that definitely exist (user, ticket)
+        // Simpler query: fetch all entries without complex joins
         supabase
           .from('time_entries')
-          .select('*, user:profiles(full_name, avatar_url, hourly_cost), ticket:tickets(id, title, ticket_id, board:boards(client:clients(id, name, color)))')
+          .select('*')
           .order('created_at', { ascending: false }),
       ])
 
@@ -173,6 +172,28 @@ export default function TimeTracking() {
         return entryDate >= startDate && entryDate < endDate
       })
 
+      // Fetch user profiles for display
+      const userIds = [...new Set(filteredEntries.map(e => e.user_id).filter(Boolean))]
+      let userMap = {}
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, hourly_cost')
+          .in('id', userIds)
+        userMap = (users || []).reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+      }
+
+      // Fetch tickets for display
+      const ticketIds = [...new Set(filteredEntries.map(e => e.ticket_id).filter(Boolean))]
+      let ticketMap = {}
+      if (ticketIds.length > 0) {
+        const { data: tickets } = await supabase
+          .from('tickets')
+          .select('id, title, ticket_id')
+          .in('id', ticketIds)
+        ticketMap = (tickets || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {})
+      }
+
       const normalizedEntries = filteredEntries.map((entry) => ({
         ...entry,
         minutes: entry.minutes ?? entry.duration_minutes ?? 0,
@@ -180,8 +201,8 @@ export default function TimeTracking() {
           entry.date ||
           (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
         billable: entry.billable ?? true,
-        // Get client from ticket -> board -> client path
-        client: entry.client || entry.ticket?.board?.client || null,
+        user: userMap[entry.user_id] || null,
+        ticket: ticketMap[entry.ticket_id] || null,
       }))
 
       setEmployees(employeesRes.data || [])
