@@ -39,6 +39,7 @@ module.exports = {
         'vite.config.js',
         'tailwind.config.js',
         'tests/**/*.js',
+        'netlify/functions/**/*.js',
       ],
       env: {
         node: true,

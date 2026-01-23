@@ -487,7 +487,9 @@ export async function getTimeEntries(ticketId = null, clientId = null, startDate
       fallbackQuery = fallbackQuery.lte('created_at', endDate)
     }
 
-    ;({ data, error } = await fallbackQuery)
+    const fallbackResult = await fallbackQuery
+    data = fallbackResult.data
+    error = fallbackResult.error
 
     if (!error && data) {
       const userIds = [...new Set(data.map((entry) => entry.user_id).filter(Boolean))]
