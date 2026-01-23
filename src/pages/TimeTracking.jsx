@@ -4,8 +4,15 @@ import {
   Clock, Users, DollarSign, TrendingUp, TrendingDown, Target,
   Plus, Calendar, Building2, ChevronLeft, ChevronRight, Edit2,
   Trash2, Check, X, AlertCircle, Zap, BarChart3, PieChart,
-  Download, Filter, RefreshCw, ArrowUpRight, ArrowDownRight
+  Download, Filter, RefreshCw, ArrowUpRight, ArrowDownRight,
+  Loader2, MoreHorizontal, Pencil
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, formatDuration, getInitials } from '../lib/utils'
@@ -114,6 +121,17 @@ export default function TimeTracking() {
   const [editClientRateDialogOpen, setEditClientRateDialogOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
+  
+  // Edit time entry
+  const [editTimeDialogOpen, setEditTimeDialogOpen] = useState(false)
+  const [editingEntry, setEditingEntry] = useState(null)
+  const [editEntryData, setEditEntryData] = useState({
+    description: '',
+    minutes: 0,
+    billable: true,
+  })
+  const [savingEntry, setSavingEntry] = useState(false)
+  const [deletingEntry, setDeletingEntry] = useState(false)
   
   // Time entry form
   const [timeEntry, setTimeEntry] = useState({
@@ -337,6 +355,73 @@ export default function TimeTracking() {
       fetchData(true)
     } catch (error) {
       toast({ title: 'Error logging time', variant: 'destructive' })
+    }
+  }
+
+  // Open edit dialog for a time entry
+  const openEditDialog = (entry) => {
+    setEditingEntry(entry)
+    setEditEntryData({
+      description: entry.description || '',
+      minutes: entry.minutes || 0,
+      billable: entry.billable ?? true,
+    })
+    setEditTimeDialogOpen(true)
+  }
+
+  // Save edited time entry
+  const handleSaveEntry = async () => {
+    if (!editingEntry) return
+    
+    setSavingEntry(true)
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .update({
+          description: editEntryData.description,
+          minutes: editEntryData.minutes,
+          billable: editEntryData.billable,
+        })
+        .eq('id', editingEntry.id)
+      
+      if (error) throw error
+      
+      toast({ title: '✅ Time entry updated', variant: 'success' })
+      setEditTimeDialogOpen(false)
+      setEditingEntry(null)
+      fetchData(true)
+    } catch (error) {
+      console.error('Error updating time entry:', error)
+      toast({ title: 'Error updating entry', variant: 'destructive' })
+    } finally {
+      setSavingEntry(false)
+    }
+  }
+
+  // Delete a time entry
+  const handleDeleteEntry = async (entryId) => {
+    if (!confirm('Are you sure you want to delete this time entry? This cannot be undone.')) {
+      return
+    }
+    
+    setDeletingEntry(true)
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('id', entryId)
+      
+      if (error) throw error
+      
+      toast({ title: '🗑️ Time entry deleted', variant: 'success' })
+      setEditTimeDialogOpen(false)
+      setEditingEntry(null)
+      fetchData(true)
+    } catch (error) {
+      console.error('Error deleting time entry:', error)
+      toast({ title: 'Error deleting entry', variant: 'destructive' })
+    } finally {
+      setDeletingEntry(false)
     }
   }
 
@@ -947,10 +1032,10 @@ export default function TimeTracking() {
                       <tr>
                         <th className="text-left py-3 px-4 font-medium">Date</th>
                         <th className="text-left py-3 px-4 font-medium">Employee</th>
-                        <th className="text-left py-3 px-4 font-medium">Client</th>
-                        <th className="text-left py-3 px-4 font-medium">Description</th>
+                        <th className="text-left py-3 px-4 font-medium">Task/Description</th>
                         <th className="text-right py-3 px-4 font-medium">Duration</th>
                         <th className="text-center py-3 px-4 font-medium">Billable</th>
+                        <th className="text-center py-3 px-4 font-medium w-16">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -961,55 +1046,84 @@ export default function TimeTracking() {
                           </td>
                         </tr>
                       ) : (
-                        visibleTimeEntries.map((entry, index) => (
-                          <motion.tr
-                            key={entry.id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: index * 0.02 }}
-                            className={cn(
-                              "border-b hover:bg-muted/30 transition-colors",
-                              index % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
-                            )}
-                          >
-                            <td className="py-3 px-4 text-sm">
-                              {formatDate(entry.date)}
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-7 w-7">
-                                  <AvatarImage src={entry.user?.avatar_url} />
-                                  <AvatarFallback className="text-xs">
-                                    {getInitials(entry.user?.full_name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{entry.user?.full_name}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: entry.client?.color || '#ccc' }}
-                                />
-                                <span className="text-sm">{entry.client?.name || '-'}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">
-                              {entry.description || '-'}
-                            </td>
-                            <td className="py-3 px-4 text-right font-mono font-medium">
-                              {formatHours(entry.minutes)}
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              {entry.billable ? (
-                                <Check className="h-4 w-4 text-green-500 mx-auto" />
-                              ) : (
-                                <X className="h-4 w-4 text-muted-foreground mx-auto" />
+                        visibleTimeEntries.map((entry, index) => {
+                          const canEdit = entry.user_id === user?.id || isAdmin
+                          return (
+                            <motion.tr
+                              key={entry.id}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: index * 0.02 }}
+                              className={cn(
+                                "border-b hover:bg-muted/30 transition-colors group",
+                                index % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
                               )}
-                            </td>
-                          </motion.tr>
-                        ))
+                            >
+                              <td className="py-3 px-4 text-sm">
+                                {formatDate(entry.date)}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-7 w-7">
+                                    <AvatarImage src={entry.user?.avatar_url} />
+                                    <AvatarFallback className="text-xs">
+                                      {getInitials(entry.user?.full_name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm">{entry.user?.full_name}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-sm max-w-xs">
+                                <div>
+                                  {entry.ticket?.title && (
+                                    <p className="font-medium truncate">{entry.ticket.title}</p>
+                                  )}
+                                  <p className="text-muted-foreground truncate">
+                                    {entry.description || (entry.ticket?.title ? '' : 'No description')}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-medium">
+                                {formatHours(entry.minutes)}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                {entry.billable ? (
+                                  <Check className="h-4 w-4 text-green-500 mx-auto" />
+                                ) : (
+                                  <X className="h-4 w-4 text-muted-foreground mx-auto" />
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                {canEdit && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => openEditDialog(entry)}>
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit Entry
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={() => handleDeleteEntry(entry.id)}
+                                        className="text-red-600"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete Entry
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </td>
+                            </motion.tr>
+                          )
+                        })
                       )}
                     </tbody>
                   </table>
@@ -1248,6 +1362,115 @@ export default function TimeTracking() {
             <Button onClick={handleUpdateClientRate}>
               Save Rate
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Time Entry Dialog */}
+      <Dialog open={editTimeDialogOpen} onOpenChange={setEditTimeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-brand-orange" />
+              Edit Time Entry
+            </DialogTitle>
+          </DialogHeader>
+          {editingEntry && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={editingEntry.user?.avatar_url} />
+                    <AvatarFallback className="text-xs">
+                      {getInitials(editingEntry.user?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-sm">{editingEntry.user?.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(editingEntry.date)}</p>
+                  </div>
+                </div>
+                {editingEntry.ticket?.title && (
+                  <Badge variant="outline" className="mt-1">
+                    {editingEntry.ticket.title}
+                  </Badge>
+                )}
+              </div>
+
+              <div>
+                <Label>Description / Notes</Label>
+                <Input
+                  value={editEntryData.description}
+                  onChange={(e) => setEditEntryData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="What did you work on?"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Hours</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={Math.floor(editEntryData.minutes / 60)}
+                    onChange={(e) => {
+                      const hours = parseInt(e.target.value) || 0
+                      const mins = editEntryData.minutes % 60
+                      setEditEntryData(prev => ({ ...prev, minutes: hours * 60 + mins }))
+                    }}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label>Minutes</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={editEntryData.minutes % 60}
+                    onChange={(e) => {
+                      const mins = Math.min(59, parseInt(e.target.value) || 0)
+                      const hours = Math.floor(editEntryData.minutes / 60)
+                      setEditEntryData(prev => ({ ...prev, minutes: hours * 60 + mins }))
+                    }}
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-billable"
+                  checked={editEntryData.billable}
+                  onChange={(e) => setEditEntryData(prev => ({ ...prev, billable: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="edit-billable" className="cursor-pointer">
+                  Billable time
+                </Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex justify-between">
+            <Button 
+              variant="destructive" 
+              onClick={() => editingEntry && handleDeleteEntry(editingEntry.id)}
+              disabled={deletingEntry}
+            >
+              {deletingEntry ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setEditTimeDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEntry} disabled={savingEntry}>
+                {savingEntry ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                Save Changes
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
