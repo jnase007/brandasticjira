@@ -328,7 +328,7 @@ export default function ClientDialog({
       {showConfetti && <Confetti trigger={showConfetti} />}
       
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden max-h-[85vh] flex flex-col">
           <AnimatePresence mode="wait">
             {showSuccess ? (
               // Success Screen
@@ -423,7 +423,7 @@ export default function ClientDialog({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex flex-col max-h-[90vh]"
+                className="flex flex-col h-full overflow-hidden"
               >
                 {/* Header with Progress - Fixed at top */}
                 <div className="px-6 pt-6 pb-4 border-b bg-gradient-to-b from-muted/50 to-transparent flex-shrink-0">
@@ -475,7 +475,7 @@ export default function ClientDialog({
                 </div>
 
                 {/* Form Content - Scrollable */}
-                <div className="p-6 flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
+                <div className="p-6 flex-1 overflow-y-auto min-h-0" onKeyDown={handleKeyDown}>
                   <AnimatePresence mode="wait">
                     {/* Step 1: Basics */}
                     {step === 1 && (
@@ -636,16 +636,16 @@ export default function ClientDialog({
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="space-y-5"
+                        className="space-y-4"
                       >
                         {/* Logo Upload */}
                         <div>
-                          <Label className="text-sm font-medium mb-2 block">Client Logo</Label>
+                          <Label className="text-sm font-medium mb-1.5 block">Client Logo (optional)</Label>
                           <div
                             onDrop={handleDrop}
                             onDragOver={(e) => e.preventDefault()}
                             className={cn(
-                              "border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer",
+                              "border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer",
                               "hover:border-brand-orange hover:bg-brand-orange/5"
                             )}
                             onClick={() => fileInputRef.current?.click()}
@@ -663,11 +663,11 @@ export default function ClientDialog({
                                 <img 
                                   src={formData.logo_url} 
                                   alt="Logo" 
-                                  className="w-16 h-16 rounded-xl object-contain bg-white border"
+                                  className="w-12 h-12 rounded-lg object-contain bg-white border"
                                 />
                                 <div className="text-left">
-                                  <p className="font-medium text-green-600 flex items-center gap-1">
-                                    <Check className="h-4 w-4" /> Logo uploaded
+                                  <p className="text-sm font-medium text-green-600 flex items-center gap-1">
+                                    <Check className="h-3 w-3" /> Uploaded
                                   </p>
                                   <button
                                     type="button"
@@ -675,29 +675,31 @@ export default function ClientDialog({
                                       e.stopPropagation()
                                       setFormData(prev => ({ ...prev, logo_url: '' }))
                                     }}
-                                    className="text-sm text-muted-foreground hover:text-destructive"
+                                    className="text-xs text-muted-foreground hover:text-destructive"
                                   >
                                     Remove
                                   </button>
                                 </div>
                               </div>
                             ) : (
-                              <>
+                              <div className="flex items-center justify-center gap-3">
                                 {uploadingLogo ? (
-                                  <div className="w-10 h-10 mx-auto border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
+                                  <div className="w-8 h-8 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                  <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                                  <Upload className="h-8 w-8 text-muted-foreground" />
                                 )}
-                                <p className="font-medium">Drop logo here or click to upload</p>
-                                <p className="text-sm text-muted-foreground">PNG, JPG up to 50MB</p>
-                              </>
+                                <div className="text-left">
+                                  <p className="font-medium text-sm">Drop logo here or click to upload</p>
+                                  <p className="text-xs text-muted-foreground">PNG, JPG up to 50MB</p>
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
 
                         {/* Color Picker */}
                         <div>
-                          <Label className="text-sm font-medium mb-2 block">Brand Color</Label>
+                          <Label className="text-sm font-medium mb-1.5 block">Brand Color</Label>
                           <div className="grid grid-cols-6 gap-2">
                             {COLORS.map((color) => (
                               <button
@@ -705,8 +707,8 @@ export default function ClientDialog({
                                 type="button"
                                 onClick={() => setFormData(prev => ({ ...prev, color: color.value }))}
                                 className={cn(
-                                  "aspect-square rounded-xl transition-all relative group",
-                                  formData.color === color.value && "ring-2 ring-offset-2 ring-foreground scale-110"
+                                  "aspect-square rounded-xl transition-all relative",
+                                  formData.color === color.value && "ring-2 ring-offset-2 ring-foreground scale-105"
                                 )}
                                 style={{ backgroundColor: color.value }}
                                 title={color.name}
@@ -720,25 +722,25 @@ export default function ClientDialog({
                         </div>
 
                         {/* Preview */}
-                        <div className="pt-4 border-t">
-                          <Label className="text-xs text-muted-foreground mb-3 block">Preview</Label>
-                          <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
+                        <div className="pt-3 border-t">
+                          <Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
+                          <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
                             {formData.logo_url ? (
                               <img 
                                 src={formData.logo_url} 
                                 alt="" 
-                                className="w-14 h-14 rounded-xl object-contain bg-white border shadow"
+                                className="w-12 h-12 rounded-xl object-contain bg-white border shadow"
                               />
                             ) : (
                               <div
-                                className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow"
+                                className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow"
                                 style={{ backgroundColor: formData.color }}
                               >
                                 {formData.name?.charAt(0)?.toUpperCase() || 'C'}
                               </div>
                             )}
                             <div>
-                              <p className="font-bold text-lg">{formData.name || 'Client Name'}</p>
+                              <p className="font-bold">{formData.name || 'Client Name'}</p>
                               <p className="text-sm text-muted-foreground">
                                 {formData.monthly_hours}h/month • {formData.slug?.toUpperCase() || 'SLUG'}-001
                               </p>
