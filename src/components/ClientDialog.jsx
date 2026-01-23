@@ -252,10 +252,12 @@ export default function ClientDialog({
         color: formData.color,
         account_services: formData.account_services 
           ? formData.account_services.split(',').map(s => s.trim()).filter(Boolean)
-          : null,
+          : [],
         is_active: formData.is_active,
         logo_url: formData.logo_url || null,
       }
+
+      console.log('Saving client data:', dataToSave)
 
       let result
 
@@ -274,13 +276,30 @@ export default function ClientDialog({
           .single()
       }
 
+      console.log('Supabase result:', result)
+
       if (result.error) {
+        console.error('Supabase error:', result.error)
         if (result.error.code === '23505') {
           setErrors({ slug: 'This slug is already taken' })
           setStep(1)
+          setSaving(false)
           return
         }
-        throw result.error
+        // Show more specific error messages
+        let errorMessage = result.error.message
+        if (result.error.message?.includes('row-level security')) {
+          errorMessage = 'Permission denied. Please run the SQL fix in Supabase (supabase/fix-clients-import.sql)'
+        } else if (result.error.message?.includes('check constraint')) {
+          errorMessage = 'Invalid data. Please check monthly hours is between 0-500.'
+        }
+        toast({ 
+          title: 'Failed to create client', 
+          description: errorMessage,
+          variant: 'destructive' 
+        })
+        setSaving(false)
+        return
       }
 
       if (!client) {
@@ -299,7 +318,7 @@ export default function ClientDialog({
       console.error('Client creation error:', error)
       toast({ 
         title: 'Error creating client', 
-        description: error.message || 'Please try again',
+        description: error.message || 'Please try again. Check browser console for details.',
         variant: 'destructive' 
       })
     } finally {
@@ -373,7 +392,20 @@ export default function ClientDialog({
                   className="space-y-3"
                 >
                   <Button 
-                    className="w-full h-12 gap-2" 
+                    className="w-full h-12 gap-2 bg-gradient-to-r from-brand-orange to-brand-coral" 
+                    onClick={() => {
+                      handleClose()
+                      window.location.href = `/clients/${createdClient?.id}`
+                    }}
+                  >
+                    <Building2 className="h-4 w-4" />
+                    View Client Profile
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-11 gap-2"
                     onClick={() => {
                       handleClose()
                       window.location.href = `/boards?new=true&client=${createdClient?.id}`
@@ -381,12 +413,11 @@ export default function ClientDialog({
                   >
                     <Kanban className="h-4 w-4" />
                     Create First Board
-                    <ArrowRight className="h-4 w-4" />
                   </Button>
                   
                   <Button 
-                    variant="outline" 
-                    className="w-full h-12 gap-2"
+                    variant="ghost" 
+                    className="w-full gap-2"
                     onClick={() => {
                       setShowSuccess(false)
                       setStep(1)
@@ -405,14 +436,6 @@ export default function ClientDialog({
                   >
                     <Plus className="h-4 w-4" />
                     Add Another Client
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    className="w-full"
-                    onClick={handleClose}
-                  >
-                    Done
                   </Button>
                 </motion.div>
               </motion.div>
