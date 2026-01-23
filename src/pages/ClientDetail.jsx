@@ -599,7 +599,11 @@ export default function ClientDetail() {
       const selectedMember = allTeamMembers.find(m => m.id === selectedUserId)
       
       // Upsert the assignment (update if exists, insert if not)
-      const { error } = await supabase
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out. Please try again.')), 10000)
+      )
+
+      const upsertPromise = supabase
         .from('client_team_assignments')
         .upsert({
           client_id: resolvedClientId,
@@ -607,8 +611,17 @@ export default function ClientDetail() {
           user_id: selectedUserId,
           user_name: selectedMember?.full_name || 'Unknown',
         }, { onConflict: 'client_id,role' })
+
+      const { error } = await Promise.race([upsertPromise, timeout])
       
       if (error) throw error
+
+      // Refresh assignments only (avoid long full-page refresh)
+      const { data: assignmentsData } = await supabase
+        .from('client_team_assignments')
+        .select('*, user:user_id(id, full_name, avatar_url, email)')
+        .eq('client_id', resolvedClientId)
+      setTeamAssignments(assignmentsData || [])
       
       toast({
         title: '✅ Team member assigned',
@@ -619,7 +632,6 @@ export default function ClientDetail() {
       setAssignTeamOpen(false)
       setSelectedRole('')
       setSelectedUserId('')
-      fetchClientData(true)
     } catch (error) {
       console.error('Error assigning team member:', error)
       toast({ title: 'Error assigning team member', description: error.message, variant: 'destructive' })
@@ -1735,11 +1747,21 @@ export default function ClientDetail() {
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
                                 <AvatarImage src={assignment.user.avatar_url} />
-                                <AvatarFallback>{assignment.user.full_name?.[0] || '?'}</AvatarFallback>
+                                <AvatarFallback>{assignment.user.full_name?.[0] || assignment.user_name?.[0] || '?'}</AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-medium text-sm truncate">{assignment.user.full_name}</p>
+                                <p className="font-medium text-sm truncate">{assignment.user.full_name || assignment.user_name}</p>
                                 <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
+                              </div>
+                            </div>
+                          ) : assignment?.user_name ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>{assignment.user_name?.[0] || '?'}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{assignment.user_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">Assigned</p>
                               </div>
                             </div>
                           ) : (
