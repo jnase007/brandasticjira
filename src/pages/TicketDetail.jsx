@@ -592,13 +592,40 @@ export default function TicketDetail() {
                       className="mt-1.5"
                     />
                   </div>
+                  <div>
+                    <Label>Estimated Hours</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      placeholder="e.g., 4"
+                      value={editedTicket.estimated_hours || ''}
+                      onChange={(e) => setEditedTicket((prev) => ({ ...prev, estimated_hours: e.target.value ? parseFloat(e.target.value) : null }))}
+                      className="mt-1.5"
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
               <>
-                <h3 className="font-medium mb-3">Description</h3>
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {ticket.description || 'No description provided.'}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium">Description</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setEditMode(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+                <p 
+                  className="text-muted-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors"
+                  onClick={() => setEditMode(true)}
+                  title="Click to edit"
+                >
+                  {ticket.description || 'No description provided. Click to add one.'}
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
@@ -634,10 +661,14 @@ export default function TicketDetail() {
                       {ticket.due_date ? formatDate(ticket.due_date) : 'Not set'}
                     </span>
                   </div>
-                  <div>
+                  <div 
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors"
+                    onClick={() => setEditMode(true)}
+                    title="Click to edit"
+                  >
                     <p className="text-xs text-muted-foreground mb-1">Estimated</p>
                     <span className="text-sm">
-                      {ticket.estimated_hours ? `${ticket.estimated_hours}h` : 'Not set'}
+                      {ticket.estimated_hours ? `${ticket.estimated_hours}h` : 'Click to set'}
                     </span>
                   </div>
                 </div>
