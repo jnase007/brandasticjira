@@ -1618,7 +1618,7 @@ function ProfitabilityReport({ employees, clients, timeEntries, clientRates, sel
 
 // Main Reports Page
 export default function Reports() {
-  const { user, profile, isAdmin } = useAuth()
+  const { user, profile, isAdmin, loading: authLoading } = useAuth()
   const { toast } = useToast()
   
   const [loading, setLoading] = useState(true)
@@ -1723,9 +1723,22 @@ export default function Reports() {
     }
   }
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    if (authLoading) {
+      console.log('[Reports] Auth still loading, waiting...')
+      return
+    }
+    
+    if (!user) {
+      console.log('[Reports] No user after auth loaded')
+      setLoading(false)
+      return
+    }
+    
+    console.log('[Reports] Auth ready, fetching data...')
     fetchData()
-  }, [])
+  }, [authLoading, user?.id])
 
   // Export to CSV
   const exportCSV = (type) => {

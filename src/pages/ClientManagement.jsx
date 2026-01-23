@@ -111,7 +111,7 @@ function EmptyClientsState({ onImport, loading }) {
 }
 
 export default function ClientManagement() {
-  const { user, profile, isAdmin } = useAuth()
+  const { user, profile, isAdmin, loading: authLoading } = useAuth()
   const { toast } = useToast()
   
   const [loading, setLoading] = useState(true)
@@ -188,47 +188,22 @@ export default function ClientManagement() {
 
     // Add timeout to prevent hanging forever
     const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+      setTimeout(() => reject(new Error('Request timeout - please try again')), 15000)
     )
 
     try {
-      // First, validate the session is still active
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session) {
-        console.warn('Session invalid or expired:', sessionError?.message || 'No session')
-        setSessionStale(true)
-        setLoading(false)
-        setRefreshing(false)
-        return
-      }
-
-      // Try to refresh the session proactively
-      const { error: refreshError } = await supabase.auth.refreshSession()
-      if (refreshError) {
-        console.warn('Session refresh failed:', refreshError.message)
-        // Don't fail hard, the current session might still work
-      }
-
       // Fetch clients first - this is the main table we need
       const clientsPromise = supabase
         .from('clients')
         .select('*')
         .order('name')
       
+      console.log('[ClientManagement] Fetching clients...')
       const clientsRes = await Promise.race([clientsPromise, timeout])
+      console.log('[ClientManagement] Clients response:', clientsRes.data?.length || 0, 'clients')
       
       if (clientsRes.error) {
         console.error('Clients fetch error:', clientsRes.error)
-        // Check for auth/RLS related errors
-        if (clientsRes.error.message?.includes('JWT') || 
-            clientsRes.error.message?.includes('token') ||
-            clientsRes.error.code === 'PGRST301') {
-          setSessionStale(true)
-          setLoading(false)
-          setRefreshing(false)
-          return
-        }
         // If table doesn't exist, show empty state so user can import
         if (clientsRes.error.message?.includes('does not exist')) {
           toast({
@@ -237,6 +212,7 @@ export default function ClientManagement() {
             variant: 'destructive',
           })
         }
+        setFetchError(clientsRes.error.message)
       }
       
       setClients(clientsRes.data || [])
@@ -276,9 +252,24 @@ export default function ClientManagement() {
     }
   }
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    // Don't fetch if auth is still loading
+    if (authLoading) {
+      console.log('[ClientManagement] Auth still loading, waiting...')
+      return
+    }
+    
+    // If no user after auth loaded, don't attempt fetch (will redirect to login)
+    if (!user) {
+      console.log('[ClientManagement] No user after auth loaded')
+      setLoading(false)
+      return
+    }
+    
+    console.log('[ClientManagement] Auth ready, fetching data for:', user.email)
     fetchData()
-  }, [])
+  }, [authLoading, user?.id])
 
   // Generate client invite link
   const handleInvite = async () => {

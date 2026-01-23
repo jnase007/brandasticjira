@@ -83,7 +83,7 @@ const HOURS_TREND = [
 ]
 
 export default function Dashboard({ onConfetti }) {
-  const { profile } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const [clients, setClients] = useState([])
   const [boards, setBoards] = useState([])
   const [hoursSummary, setHoursSummary] = useState([])
@@ -105,20 +105,8 @@ export default function Dashboard({ onConfetti }) {
     setFetchError(null)
     
     try {
-      // Validate and refresh session first to prevent stale token issues
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const expiresAt = session.expires_at
-        const now = Math.floor(Date.now() / 1000)
-        const expiresIn = expiresAt - now
-        
-        // Proactively refresh if token expires within 5 minutes
-        if (expiresIn < 300) {
-          console.log('[Dashboard] Refreshing session before fetch...')
-          await supabase.auth.refreshSession()
-        }
-      }
-
+      console.log('[Dashboard] Starting data fetch...')
+      
       // Timeout for slower mobile networks (15 seconds)
       const FETCH_TIMEOUT = 15000
       
@@ -213,18 +201,22 @@ export default function Dashboard({ onConfetti }) {
     }
   }
 
-  // Fetch data when profile loads or changes
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
-    if (profile?.id) {
-      console.log('[Dashboard] Profile loaded, fetching data for:', profile.email)
-      fetchData()
+    // Don't fetch if auth is still loading
+    if (authLoading) {
+      return
     }
-  }, [profile?.id])
-
-  // Also fetch on initial mount for company-level data
-  useEffect(() => {
+    
+    // If no user after auth loaded, don't attempt fetch
+    if (!user) {
+      console.log('[Dashboard] No user after auth loaded')
+      return
+    }
+    
+    console.log('[Dashboard] Auth ready, fetching data for:', user?.email || profile?.email)
     fetchData()
-  }, [])
+  }, [authLoading, user?.id])
 
   useEffect(() => {
     const updateRunningTimer = async () => {

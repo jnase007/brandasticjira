@@ -44,7 +44,7 @@ import { useToast } from '../hooks/useToast'
 import { Skeleton, SkeletonBoard } from '../components/ui/skeleton'
 
 export default function Boards() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -67,6 +67,7 @@ export default function Boards() {
     const fetchData = async () => {
       setLoading(true)
       try {
+        console.log('[Boards] Fetching data...')
         const [boardsRes, clientsRes] = await Promise.all([
           getBoards(),
           getClients(),
@@ -80,8 +81,20 @@ export default function Boards() {
       }
     }
 
+    // Wait for auth to be ready
+    if (authLoading) {
+      console.log('[Boards] Auth still loading, waiting...')
+      return
+    }
+    
+    if (!user) {
+      console.log('[Boards] No user after auth loaded')
+      setLoading(false)
+      return
+    }
+
     fetchData()
-  }, [])
+  }, [authLoading, user?.id])
 
   // Filter boards
   const filteredBoards = boards.filter((board) => {

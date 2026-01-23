@@ -123,7 +123,7 @@ function getBudgetStatus(actuals, budget) {
 }
 
 export default function TeamHub() {
-  const { profile, isAdmin, isActualAdmin } = useAuth()
+  const { user, profile, isAdmin, isActualAdmin, loading: authLoading } = useAuth()
   const { toast } = useToast()
   
   const [loading, setLoading] = useState(true)
@@ -340,9 +340,22 @@ export default function TeamHub() {
     }
   }
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    if (authLoading) {
+      console.log('[TeamHub] Auth still loading, waiting...')
+      return
+    }
+    
+    if (!user) {
+      console.log('[TeamHub] No user after auth loaded')
+      setLoading(false)
+      return
+    }
+    
+    console.log('[TeamHub] Auth ready, fetching data...')
     fetchData()
-  }, [])
+  }, [authLoading, user?.id])
 
   // Get assignment for a client/role
   const getAssignment = (clientId, role) => {
