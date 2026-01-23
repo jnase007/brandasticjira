@@ -20,12 +20,13 @@ import { Button } from './ui/button'
 
 // Map activity types to display info
 const activityTypeConfig = {
-  ticket_created: { icon: Plus, color: 'text-purple-500 bg-purple-500/10', action: 'created ticket' },
+  ticket_created: { icon: Plus, color: 'text-purple-500 bg-purple-500/10', action: 'created task' },
   ticket_updated: { icon: Activity, color: 'text-blue-500 bg-blue-500/10', action: 'updated' },
   ticket_completed: { icon: CheckCircle, color: 'text-green-500 bg-green-500/10', action: 'completed' },
   comment_added: { icon: MessageSquare, color: 'text-blue-500 bg-blue-500/10', action: 'commented on' },
   time_logged: { icon: Clock, color: 'text-brand-orange bg-brand-orange/10', action: 'logged time on' },
   client_created: { icon: Building2, color: 'text-teal-500 bg-teal-500/10', action: 'added client' },
+  board_created: { icon: Plus, color: 'text-indigo-500 bg-indigo-500/10', action: 'created board' },
   status_changed: { icon: Activity, color: 'text-yellow-500 bg-yellow-500/10', action: 'moved' },
   assigned: { icon: User, color: 'text-pink-500 bg-pink-500/10', action: 'assigned' },
 }
@@ -203,7 +204,7 @@ export default function ActivityFeed({ open, onClose }) {
                 </div>
               ) : (
                 <AnimatePresence mode="popLayout">
-                  {hasRealData ? (
+                  {hasRealData && activities.length > 0 ? (
                     activities.map((activity, index) => (
                       <ActivityItem 
                         key={activity.id} 
@@ -212,8 +213,14 @@ export default function ActivityFeed({ open, onClose }) {
                       />
                     ))
                   ) : (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                      No activity yet. Actions will appear here in real time.
+                    <div className="text-center py-8 px-4">
+                      <div className="p-3 rounded-full bg-muted w-fit mx-auto mb-3">
+                        <Activity className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium mb-1">No activity yet</p>
+                      <p className="text-xs text-muted-foreground">
+                        When you or your team create tasks, log time, add comments, or move tickets, it will show up here in real time.
+                      </p>
                     </div>
                   )}
                 </AnimatePresence>
