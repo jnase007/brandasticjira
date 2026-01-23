@@ -97,6 +97,7 @@ export default function Dashboard({ onConfetti }) {
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [fetchError, setFetchError] = useState(null)
   const [viewMode, setViewMode] = useState('personal')
+  const [myTimeStats, setMyTimeStats] = useState({ trackedMinutes: 0, targetHours: 160 })
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
@@ -135,7 +136,7 @@ export default function Dashboard({ onConfetti }) {
       setAllTickets(ticketsData)
       setRecentTickets(ticketsData.slice(0, 5))
 
-      // Fetch personal activity if available
+      // Fetch personal activity and time stats if available
       if (profile?.id) {
         try {
           const { data: activityData, error: activityError } = await supabase
@@ -149,6 +150,30 @@ export default function Dashboard({ onConfetti }) {
           }
         } catch {
           setRecentActivity([])
+        }
+
+        // Fetch personal time entries for current month
+        try {
+          const now = new Date()
+          const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+          const startOfNextMonth = now.getMonth() === 11
+            ? `${now.getFullYear() + 1}-01-01`
+            : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
+
+          const { data: timeData } = await supabase
+            .from('time_entries')
+            .select('minutes')
+            .eq('user_id', profile.id)
+            .gte('date', startOfMonth)
+            .lt('date', startOfNextMonth)
+
+          const totalMinutes = (timeData || []).reduce((sum, entry) => sum + (entry.minutes || 0), 0)
+          setMyTimeStats({
+            trackedMinutes: totalMinutes,
+            targetHours: profile.target_hours_monthly || 160
+          })
+        } catch {
+          setMyTimeStats({ trackedMinutes: 0, targetHours: profile.target_hours_monthly || 160 })
         }
       }
       
@@ -888,32 +913,112 @@ export default function Dashboard({ onConfetti }) {
           {/* Personal Stats */}
           <motion.div
             variants={containerVariants}
-            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
           >
+            {/* Time Tracked This Month */}
             <motion.div variants={itemVariants}>
-              <Card className="relative overflow-hidden">
+              <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                 <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-muted-foreground">My Active Tasks</p>
-                  <p className="text-4xl font-display font-bold mt-2">{myActiveTickets.length}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">My Hours This Month</p>
+                      <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-purple transition-colors">
+                        <HoursCounter value={Math.round(myTimeStats.trackedMinutes / 60 * 10) / 10} />
+                        <span className="text-lg text-muted-foreground font-normal ml-1">
+                          /{myTimeStats.targetHours}h
+                        </span>
+                      </p>
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                          <span>{Math.round((myTimeStats.trackedMinutes / 60 / myTimeStats.targetHours) * 100)}% of goal</span>
+                          <span>{Math.max(0, Math.round(myTimeStats.targetHours - myTimeStats.trackedMinutes / 60))}h remaining</span>
+                        </div>
+                        <Progress 
+                          value={Math.min(100, (myTimeStats.trackedMinutes / 60 / myTimeStats.targetHours) * 100)} 
+                          className="h-2"
+                        />
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-purple/20 to-purple-500/10 group-hover:scale-110 transition-transform duration-300">
+                        <Clock className="h-7 w-7 text-brand-purple" />
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
+                <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               </Card>
             </motion.div>
             <motion.div variants={itemVariants}>
-              <Card className="relative overflow-hidden">
+              <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                 <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-muted-foreground">My Clients</p>
-                  <p className="text-4xl font-display font-bold mt-2">{myClients.length}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">My Active Tasks</p>
+                      <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
+                        <AnimatedCounter value={myActiveTickets.length} />
+                      </p>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Target className="h-3 w-3" />
+                        <span>{myTickets.filter(t => t.status === 'inprogress').length} in progress</span>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-blue/20 to-cyan-500/10 group-hover:scale-110 transition-transform duration-300">
+                        <Target className="h-7 w-7 text-brand-blue" />
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
+                <div className="absolute inset-0 bg-gradient-to-r from-brand-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               </Card>
             </motion.div>
             <motion.div variants={itemVariants}>
-              <Card className="relative overflow-hidden">
+              <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                 <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
-                  <p className="text-4xl font-display font-bold mt-2">
-                    {myTickets.filter((t) => t.status === 'done').length}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">My Clients</p>
+                      <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-orange transition-colors">
+                        <AnimatedCounter value={myClients.length} />
+                      </p>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Building2 className="h-3 w-3" />
+                        <span>Assigned to me</span>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-orange/20 to-brand-coral/10 group-hover:scale-110 transition-transform duration-300">
+                        <Building2 className="h-7 w-7 text-brand-orange" />
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
+                <div className="absolute inset-0 bg-gradient-to-r from-brand-orange/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              </Card>
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <Card className="relative overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
+                      <p className="text-4xl font-display font-bold mt-2 group-hover:text-green-500 transition-colors">
+                        <AnimatedCounter value={myTickets.filter((t) => t.status === 'done').length} />
+                      </p>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                        <Award className="h-3 w-3" />
+                        <span>Great work!</span>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/10 group-hover:scale-110 transition-transform duration-300">
+                        <Award className="h-7 w-7 text-green-500" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               </Card>
             </motion.div>
           </motion.div>
