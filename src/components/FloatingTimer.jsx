@@ -184,6 +184,12 @@ export default function FloatingTimer({
   const [searchQuery, setSearchQuery] = useState('')
   const [isBillable, setIsBillable] = useState(true)
   
+  // Step-based selection: 'client' or 'task'
+  const [selectionStep, setSelectionStep] = useState('client')
+  const [showNewTaskInput, setShowNewTaskInput] = useState(false)
+  const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [creatingTask, setCreatingTask] = useState(false)
+  
   // Data
   const [clients, setClients] = useState([])
   const [tickets, setTickets] = useState([])
@@ -238,59 +244,89 @@ export default function FloatingTimer({
     loadData()
   }, [])
 
-  // Combine and filter search results
+  // Get tasks for selected client
+  const clientTasks = useMemo(() => {
+    if (!selectedClient) return []
+    return tickets.filter(ticket => {
+      const ticketClientId = ticket.boards?.clients?.id || ticket.boards?.client_id
+      return ticketClientId === selectedClient.id
+    })
+  }, [selectedClient, tickets])
+
+  // Combine and filter search results based on current step
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return []
-    
     const results = []
     
-    // Search clients
-    for (const client of clients) {
-      const { match, score, ranges } = fuzzySearch(searchQuery, client.name)
-      if (match) {
-        results.push({
-          type: 'client',
-          id: client.id,
-          name: client.name,
-          color: client.color,
-          score,
-          ranges,
-          data: client
-        })
-      }
-    }
-    
-    // Search tickets
-    for (const ticket of tickets) {
-      const client = ticket.boards?.clients
-      const searchText = `${ticket.key || ''} ${ticket.title} ${ticket.boards?.name || ''} ${client?.name || ''}`
-      const { match, score, ranges } = fuzzySearch(searchQuery, searchText)
+    if (selectionStep === 'client') {
+      // Step 1: Show clients only
+      const clientsToSearch = searchQuery.trim() ? clients : clients.slice(0, 10)
       
-      if (match) {
-        // Calculate ranges for title specifically
-        const titleResult = fuzzySearch(searchQuery, ticket.title)
-        results.push({
-          type: 'ticket',
-          id: ticket.id,
-          name: ticket.title,
-          key: ticket.key,
-          boardName: ticket.boards?.name,
-          clientName: client?.name,
-          clientColor: client?.color,
-          clientId: client?.id,
-          score: score + (titleResult.match ? 10 : 0),
-          ranges: titleResult.ranges,
-          data: { ticket, client }
-        })
+      for (const client of clientsToSearch) {
+        if (searchQuery.trim()) {
+          const { match, score, ranges } = fuzzySearch(searchQuery, client.name)
+          if (match) {
+            results.push({
+              type: 'client',
+              id: client.id,
+              name: client.name,
+              color: client.color,
+              score,
+              ranges,
+              data: client
+            })
+          }
+        } else {
+          results.push({
+            type: 'client',
+            id: client.id,
+            name: client.name,
+            color: client.color,
+            score: 50,
+            ranges: [],
+            data: client
+          })
+        }
+      }
+    } else if (selectionStep === 'task' && selectedClient) {
+      // Step 2: Show tasks for selected client only
+      const tasksToSearch = searchQuery.trim() ? clientTasks : clientTasks.slice(0, 15)
+      
+      for (const ticket of tasksToSearch) {
+        if (searchQuery.trim()) {
+          const { match, score, ranges } = fuzzySearch(searchQuery, ticket.title)
+          if (match) {
+            results.push({
+              type: 'ticket',
+              id: ticket.id,
+              name: ticket.title,
+              key: ticket.key,
+              boardName: ticket.boards?.name,
+              score,
+              ranges,
+              data: { ticket, client: selectedClient }
+            })
+          }
+        } else {
+          results.push({
+            type: 'ticket',
+            id: ticket.id,
+            name: ticket.title,
+            key: ticket.key,
+            boardName: ticket.boards?.name,
+            score: 50,
+            ranges: [],
+            data: { ticket, client: selectedClient }
+          })
+        }
       }
     }
     
     // Sort by score
     return results.sort((a, b) => b.score - a.score).slice(0, 15)
-  }, [searchQuery, clients, tickets])
+  }, [searchQuery, clients, clientTasks, selectionStep, selectedClient])
 
-  // Show recent or search results
-  const displayItems = searchQuery.trim() ? searchResults : recentItems
+  // Display items is now just the search results (already handles empty query)
+  const displayItems = searchResults
 
   // Reset highlight when results change
   useEffect(() => {
@@ -346,20 +382,33 @@ export default function FloatingTimer({
     }
   }, [highlightedIndex])
 
-  // Select an item (client or ticket)
+  // Select an item (client or ticket) - step-based
   const selectItem = (item) => {
     if (item.type === 'client') {
+      // Step 1 complete: client selected, move to step 2
       setSelectedClient(item.data)
       setSelectedTicket(null)
       setDescription('')
+      setSearchQuery('')
+      setSelectionStep('task') // Move to task selection
+      setHighlightedIndex(-1)
+      
+      toast({
+        title: '📁 Client selected',
+        description: `Now select or create a task for ${item.name}`
+      })
     } else if (item.type === 'ticket') {
-      setSelectedClient(item.data.client)
+      // Step 2 complete: task selected
       setSelectedTicket(item.data.ticket)
       setDescription(item.data.ticket.title)
+      setShowPicker(false)
+      setSearchQuery('')
+      
+      toast({
+        title: '🎫 Task selected',
+        description: item.name
+      })
     }
-    
-    setShowPicker(false)
-    setSearchQuery('')
     
     // Save to recent
     const newRecent = [
@@ -377,11 +426,87 @@ export default function FloatingTimer({
     
     setRecentItems(newRecent)
     localStorage.setItem('recentTimerItems', JSON.stringify(newRecent))
+  }
+  
+  // Create a new task for the selected client
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim() || !selectedClient) return
     
-    toast({
-      title: item.type === 'client' ? '📁 Client selected' : '🎫 Project selected',
-      description: item.name
-    })
+    setCreatingTask(true)
+    try {
+      // First, check if client has any boards, if not create a default one
+      const { data: existingBoards } = await supabase
+        .from('boards')
+        .select('id, name')
+        .eq('client_id', selectedClient.id)
+        .eq('is_archived', false)
+        .limit(1)
+      
+      let boardId
+      if (existingBoards && existingBoards.length > 0) {
+        boardId = existingBoards[0].id
+      } else {
+        // Create a default board for this client
+        const { data: newBoard, error: boardError } = await supabase
+          .from('boards')
+          .insert({
+            name: 'General',
+            client_id: selectedClient.id,
+            created_by: user.id,
+            is_archived: false
+          })
+          .select()
+          .single()
+        
+        if (boardError) throw boardError
+        boardId = newBoard.id
+      }
+      
+      // Create the task
+      const { data: newTicket, error: ticketError } = await supabase
+        .from('tickets')
+        .insert({
+          title: newTaskTitle,
+          board_id: boardId,
+          client_id: selectedClient.id,
+          status: 'in_progress',
+          priority: 'medium',
+          created_by: user.id
+        })
+        .select()
+        .single()
+      
+      if (ticketError) throw ticketError
+      
+      // Set the new task as selected
+      setSelectedTicket(newTicket)
+      setDescription(newTaskTitle)
+      setShowNewTaskInput(false)
+      setNewTaskTitle('')
+      setShowPicker(false)
+      
+      // Refresh tickets list
+      const { data: ticketsData } = await supabase
+        .from('tickets')
+        .select(`id, title, key, boards (id, name, client_id, clients (id, name, color))`)
+        .order('updated_at', { ascending: false })
+        .limit(500)
+      if (ticketsData) setTickets(ticketsData)
+      
+      toast({
+        title: '✅ Task created!',
+        description: `"${newTaskTitle}" is ready to track`
+      })
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast({
+        title: 'Error creating task',
+        description: error.message,
+        variant: 'destructive'
+      })
+    } finally {
+      setCreatingTask(false)
+    }
   }
 
   // Apply initial client/description when provided
@@ -659,14 +784,36 @@ export default function FloatingTimer({
                 <span className="relative z-10">{formatTime(seconds)}</span>
               </div>
 
-              {/* Smart Search Box - Main Input */}
+              {/* Step Indicator */}
+              <div className="flex items-center gap-2 text-xs">
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-full",
+                  selectedClient ? "bg-green-500/10 text-green-600" : "bg-brand-orange/10 text-brand-orange"
+                )}>
+                  <Building2 className="h-3 w-3" />
+                  <span>1. Client</span>
+                  {selectedClient && <Check className="h-3 w-3" />}
+                </div>
+                <ChevronDown className="h-3 w-3 text-muted-foreground rotate-[-90deg]" />
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-full",
+                  !selectedClient && "opacity-40",
+                  selectedTicket ? "bg-green-500/10 text-green-600" : selectedClient ? "bg-brand-orange/10 text-brand-orange" : "bg-muted text-muted-foreground"
+                )}>
+                  <Ticket className="h-3 w-3" />
+                  <span>2. Task</span>
+                  {selectedTicket && <Check className="h-3 w-3" />}
+                </div>
+              </div>
+
+              {/* Selection Box */}
               <div className="relative">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
                   <input
                     ref={searchInputRef}
                     type="text"
-                    value={showPicker ? searchQuery : (selectedClient ? '' : searchQuery)}
+                    value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value)
                       if (!showPicker) setShowPicker(true)
@@ -674,9 +821,9 @@ export default function FloatingTimer({
                     onFocus={() => !isRunning && setShowPicker(true)}
                     onKeyDown={handleKeyDown}
                     placeholder={
-                      selectedClient 
-                        ? "Search for a different project..." 
-                        : "Type to search clients & projects..."
+                      selectionStep === 'client'
+                        ? "Search clients..."
+                        : `Search tasks for ${selectedClient?.name}...`
                     }
                     className={cn(
                       "w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all",
@@ -690,41 +837,79 @@ export default function FloatingTimer({
                   )}
                 </div>
 
-                {/* Selected Item Display */}
+                {/* Selected Items Display */}
                 {selectedClient && !showPicker && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="mt-2 p-3 rounded-xl bg-muted/50 border"
                   >
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: selectedClient.color || '#F7931E' }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{selectedClient.name}</p>
-                        {selectedTicket && (
-                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                            <Ticket className="h-3 w-3" />
-                            {selectedTicket.key}: {selectedTicket.title}
-                          </p>
+                    <div className="space-y-2">
+                      {/* Client Row */}
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: selectedClient.color || '#F7931E' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{selectedClient.name}</p>
+                        </div>
+                        {!isRunning && (
+                          <button
+                            onClick={() => {
+                              setSelectedClient(null)
+                              setSelectedTicket(null)
+                              setDescription('')
+                              setSelectionStep('client')
+                              setShowPicker(true)
+                              setTimeout(() => searchInputRef.current?.focus(), 100)
+                            }}
+                            className="text-xs text-brand-orange hover:underline"
+                          >
+                            Change
+                          </button>
                         )}
                       </div>
-                      {!isRunning && (
-                        <button
-                          onClick={() => {
-                            setSelectedClient(null)
-                            setSelectedTicket(null)
-                            setDescription('')
-                            setShowPicker(true)
-                            setTimeout(() => searchInputRef.current?.focus(), 100)
-                          }}
-                          className="p-1 rounded hover:bg-muted"
-                        >
-                          <X className="h-4 w-4 text-muted-foreground" />
-                        </button>
-                      )}
+                      
+                      {/* Task Row */}
+                      <div className="flex items-center gap-3 pl-7">
+                        {selectedTicket ? (
+                          <>
+                            <Ticket className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <p className="text-sm text-muted-foreground truncate flex-1">
+                              {selectedTicket.key && `${selectedTicket.key}: `}{selectedTicket.title}
+                            </p>
+                            {!isRunning && (
+                              <button
+                                onClick={() => {
+                                  setSelectedTicket(null)
+                                  setDescription('')
+                                  setSelectionStep('task')
+                                  setShowPicker(true)
+                                  setTimeout(() => searchInputRef.current?.focus(), 100)
+                                }}
+                                className="text-xs text-brand-orange hover:underline"
+                              >
+                                Change
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          !isRunning && (
+                            <button
+                              onClick={() => {
+                                setSelectionStep('task')
+                                setShowPicker(true)
+                                setTimeout(() => searchInputRef.current?.focus(), 100)
+                              }}
+                              className="text-sm text-brand-orange hover:underline flex items-center gap-1"
+                            >
+                              <Ticket className="h-3 w-3" />
+                              Select or create a task
+                            </button>
+                          )
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -740,52 +925,64 @@ export default function FloatingTimer({
                     >
                       {/* Results Header */}
                       <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          {searchQuery.trim() 
-                            ? `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}` 
-                            : 'Recent'}
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {selectionStep === 'client' ? (
+                            <>📁 Select a Client</>
+                          ) : (
+                            <>🎫 Select a Task for {selectedClient?.name}</>
+                          )}
                         </span>
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-0.5">
-                            <ArrowUp className="h-2.5 w-2.5" />
-                            <ArrowDown className="h-2.5 w-2.5" />
-                            navigate
-                          </span>
-                          <span className="flex items-center gap-0.5">
-                            <CornerDownLeft className="h-2.5 w-2.5" />
-                            select
-                          </span>
-                        </div>
+                        {selectionStep === 'task' && (
+                          <button
+                            onClick={() => {
+                              setSelectionStep('client')
+                              setSearchQuery('')
+                            }}
+                            className="text-[10px] text-brand-orange hover:underline"
+                          >
+                            ← Back to clients
+                          </button>
+                        )}
                       </div>
 
                       {/* Results List */}
                       <div ref={listRef} className="max-h-64 overflow-y-auto">
-                        {displayItems.length === 0 ? (
+                        {searchResults.length === 0 ? (
                           <div className="p-6 text-center">
-                            {searchQuery.trim() ? (
-                              <div className="space-y-2">
-                                <Search className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                                <p className="text-sm text-muted-foreground">
-                                  No results for "<span className="font-medium">{searchQuery}</span>"
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Try different keywords or check spelling
-                                </p>
-                              </div>
-                            ) : clients.length === 0 ? (
-                              <div className="space-y-2">
-                                <Building2 className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                                <p className="text-sm text-muted-foreground">No clients yet</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Go to <strong>Clients</strong> to add some
-                                </p>
-                              </div>
+                            {selectionStep === 'client' ? (
+                              clients.length === 0 ? (
+                                <div className="space-y-2">
+                                  <Building2 className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                                  <p className="text-sm text-muted-foreground">No clients yet</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Go to <strong>Clients</strong> to add some
+                                  </p>
+                                </div>
+                              ) : searchQuery.trim() ? (
+                                <div className="space-y-2">
+                                  <Search className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                                  <p className="text-sm text-muted-foreground">
+                                    No clients match "<span className="font-medium">{searchQuery}</span>"
+                                  </p>
+                                </div>
+                              ) : null
                             ) : (
-                              <div className="space-y-2">
-                                <Search className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                              // Task step - no tasks found
+                              <div className="space-y-3">
+                                <Ticket className="h-8 w-8 mx-auto text-muted-foreground/50" />
                                 <p className="text-sm text-muted-foreground">
-                                  Start typing to search...
+                                  {searchQuery.trim() 
+                                    ? `No tasks match "${searchQuery}"` 
+                                    : 'No tasks yet for this client'
+                                  }
                                 </p>
+                                <button
+                                  onClick={() => setShowNewTaskInput(true)}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand-orange text-white rounded-lg text-sm font-medium hover:bg-brand-orange/90 transition-colors"
+                                >
+                                  <Zap className="h-4 w-4" />
+                                  Create New Task
+                                </button>
                               </div>
                             )}
                           </div>
@@ -856,12 +1053,75 @@ export default function FloatingTimer({
                         )}
                       </div>
 
-                      {/* Quick Actions */}
-                      {displayItems.length > 0 && (
+                      {/* Create New Task Option - only in task step */}
+                      {selectionStep === 'task' && searchResults.length > 0 && !showNewTaskInput && (
+                        <div className="p-2 border-t">
+                          <button
+                            onClick={() => setShowNewTaskInput(true)}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-brand-orange hover:bg-brand-orange/10 transition-colors"
+                          >
+                            <Zap className="h-4 w-4" />
+                            <span>Create new task...</span>
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* New Task Input */}
+                      {showNewTaskInput && (
+                        <div className="p-3 border-t bg-brand-orange/5">
+                          <p className="text-xs font-medium text-brand-orange mb-2">Create new task for {selectedClient?.name}</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newTaskTitle}
+                              onChange={(e) => setNewTaskTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && newTaskTitle.trim()) {
+                                  handleCreateTask()
+                                } else if (e.key === 'Escape') {
+                                  setShowNewTaskInput(false)
+                                  setNewTaskTitle('')
+                                }
+                              }}
+                              placeholder="Task name..."
+                              className="flex-1 px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/50"
+                              autoFocus
+                              disabled={creatingTask}
+                            />
+                            <button
+                              onClick={handleCreateTask}
+                              disabled={!newTaskTitle.trim() || creatingTask}
+                              className="px-3 py-2 bg-brand-orange text-white rounded-lg text-sm font-medium hover:bg-brand-orange/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            >
+                              {creatingTask ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewTaskInput(false)
+                                setNewTaskTitle('')
+                              }}
+                              disabled={creatingTask}
+                              className="px-2 py-2 text-muted-foreground hover:text-foreground rounded-lg"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Footer */}
+                      {!showNewTaskInput && (
                         <div className="p-2 border-t bg-muted/20">
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground px-2">
                             <span>
-                              {clients.length} clients • {tickets.length} projects loaded
+                              {selectionStep === 'client' 
+                                ? `${clients.length} clients` 
+                                : `${clientTasks.length} tasks for this client`
+                              }
                             </span>
                             <button
                               onClick={() => {
