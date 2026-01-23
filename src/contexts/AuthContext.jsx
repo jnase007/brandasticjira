@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth loading timeout - forcing complete')
       setLoading(false)
-    }, 5000) // 5 second max wait
+    }, 8000) // 8 second max wait (increased for slow connections)
 
     // Get initial session
     const initAuth = async () => {
@@ -52,14 +52,68 @@ export function AuthProvider({ children }) {
           console.log('Session found for:', session.user.email)
           setUser(session.user)
           
-          // Fetch user profile
-          try {
-            const { data: profileData } = await getProfile(session.user.id)
-            if (profileData) {
-              setProfile(profileData)
+          // Fetch user profile - try multiple times if needed
+          let profileData = null
+          let retries = 0
+          const maxRetries = 3
+          
+          while (!profileData && retries < maxRetries) {
+            try {
+              const { data, error: profileError } = await getProfile(session.user.id)
+              if (data) {
+                profileData = data
+              } else if (profileError) {
+                console.log(`Profile fetch attempt ${retries + 1} failed:`, profileError.message)
+              }
+              
+              // If no profile exists, try to create one
+              if (!profileData && retries === 0) {
+                console.log('No profile found, attempting to create one...')
+                const { error: createError } = await supabase
+                  .from('profiles')
+                  .upsert({
+                    id: session.user.id,
+                    email: session.user.email,
+                    full_name: session.user.user_metadata?.full_name || 
+                               session.user.user_metadata?.name || 
+                               session.user.email?.split('@')[0] || 'User',
+                    role: 'team',
+                    avatar_url: session.user.user_metadata?.avatar_url || 
+                                session.user.user_metadata?.picture || null,
+                  }, { onConflict: 'id' })
+                
+                if (createError) {
+                  console.error('Profile creation error:', createError.message)
+                } else {
+                  // Fetch the newly created profile
+                  const { data: newProfile } = await getProfile(session.user.id)
+                  if (newProfile) {
+                    profileData = newProfile
+                  }
+                }
+              }
+            } catch (profileErr) {
+              console.log(`Profile fetch attempt ${retries + 1} exception:`, profileErr)
             }
-          } catch (profileErr) {
-            console.log('Profile fetch error (non-blocking):', profileErr)
+            retries++
+            
+            // Wait a bit before retrying
+            if (!profileData && retries < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 500))
+            }
+          }
+          
+          if (profileData) {
+            setProfile(profileData)
+          } else {
+            console.warn('Could not load profile after retries, continuing without profile')
+            // Set a minimal profile so the app can still function
+            setProfile({
+              id: session.user.id,
+              email: session.user.email,
+              full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              role: 'team',
+            })
           }
         } else {
           console.log('No session found')
