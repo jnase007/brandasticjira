@@ -438,7 +438,7 @@ export default function ClientDetail() {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(link)
       }
-      toast({ title: 'Shareable link copied', description: link, variant: 'success' })
+      toast({ title: 'Client shareable link copied', description: link, variant: 'success' })
       fetchClientData(true)
     } catch (error) {
       toast({ title: 'Unable to create link', description: error.message, variant: 'destructive' })
@@ -1111,7 +1111,7 @@ export default function ClientDetail() {
                         disabled={sharingLink}
                       >
                         <ExternalLink className="h-4 w-4" />
-                        <span className="ml-2 hidden sm:inline">Share Link</span>
+                        <span className="ml-2 hidden sm:inline">Client Shareable Link</span>
                       </Button>
                     )}
                     <Button
