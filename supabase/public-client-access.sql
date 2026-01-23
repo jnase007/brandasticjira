@@ -57,47 +57,78 @@ CREATE POLICY "Public can view tickets of public clients" ON tickets
         )
     );
 
--- Allow public read access to client_projects for public clients
-DROP POLICY IF EXISTS "Public can view projects of public clients" ON client_projects;
-CREATE POLICY "Public can view projects of public clients" ON client_projects
-    FOR SELECT
-    USING (
-        is_visible_to_client = true 
-        AND EXISTS (
-            SELECT 1 FROM clients 
-            WHERE clients.id = client_projects.client_id 
-            AND clients.public_enabled = true 
-            AND clients.public_token IS NOT NULL
-        )
-    );
+-- ==============================================
+-- OPTIONAL POLICIES (only run if tables exist)
+-- ==============================================
 
--- Allow public read access to activity_log for public clients
-DROP POLICY IF EXISTS "Public can view activity of public clients" ON activity_log;
-CREATE POLICY "Public can view activity of public clients" ON activity_log
-    FOR SELECT
-    USING (
-        client_id IS NOT NULL 
-        AND EXISTS (
-            SELECT 1 FROM clients 
-            WHERE clients.id = activity_log.client_id 
-            AND clients.public_enabled = true 
-            AND clients.public_token IS NOT NULL
-        )
-    );
+-- client_projects policy (only if table has client_id)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'client_projects' AND column_name = 'client_id') THEN
+        EXECUTE 'DROP POLICY IF EXISTS "Public can view projects of public clients" ON client_projects';
+        EXECUTE '
+            CREATE POLICY "Public can view projects of public clients" ON client_projects
+            FOR SELECT
+            USING (
+                is_visible_to_client = true 
+                AND EXISTS (
+                    SELECT 1 FROM clients 
+                    WHERE clients.id = client_projects.client_id 
+                    AND clients.public_enabled = true 
+                    AND clients.public_token IS NOT NULL
+                )
+            )
+        ';
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Skipped client_projects policy: %', SQLERRM;
+END $$;
 
--- Allow public read access to time_entries for public clients (for hours used)
-DROP POLICY IF EXISTS "Public can view time of public clients" ON time_entries;
-CREATE POLICY "Public can view time of public clients" ON time_entries
-    FOR SELECT
-    USING (
-        client_id IS NOT NULL 
-        AND EXISTS (
-            SELECT 1 FROM clients 
-            WHERE clients.id = time_entries.client_id 
-            AND clients.public_enabled = true 
-            AND clients.public_token IS NOT NULL
-        )
-    );
+-- activity_log policy (only if table has client_id)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'activity_log' AND column_name = 'client_id') THEN
+        EXECUTE 'DROP POLICY IF EXISTS "Public can view activity of public clients" ON activity_log';
+        EXECUTE '
+            CREATE POLICY "Public can view activity of public clients" ON activity_log
+            FOR SELECT
+            USING (
+                client_id IS NOT NULL 
+                AND EXISTS (
+                    SELECT 1 FROM clients 
+                    WHERE clients.id = activity_log.client_id 
+                    AND clients.public_enabled = true 
+                    AND clients.public_token IS NOT NULL
+                )
+            )
+        ';
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Skipped activity_log policy: %', SQLERRM;
+END $$;
+
+-- time_entries policy (only if table has client_id)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'time_entries' AND column_name = 'client_id') THEN
+        EXECUTE 'DROP POLICY IF EXISTS "Public can view time of public clients" ON time_entries';
+        EXECUTE '
+            CREATE POLICY "Public can view time of public clients" ON time_entries
+            FOR SELECT
+            USING (
+                client_id IS NOT NULL 
+                AND EXISTS (
+                    SELECT 1 FROM clients 
+                    WHERE clients.id = time_entries.client_id 
+                    AND clients.public_enabled = true 
+                    AND clients.public_token IS NOT NULL
+                )
+            )
+        ';
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Skipped time_entries policy: %', SQLERRM;
+END $$;
 
 -- ==============================================
 -- GRANT INFO
