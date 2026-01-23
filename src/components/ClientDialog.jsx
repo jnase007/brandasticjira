@@ -88,6 +88,7 @@ export default function ClientDialog({
     slug: '',
     contact_name: '',
     contact_email: '',
+    contact_funder: '',
     monthly_hours: 30,
     color: '#F7931E',
     account_services: '',
@@ -117,6 +118,7 @@ export default function ClientDialog({
           slug: client.slug || '',
           contact_name: client.contact_name || '',
           contact_email: client.contact_email || '',
+          contact_funder: client.contact_funder || '',
           monthly_hours: client.monthly_hours || 30,
           color: client.color || '#F7931E',
           account_services: Array.isArray(client.account_services) 
@@ -133,6 +135,7 @@ export default function ClientDialog({
           slug: '',
           contact_name: '',
           contact_email: '',
+          contact_funder: '',
           monthly_hours: 30,
           color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
           account_services: '',
@@ -300,6 +303,7 @@ export default function ClientDialog({
         slug: formData.slug.trim().toLowerCase(),
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
+        contact_funder: formData.contact_funder.trim() || null,
         monthly_hours: parseInt(formData.monthly_hours) || 30,
         color: formData.color,
         account_services: formData.account_services 
@@ -479,6 +483,7 @@ export default function ClientDialog({
                         slug: '',
                         contact_name: '',
                         contact_email: '',
+                        contact_funder: '',
                         monthly_hours: 30,
                         color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
                         account_services: '',
@@ -679,6 +684,19 @@ export default function ClientDialog({
                               <p className="text-destructive text-sm mt-1">{errors.contact_email}</p>
                             )}
                           </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium">Funder</Label>
+                          <Input
+                            placeholder="e.g., Program sponsor, donor, grant"
+                            value={formData.contact_funder}
+                            onChange={(e) => setFormData(prev => ({ ...prev, contact_funder: e.target.value }))}
+                            className="mt-1.5 h-11"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Optional: funding contact or sponsor for this client.
+                          </p>
                         </div>
 
                         <div>
