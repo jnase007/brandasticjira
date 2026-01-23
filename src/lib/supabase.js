@@ -465,14 +465,12 @@ export async function getTimeEntries(ticketId = null, clientId = null, startDate
 
   let { data, error } = await query
 
-  // Fallback for older schemas without start_time
-  if (error && error.message?.includes('start_time')) {
+  // Fallback for older schemas or missing relationships
+  if (error && (error.message?.includes('start_time') || error.message?.includes('relationship') || error.message?.includes('schema cache'))) {
     let fallbackQuery = supabase
       .from('time_entries')
       .select(`
-        *,
-        ticket:tickets(id, ticket_id, title),
-        user:profiles(id, full_name, avatar_url)
+        *
       `)
       .order('created_at', { ascending: false })
 
@@ -490,6 +488,45 @@ export async function getTimeEntries(ticketId = null, clientId = null, startDate
     }
 
     ;({ data, error } = await fallbackQuery)
+
+    if (!error && data) {
+      const userIds = [...new Set(data.map((entry) => entry.user_id).filter(Boolean))]
+      const ticketIds = [...new Set(data.map((entry) => entry.ticket_id).filter(Boolean))]
+
+      let users = []
+      let tickets = []
+
+      if (userIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', userIds)
+        users = usersData || []
+      }
+
+      if (ticketIds.length > 0) {
+        const { data: ticketsData } = await supabase
+          .from('tickets')
+          .select('id, ticket_id, title')
+          .in('id', ticketIds)
+        tickets = ticketsData || []
+      }
+
+      const userMap = users.reduce((acc, user) => {
+        acc[user.id] = user
+        return acc
+      }, {})
+      const ticketMap = tickets.reduce((acc, ticket) => {
+        acc[ticket.id] = ticket
+        return acc
+      }, {})
+
+      data = data.map((entry) => ({
+        ...entry,
+        user: entry.user_id ? userMap[entry.user_id] : null,
+        ticket: entry.ticket_id ? ticketMap[entry.ticket_id] : null,
+      }))
+    }
   }
 
   return { data, error }

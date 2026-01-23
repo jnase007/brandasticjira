@@ -15,6 +15,7 @@ import {
   Download,
   MoreVertical,
   Calendar,
+  Clock,
   User,
   Tag,
   Check,
@@ -30,6 +31,7 @@ import {
   createComment,
   logActivity,
   getTeamMembers,
+  getTimeEntries,
   uploadAttachment,
   deleteAttachment,
 } from '../lib/supabase'
@@ -38,6 +40,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   cn,
   formatDate,
+  formatDuration,
   formatRelativeDate,
   getStatusInfo,
   getPriorityInfo,
@@ -87,6 +90,7 @@ export default function TicketDetail() {
   const [ticket, setTicket] = useState(null)
   const [resolvedTicketId, setResolvedTicketId] = useState(null)
   const [comments, setComments] = useState([])
+  const [timeEntries, setTimeEntries] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
@@ -146,13 +150,24 @@ export default function TicketDetail() {
         setResolvedTicketId(ticketRes.data.id)
       }
 
-      const [commentsRes, teamRes] = await Promise.all([
+      const [commentsRes, teamRes, timeRes] = await Promise.all([
         ticketRes.data ? getComments(ticketRes.data.id) : Promise.resolve({ data: [] }),
         getTeamMembers(),
+        ticketRes.data ? getTimeEntries(ticketRes.data.id) : Promise.resolve({ data: [] }),
       ])
 
       if (commentsRes.data) setComments(commentsRes.data)
       if (teamRes.data) setTeamMembers(teamRes.data)
+      if (timeRes.data) {
+        const normalizedEntries = timeRes.data.map((entry) => ({
+          ...entry,
+          minutes: entry.minutes ?? entry.duration_minutes ?? 0,
+          date:
+            entry.date ||
+            (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
+        }))
+        setTimeEntries(normalizedEntries)
+      }
     } catch (error) {
       console.error('Error fetching ticket:', error)
     } finally {
@@ -646,6 +661,10 @@ export default function TicketDetail() {
                   <Paperclip className="mr-2 h-4 w-4" />
                   Attachments ({ticket.attachments?.length || 0})
                 </TabsTrigger>
+                <TabsTrigger value="time">
+                  <Clock className="mr-2 h-4 w-4" />
+                  Time Entries ({timeEntries.length})
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="comments" className="mt-4">
@@ -753,6 +772,43 @@ export default function TicketDetail() {
                     setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
                   }}
                 />
+              </TabsContent>
+
+              <TabsContent value="time" className="mt-4">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {timeEntries.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No time entries yet. Track time to see it here.
+                    </p>
+                  ) : (
+                    timeEntries.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={entry.user?.avatar_url} />
+                            <AvatarFallback className="text-xs">
+                              {getInitials(entry.user?.full_name || 'NA')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {entry.user?.full_name || 'Team Member'}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {entry.description || entry.notes || 'Time entry'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{formatDuration(entry.minutes || 0)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(entry.date || entry.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
           </motion.div>

@@ -10,7 +10,7 @@ import {
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save
 } from 'lucide-react'
-import { supabase, logActivity } from '../lib/supabase'
+import { supabase, logActivity, getTimeEntries } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, isUuid } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -251,13 +251,11 @@ export default function ClientDetail() {
       }
       const resolvedClientId = clientData.id
 
-      // Fetch time entries for this client
-      const { data: timeData } = await supabase
-        .from('time_entries')
-        .select('*, profiles:user_id(full_name, avatar_url)')
-        .eq('client_id', resolvedClientId)
-        .order('date', { ascending: false })
-        .limit(100)
+      // Fetch time entries for this client (with fallback for schema differences)
+      const { data: timeData, error: timeError } = await getTimeEntries(null, resolvedClientId)
+      if (timeError) {
+        console.warn('Time entries fetch error:', timeError.message)
+      }
 
       const normalizedTimeEntries = (timeData || []).map((entry) => ({
         ...entry,
