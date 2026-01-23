@@ -955,7 +955,7 @@ export default function Dashboard({ onConfetti }) {
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">My Hours</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-purple transition-colors">
-                        <HoursCounter value={Math.round(myTimeStats.trackedMinutes / 60)} />
+                        {Math.round(myTimeStats.trackedMinutes / 60)}
                         <span className="text-base text-muted-foreground font-normal">/{myTimeStats.targetHours}h</span>
                       </p>
                       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
