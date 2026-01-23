@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { cn, formatDate, getInitials } from '../lib/utils'
+import { cn, formatDate, formatDuration, getInitials } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -330,8 +330,10 @@ export default function TimeTracking() {
   }
 
   // Calculate totals
-  const totalTrackedHours = timeEntries.reduce((sum, te) => sum + te.minutes, 0) / 60
-  const totalBillableHours = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0) / 60
+  const totalTrackedMinutes = timeEntries.reduce((sum, te) => sum + te.minutes, 0)
+  const totalBillableMinutes = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
+  const totalTrackedHours = totalTrackedMinutes / 60
+  const totalBillableHours = totalBillableMinutes / 60
   const totalRevenue = clients.reduce((sum, c) => sum + getClientStats(c.id).revenue, 0)
   const totalCost = clients.reduce((sum, c) => sum + getClientStats(c.id).cost, 0)
   const totalProfit = totalRevenue - totalCost
@@ -341,6 +343,8 @@ export default function TimeTracking() {
 
   // My stats
   const myStats = getEmployeeStats(user?.id)
+  const myTotalMinutes = myTimeEntries.reduce((sum, te) => sum + te.minutes, 0)
+  const myBillableMinutes = myTimeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
 
   if (loading) {
     return (
@@ -480,12 +484,14 @@ export default function TimeTracking() {
                   <p className="text-3xl font-bold">
                     <AnimatedCounter value={Math.round(myStats.totalHours * 10) / 10} decimals={1} />h
                   </p>
+                  <p className="text-xs text-muted-foreground">{formatDuration(myTotalMinutes)}</p>
                   <p className="text-sm text-muted-foreground">Tracked</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold">
                     <AnimatedCounter value={Math.round(myStats.billableHours * 10) / 10} decimals={1} />h
                   </p>
+                  <p className="text-xs text-muted-foreground">{formatDuration(myBillableMinutes)}</p>
                   <p className="text-sm text-muted-foreground">Billable</p>
                 </div>
                 <div className="text-center">
@@ -517,6 +523,7 @@ export default function TimeTracking() {
                   <p className="text-2xl font-bold mt-1">
                     <AnimatedCounter value={Math.round(totalTrackedHours)} />h
                   </p>
+                  <p className="text-xs text-muted-foreground">{formatDuration(totalTrackedMinutes)}</p>
                 </div>
                 <Clock className="h-8 w-8 text-brand-blue/50" />
               </div>
@@ -533,6 +540,7 @@ export default function TimeTracking() {
                   <p className="text-2xl font-bold mt-1">
                     <AnimatedCounter value={Math.round(totalBillableHours)} />h
                   </p>
+                  <p className="text-xs text-muted-foreground">{formatDuration(totalBillableMinutes)}</p>
                 </div>
                 <Target className="h-8 w-8 text-green-500/50" />
               </div>
