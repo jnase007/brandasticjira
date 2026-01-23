@@ -328,7 +328,7 @@ export default function ClientDialog({
       {showConfetti && <Confetti trigger={showConfetti} />}
       
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden max-h-[90vh] flex flex-col">
           <AnimatePresence mode="wait">
             {showSuccess ? (
               // Success Screen
@@ -423,9 +423,10 @@ export default function ClientDialog({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                className="flex flex-col max-h-[90vh]"
               >
-                {/* Header with Progress */}
-                <div className="px-6 pt-6 pb-4 border-b bg-gradient-to-b from-muted/50 to-transparent">
+                {/* Header with Progress - Fixed at top */}
+                <div className="px-6 pt-6 pb-4 border-b bg-gradient-to-b from-muted/50 to-transparent flex-shrink-0">
                   <DialogHeader className="mb-4">
                     <DialogTitle className="flex items-center gap-2 text-xl">
                       <Building2 className="h-5 w-5 text-brand-orange" />
@@ -473,8 +474,8 @@ export default function ClientDialog({
                   )}
                 </div>
 
-                {/* Form Content */}
-                <div className="p-6" onKeyDown={handleKeyDown}>
+                {/* Form Content - Scrollable */}
+                <div className="p-6 flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
                   <AnimatePresence mode="wait">
                     {/* Step 1: Basics */}
                     {step === 1 && (
@@ -749,8 +750,8 @@ export default function ClientDialog({
                   </AnimatePresence>
                 </div>
 
-                {/* Footer */}
-                <div className="px-6 py-4 border-t bg-muted/30 flex items-center justify-between">
+                {/* Footer - Always visible */}
+                <div className="px-6 py-4 border-t bg-muted/30 flex items-center justify-between flex-shrink-0">
                   <Button
                     type="button"
                     variant="ghost"
