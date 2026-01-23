@@ -174,19 +174,28 @@ export default function Dashboard({ onConfetti }) {
             ? `${now.getFullYear() + 1}-01-01`
             : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
 
-          const { data: timeData } = await supabase
+          console.log('[Dashboard] Fetching time for user:', profile.id, 'range:', startOfMonth, 'to', startOfNextMonth)
+
+          const { data: timeData, error: timeError } = await supabase
             .from('time_entries')
             .select('minutes')
             .eq('user_id', profile.id)
             .gte('date', startOfMonth)
             .lt('date', startOfNextMonth)
 
+          if (timeError) {
+            console.error('[Dashboard] Time entries fetch error:', timeError)
+          }
+
           const totalMinutes = (timeData || []).reduce((sum, entry) => sum + (entry.minutes || 0), 0)
+          console.log('[Dashboard] Total minutes this month:', totalMinutes, 'entries:', timeData?.length || 0)
+          
           setMyTimeStats({
             trackedMinutes: totalMinutes,
             targetHours: profile.target_hours_monthly || 160
           })
-        } catch {
+        } catch (err) {
+          console.error('[Dashboard] Time entries exception:', err)
           setMyTimeStats({ trackedMinutes: 0, targetHours: profile.target_hours_monthly || 160 })
         }
       }
@@ -204,9 +213,18 @@ export default function Dashboard({ onConfetti }) {
     }
   }
 
+  // Fetch data when profile loads or changes
+  useEffect(() => {
+    if (profile?.id) {
+      console.log('[Dashboard] Profile loaded, fetching data for:', profile.email)
+      fetchData()
+    }
+  }, [profile?.id])
+
+  // Also fetch on initial mount for company-level data
   useEffect(() => {
     fetchData()
-  }, [profile?.id])
+  }, [])
 
   useEffect(() => {
     const updateRunningTimer = async () => {
