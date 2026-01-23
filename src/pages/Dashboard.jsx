@@ -485,7 +485,7 @@ export default function Dashboard({ onConfetti }) {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active Clients</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-orange transition-colors">
-                    <AnimatedCounter value={totalClients} />
+                    {totalClients}
                   </p>
                   <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
                     <TrendingUp className="h-3 w-3" />
@@ -512,11 +512,11 @@ export default function Dashboard({ onConfetti }) {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">My Tasks</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
-                    <AnimatedCounter value={recentTickets.filter(t => t.status !== 'done').length} />
+                    {allTickets.filter(t => t.status !== 'done').length}
                   </p>
                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                     <Target className="h-3 w-3" />
-                    <span>{recentTickets.filter(t => t.status === 'inprogress').length} in progress</span>
+                    <span>{allTickets.filter(t => t.status === 'inprogress').length} in progress</span>
                   </div>
                 </div>
                 <div className="relative">
@@ -537,7 +537,7 @@ export default function Dashboard({ onConfetti }) {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Hours Used</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-purple transition-colors">
-                    <AnimatedCounter value={Math.round(totalHoursUsed)} />
+                    {Math.round(totalHoursUsed)}
                     <span className="text-lg text-muted-foreground font-normal ml-1">
                       /{totalHoursAvailable}
                     </span>
@@ -565,7 +565,7 @@ export default function Dashboard({ onConfetti }) {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Utilization</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-teal transition-colors">
-                    <PercentageCounter value={utilization} />
+                    {utilization}%
                   </p>
                   <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
                     <Target className="h-3 w-3" />
@@ -822,13 +822,13 @@ export default function Dashboard({ onConfetti }) {
               <div className="mt-6 w-full grid grid-cols-2 gap-4">
                 <div className="text-center p-3 rounded-xl bg-muted/50">
                   <p className="text-2xl font-bold text-brand-orange">
-                    <AnimatedCounter value={Math.round(totalHoursUsed)} />h
+                    {Math.round(totalHoursUsed)}h
                   </p>
                   <p className="text-xs text-muted-foreground">Used</p>
                 </div>
                 <div className="text-center p-3 rounded-xl bg-muted/50">
                   <p className="text-2xl font-bold text-brand-blue">
-                    <AnimatedCounter value={Math.round(totalHoursAvailable - totalHoursUsed)} />h
+                    {Math.round(totalHoursAvailable - totalHoursUsed)}h
                   </p>
                   <p className="text-xs text-muted-foreground">Remaining</p>
                 </div>
@@ -992,7 +992,7 @@ export default function Dashboard({ onConfetti }) {
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">My Active Tasks</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
-                        <AnimatedCounter value={myActiveTickets.length} />
+                        {myActiveTickets.length}
                       </p>
                       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <Target className="h-3 w-3" />
@@ -1016,7 +1016,7 @@ export default function Dashboard({ onConfetti }) {
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">My Clients</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-orange transition-colors">
-                        <AnimatedCounter value={myClients.length} />
+                        {myClients.length}
                       </p>
                       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <Building2 className="h-3 w-3" />
@@ -1040,7 +1040,7 @@ export default function Dashboard({ onConfetti }) {
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-green-500 transition-colors">
-                        <AnimatedCounter value={myTickets.filter((t) => t.status === 'done').length} />
+                        {myTickets.filter((t) => t.status === 'done').length}
                       </p>
                       <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
                         <Award className="h-3 w-3" />
