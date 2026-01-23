@@ -1226,9 +1226,24 @@ export default function ClientDetail() {
                 </div>
               </div>
               <div className="flex gap-2 mt-3">
-                <Badge variant="secondary" className="text-green-600">{ticketsByStatus.done} done</Badge>
-                <Badge variant="secondary" className="text-blue-600">{ticketsByStatus.inprogress} active</Badge>
-                <Badge variant="secondary">{ticketsByStatus.todo} todo</Badge>
+                <Badge
+                  variant="secondary"
+                  className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+                >
+                  {ticketsByStatus.done} done
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                >
+                  {ticketsByStatus.inprogress} active
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="bg-slate-100 text-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
+                >
+                  {ticketsByStatus.todo} todo
+                </Badge>
               </div>
             </CardContent>
           </Card>
