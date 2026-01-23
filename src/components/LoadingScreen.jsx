@@ -155,18 +155,28 @@ export default function LoadingScreen({ onRetry, error }) {
         <motion.div
           className="relative mx-auto mb-6 w-28 h-28"
         >
-          {/* Outer glowing ring */}
+          {/* Clean white rim around the logo */}
+          <div 
+            className="absolute inset-0 rounded-full bg-white dark:bg-white/90 shadow-2xl"
+            style={{
+              boxShadow: '0 0 30px rgba(255, 255, 255, 0.5), 0 8px 32px rgba(0, 0, 0, 0.15)',
+            }}
+          />
+          
+          {/* Subtle pulsing glow */}
           <motion.div
             className="absolute inset-0 rounded-full"
             style={{
-              background: 'conic-gradient(from 0deg, #F7931E, #FF6B6B, #6C5CE7, #4ECDC4, #F7931E)',
+              boxShadow: '0 0 40px rgba(255, 255, 255, 0.4)',
             }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            animate={{ 
+              opacity: [0.5, 1, 0.5],
+            }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
           
-          {/* Inner white/dark circle */}
-          <div className="absolute inset-1 rounded-full bg-white dark:bg-slate-900 shadow-2xl" />
+          {/* Inner circle for logo */}
+          <div className="absolute inset-2 rounded-full bg-white dark:bg-slate-900" />
           
           {/* Logo container */}
           <motion.div
