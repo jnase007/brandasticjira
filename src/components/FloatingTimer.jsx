@@ -17,6 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from './ui/dialog'
+import { Button } from './ui/button'
 
 // Format seconds to HH:MM:SS
 function formatTime(seconds) {
