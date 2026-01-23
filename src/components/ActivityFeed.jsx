@@ -29,6 +29,7 @@ const activityTypeConfig = {
   board_created: { icon: Plus, color: 'text-indigo-500 bg-indigo-500/10', action: 'created board' },
   status_changed: { icon: Activity, color: 'text-yellow-500 bg-yellow-500/10', action: 'moved' },
   assigned: { icon: User, color: 'text-pink-500 bg-pink-500/10', action: 'assigned' },
+  shoutout_given: { icon: User, color: 'text-pink-500 bg-pink-500/10', action: 'gave a shoutout to' },
 }
 
 // Format minutes to readable time

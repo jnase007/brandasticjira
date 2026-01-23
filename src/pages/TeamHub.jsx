@@ -29,7 +29,13 @@ import {
   PiggyBank,
   Percent,
   Save,
+  Heart,
+  MessageCircle,
+  Send,
+  Loader2,
+  PartyPopper,
 } from 'lucide-react'
+import { Textarea } from '../components/ui/textarea'
 import { supabase } from '../lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { useAuth } from '../contexts/AuthContext'
@@ -151,6 +157,14 @@ export default function TeamHub() {
   const [rateValue, setRateValue] = useState('')
   const [savingRate, setSavingRate] = useState(false)
   
+  // Shoutouts
+  const [shoutouts, setShoutouts] = useState([])
+  const [shoutoutDialogOpen, setShoutoutDialogOpen] = useState(false)
+  const [shoutoutTo, setShoutoutTo] = useState('')
+  const [shoutoutMessage, setShoutoutMessage] = useState('')
+  const [shoutoutCategory, setShoutoutCategory] = useState('appreciation')
+  const [sendingShoutout, setSendingShoutout] = useState(false)
+  
   // Overhead settings - stored in localStorage for now, could be in DB
   const [monthlyOverhead, setMonthlyOverhead] = useState(() => {
     const saved = localStorage.getItem('company_monthly_overhead')
@@ -178,6 +192,63 @@ export default function TeamHub() {
       variant: 'success',
     })
   }
+  
+  // Send a shoutout
+  const handleSendShoutout = async () => {
+    if (!shoutoutTo || !shoutoutMessage.trim()) {
+      toast({
+        title: 'Missing info',
+        description: 'Please select a team member and write a message',
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    setSendingShoutout(true)
+    try {
+      const { error } = await supabase
+        .from('team_shoutouts')
+        .insert({
+          from_user_id: profile.id,
+          to_user_id: shoutoutTo,
+          message: shoutoutMessage.trim(),
+          category: shoutoutCategory,
+          is_public: true,
+        })
+      
+      if (error) throw error
+      
+      const recipientName = teamMembers.find(m => m.id === shoutoutTo)?.full_name || 'them'
+      toast({
+        title: '🎉 Shoutout sent!',
+        description: `${recipientName} will love this!`,
+        variant: 'success',
+      })
+      
+      setShoutoutDialogOpen(false)
+      setShoutoutTo('')
+      setShoutoutMessage('')
+      setShoutoutCategory('appreciation')
+      fetchData(true)
+    } catch (error) {
+      console.error('Error sending shoutout:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to send shoutout. Try again!',
+        variant: 'destructive',
+      })
+    } finally {
+      setSendingShoutout(false)
+    }
+  }
+  
+  // Get shoutouts for a specific user
+  const getShoutoutsForUser = (userId) => {
+    return shoutouts.filter(s => s.to_user_id === userId)
+  }
+  
+  // Get my received shoutouts
+  const myShoutouts = shoutouts.filter(s => s.to_user_id === profile?.id)
 
   // Fetch all data
   const fetchData = async (showRefresh = false) => {
@@ -206,6 +277,19 @@ export default function TeamHub() {
       } catch (err) {
         // View may not exist yet
         console.log('Profitability view not ready:', err)
+      }
+      
+      // Fetch shoutouts
+      try {
+        const { data: shoutoutData } = await supabase
+          .from('team_shoutouts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50)
+        setShoutouts(shoutoutData || [])
+      } catch (err) {
+        // Table may not exist yet
+        console.log('Shoutouts table not ready:', err)
       }
     } catch (error) {
       console.error('Error fetching team hub data:', error)
@@ -509,6 +593,15 @@ export default function TeamHub() {
               <User className="h-4 w-4" />
               Team Members
             </TabsTrigger>
+            <TabsTrigger value="shoutouts" className="gap-2">
+              <Heart className="h-4 w-4 text-pink-500" />
+              Shoutouts
+              {myShoutouts.length > 0 && (
+                <Badge className="ml-1 h-5 px-1.5 bg-pink-500 text-white text-xs">
+                  {myShoutouts.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             {isActualAdmin && (
               <TabsTrigger value="rates" className="gap-2">
                 <PiggyBank className="h-4 w-4" />
@@ -656,6 +749,106 @@ export default function TeamHub() {
                           </Link>
                         )
                       })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* Shoutouts Tab */}
+        <TabsContent value="shoutouts">
+          <motion.div variants={itemVariants}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Heart className="h-5 w-5 text-pink-500" />
+                      Team Shoutouts 💝
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Appreciate your teammates! Give shoutouts for great work.
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => setShoutoutDialogOpen(true)}
+                    className="bg-pink-500 hover:bg-pink-600"
+                  >
+                    <Heart className="h-4 w-4 mr-2" />
+                    Give a Shoutout
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {shoutouts.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Heart className="h-12 w-12 mx-auto mb-4 opacity-30 text-pink-400" />
+                    <p className="text-lg font-medium mb-1">No shoutouts yet</p>
+                    <p className="text-sm mb-4">Be the first to appreciate a teammate!</p>
+                    <Button 
+                      className="bg-pink-500 hover:bg-pink-600"
+                      onClick={() => setShoutoutDialogOpen(true)}
+                    >
+                      <PartyPopper className="h-4 w-4 mr-2" />
+                      Send First Shoutout
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {shoutouts.map((shoutout) => {
+                      const fromUser = teamMembers.find(m => m.id === shoutout.from_user_id)
+                      const toUser = teamMembers.find(m => m.id === shoutout.to_user_id)
+                      const isForMe = shoutout.to_user_id === profile?.id
+                      
+                      return (
+                        <motion.div
+                          key={shoutout.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={cn(
+                            "p-4 rounded-xl border-2 transition-all",
+                            isForMe 
+                              ? "border-pink-300 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20"
+                              : "border-muted bg-card hover:border-pink-200"
+                          )}
+                        >
+                          <div className="flex items-start gap-4">
+                            <Avatar className="h-12 w-12 border-2 border-pink-200">
+                              <AvatarImage src={fromUser?.avatar_url} />
+                              <AvatarFallback className="bg-pink-100 text-pink-600">
+                                {fromUser?.full_name?.split(' ').map(n => n[0]).join('') || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-semibold">{fromUser?.full_name || 'Someone'}</span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className="font-semibold text-pink-600">{toUser?.full_name || 'Someone'}</span>
+                                {isForMe && (
+                                  <Badge className="bg-pink-500 text-white text-xs">That's you! 🎉</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm mb-2">{shoutout.message}</p>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <Badge variant="outline" className="text-xs">
+                                  {shoutout.category === 'appreciation' && '💖 Appreciation'}
+                                  {shoutout.category === 'teamwork' && '🤝 Teamwork'}
+                                  {shoutout.category === 'above_beyond' && '🚀 Above & Beyond'}
+                                  {shoutout.category === 'creativity' && '🎨 Creativity'}
+                                  {shoutout.category === 'problem_solving' && '🧠 Problem Solving'}
+                                  {shoutout.category === 'client_success' && '🏆 Client Success'}
+                                  {!['appreciation', 'teamwork', 'above_beyond', 'creativity', 'problem_solving', 'client_success'].includes(shoutout.category) && '✨ Kudos'}
+                                </Badge>
+                                <span>
+                                  {shoutout.created_at ? new Date(shoutout.created_at).toLocaleDateString() : 'Recently'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1404,6 +1597,95 @@ export default function TeamHub() {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Give Shoutout Dialog */}
+      <Dialog open={shoutoutDialogOpen} onOpenChange={setShoutoutDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-pink-500" />
+              Give a Shoutout 💝
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Who are you appreciating? *</Label>
+              <Select value={shoutoutTo} onValueChange={setShoutoutTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a teammate" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers
+                    .filter(m => m.id !== profile?.id) // Can't shoutout yourself
+                    .map(member => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={member.avatar_url} />
+                            <AvatarFallback className="text-xs">
+                              {member.full_name?.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          {member.full_name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={shoutoutCategory} onValueChange={setShoutoutCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="appreciation">💖 General Appreciation</SelectItem>
+                  <SelectItem value="teamwork">🤝 Great Teamwork</SelectItem>
+                  <SelectItem value="above_beyond">🚀 Above & Beyond</SelectItem>
+                  <SelectItem value="creativity">🎨 Creative Thinking</SelectItem>
+                  <SelectItem value="problem_solving">🧠 Problem Solving</SelectItem>
+                  <SelectItem value="client_success">🏆 Client Success</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Your message *</Label>
+              <Textarea
+                placeholder="What do you appreciate about this person? Be specific!"
+                value={shoutoutMessage}
+                onChange={(e) => setShoutoutMessage(e.target.value)}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tip: Specific praise is more meaningful than generic compliments!
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShoutoutDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendShoutout}
+              disabled={sendingShoutout || !shoutoutTo || !shoutoutMessage.trim()}
+              className="bg-pink-500 hover:bg-pink-600"
+            >
+              {sendingShoutout ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Shoutout
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Platform Budget Dialog */}
       <Dialog open={addSpendDialogOpen} onOpenChange={setAddSpendDialogOpen}>
