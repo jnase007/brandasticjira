@@ -697,6 +697,46 @@ export default function Dashboard({ onConfetti }) {
             <SmartInsights />
           </SafeComponent>
 
+          {/* Days Left in Month */}
+          <Card className="bg-gradient-to-br from-brand-purple/10 to-purple-500/5 border-brand-purple/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-brand-purple" />
+                Days Left This Month
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const now = new Date()
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                const daysLeft = lastDay.getDate() - now.getDate()
+                const totalDays = lastDay.getDate()
+                const percentLeft = Math.round((daysLeft / totalDays) * 100)
+                const monthName = now.toLocaleString('default', { month: 'long' })
+                
+                return (
+                  <div className="text-center py-4">
+                    <div className="text-5xl font-display font-bold text-brand-purple mb-1">
+                      <AnimatedCounter value={daysLeft} />
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      days left in {monthName}
+                    </p>
+                    <div className="w-full bg-muted rounded-full h-2 mb-2">
+                      <div 
+                        className="h-full bg-gradient-to-r from-brand-purple to-purple-400 rounded-full transition-all"
+                        style={{ width: `${100 - percentLeft}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {now.getDate()} of {totalDays} days used
+                    </p>
+                  </div>
+                )
+              })()}
+            </CardContent>
+          </Card>
+
           {/* Utilization Donut */}
           <Card>
             <CardHeader>
