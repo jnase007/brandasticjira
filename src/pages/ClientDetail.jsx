@@ -1286,40 +1286,40 @@ export default function ClientDetail() {
       {/* Tabs */}
       <motion.div variants={itemVariants}>
         <Tabs defaultValue="tickets" className="space-y-6">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="tickets" className="flex items-center gap-2">
+          <TabsList className="flex-nowrap overflow-x-auto gap-2 -mx-1 px-1 py-1 scrollbar-none">
+            <TabsTrigger value="tickets" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Ticket className="h-4 w-4" />
-              Tasks
+              <span>Tasks</span>
               {tickets.length > 0 && (
-                <span className="ml-1 text-xs bg-brand-orange text-white px-1.5 rounded-full">
+                <span className="ml-1 text-[10px] bg-brand-orange text-white px-1.5 rounded-full">
                   {tickets.length}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="notes" className="flex items-center gap-2">
+            <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <MessageSquare className="h-4 w-4" />
-              Messages
+              <span>Messages</span>
               {notes.length > 0 && (
-                <span className="ml-1 text-xs bg-muted-foreground/20 px-1.5 rounded-full">
+                <span className="ml-1 text-[10px] bg-muted-foreground/20 px-1.5 rounded-full">
                   {notes.length}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="activity" className="flex items-center gap-2">
+            <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Activity className="h-4 w-4" />
-              Activity
+              <span>Activity</span>
             </TabsTrigger>
-            <TabsTrigger value="time" className="flex items-center gap-2">
+            <TabsTrigger value="time" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Timer className="h-4 w-4" />
-              Time Entries
+              <span className="whitespace-nowrap">Time Entries</span>
             </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-2">
+            <TabsTrigger value="reports" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <BarChart3 className="h-4 w-4" />
-              Reports
+              <span>Reports</span>
             </TabsTrigger>
-            <TabsTrigger value="team" className="flex items-center gap-2">
+            <TabsTrigger value="team" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Users className="h-4 w-4" />
-              Team
+              <span>Team</span>
             </TabsTrigger>
           </TabsList>
 
