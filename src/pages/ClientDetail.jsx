@@ -1463,9 +1463,11 @@ export default function ClientDetail() {
                           <Clock className="h-4 w-4 text-blue-500" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{entry.description || 'Time entry'}</p>
+                          <p className="font-medium truncate">
+                            {entry.description || entry.ticket?.title || entry.notes || 'Time entry'}
+                          </p>
                           <p className="text-sm text-muted-foreground">
-                            {entry.profiles?.full_name || 'Unknown'} • {formatDate(entry.date)}
+                            {entry.user?.full_name || entry.profiles?.full_name || 'Unknown'} • {formatDate(entry.date)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -1508,13 +1510,15 @@ export default function ClientDetail() {
                     {timeEntries.map((entry) => (
                       <div key={entry.id} className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={entry.profiles?.avatar_url} />
-                          <AvatarFallback>{entry.profiles?.full_name?.[0] || '?'}</AvatarFallback>
+                          <AvatarImage src={entry.user?.avatar_url || entry.profiles?.avatar_url} />
+                          <AvatarFallback>{entry.user?.full_name?.[0] || entry.profiles?.full_name?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{entry.description || 'No description'}</p>
+                          <p className="font-medium truncate">
+                            {entry.description || entry.ticket?.title || entry.notes || 'Time entry'}
+                          </p>
                           <p className="text-sm text-muted-foreground">
-                            {entry.profiles?.full_name} • {formatDate(entry.date)}
+                            {(entry.user?.full_name || entry.profiles?.full_name || 'Team Member')} • {formatDate(entry.date)}
                           </p>
                         </div>
                         <div className="text-right">
