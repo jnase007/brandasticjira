@@ -120,8 +120,75 @@ export default function ClientDetail() {
   
   // Quick task state
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
-  const [newTask, setNewTask] = useState({ title: '', description: '', board_id: '', assignee_id: '' })
+  const [newTask, setNewTask] = useState({ 
+    title: '', 
+    description: '', 
+    board_id: '', 
+    assignee_id: '',
+    service_category: '',
+    priority: 'medium'
+  })
   const [savingTask, setSavingTask] = useState(false)
+  
+  // Task suggestions based on service category
+  const TASK_SUGGESTIONS = {
+    'SEO': [
+      { title: 'Keyword research', description: 'Research and identify target keywords for the campaign' },
+      { title: 'Technical SEO audit', description: 'Review site structure, meta tags, page speed, and crawlability' },
+      { title: 'On-page optimization', description: 'Optimize title tags, meta descriptions, headers, and content' },
+      { title: 'Link building outreach', description: 'Identify and reach out to potential link partners' },
+      { title: 'Monthly SEO report', description: 'Compile rankings, traffic, and performance metrics' },
+    ],
+    'PPC': [
+      { title: 'Campaign structure review', description: 'Audit current campaign structure and organization' },
+      { title: 'Ad copy testing', description: 'Create and test new ad variations' },
+      { title: 'Keyword bid optimization', description: 'Adjust bids based on performance data' },
+      { title: 'Negative keyword review', description: 'Identify and add negative keywords' },
+      { title: 'Monthly PPC report', description: 'Compile spend, conversions, and ROI metrics' },
+    ],
+    'Social Media': [
+      { title: 'Content calendar creation', description: 'Plan and schedule social media posts for the month' },
+      { title: 'Community engagement', description: 'Respond to comments and messages, engage with followers' },
+      { title: 'Social graphics design', description: 'Create visual assets for social posts' },
+      { title: 'Analytics review', description: 'Review engagement metrics and audience insights' },
+      { title: 'Influencer outreach', description: 'Identify and connect with relevant influencers' },
+    ],
+    'Email Marketing': [
+      { title: 'Email template design', description: 'Create responsive email template' },
+      { title: 'Newsletter setup', description: 'Write and schedule monthly newsletter' },
+      { title: 'Automation flow', description: 'Set up drip campaign or automation sequence' },
+      { title: 'List segmentation', description: 'Segment email list for targeted messaging' },
+      { title: 'A/B test subject lines', description: 'Test different subject lines for open rates' },
+    ],
+    'Web Development': [
+      { title: 'Bug fix', description: 'Investigate and fix reported issue' },
+      { title: 'Feature implementation', description: 'Develop new functionality as specified' },
+      { title: 'Performance optimization', description: 'Improve page load speed and performance' },
+      { title: 'Mobile responsiveness', description: 'Ensure proper display on all devices' },
+      { title: 'Security update', description: 'Apply security patches and updates' },
+    ],
+    'Content Marketing': [
+      { title: 'Blog post writing', description: 'Research and write blog article on assigned topic' },
+      { title: 'Content strategy', description: 'Develop content plan aligned with goals' },
+      { title: 'Copywriting', description: 'Write compelling copy for specified asset' },
+      { title: 'Content audit', description: 'Review and inventory existing content' },
+      { title: 'Case study', description: 'Write customer success story' },
+    ],
+    'Branding': [
+      { title: 'Logo design', description: 'Create or refine logo concepts' },
+      { title: 'Brand guidelines', description: 'Document brand standards and usage rules' },
+      { title: 'Visual identity', description: 'Develop visual elements and style' },
+      { title: 'Brand messaging', description: 'Define voice, tone, and key messages' },
+      { title: 'Collateral design', description: 'Design branded marketing materials' },
+    ],
+    'Design': [
+      { title: 'Graphic design', description: 'Create visual asset as specified' },
+      { title: 'UI/UX design', description: 'Design user interface or experience flow' },
+      { title: 'Banner design', description: 'Create display ad banners' },
+      { title: 'Infographic', description: 'Design data visualization or infographic' },
+      { title: 'Photo editing', description: 'Edit and enhance photos' },
+    ],
+  }
   
   // Template selector state
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false)
@@ -466,23 +533,56 @@ export default function ClientDetail() {
   
   // Handle creating a quick task
   const handleCreateTask = async () => {
-    if (!newTask.title.trim() || !newTask.board_id) {
-      toast({ title: 'Task title and board are required', variant: 'destructive' })
+    if (!newTask.title.trim()) {
+      toast({ title: 'Task title is required', variant: 'destructive' })
       return
     }
     
     setSavingTask(true)
     try {
+      let boardId = newTask.board_id
+      
+      // If no board selected, create or find a "General Tasks" board
+      if (!boardId) {
+        // Check if a General Tasks board already exists
+        const { data: existingBoard } = await supabase
+          .from('boards')
+          .select('id')
+          .eq('client_id', clientId)
+          .eq('name', 'General Tasks')
+          .maybeSingle()
+        
+        if (existingBoard) {
+          boardId = existingBoard.id
+        } else {
+          // Create a new General Tasks board
+          const { data: newBoard, error: boardError } = await supabase
+            .from('boards')
+            .insert({
+              name: 'General Tasks',
+              description: 'Quick tasks and one-off items',
+              client_id: clientId,
+              created_by: user.id,
+              is_archived: false,
+            })
+            .select()
+            .single()
+          
+          if (boardError) throw boardError
+          boardId = newBoard.id
+        }
+      }
+      
       const { error } = await supabase
         .from('tickets')
         .insert({
           title: newTask.title,
           description: newTask.description,
-          board_id: newTask.board_id,
+          board_id: boardId,
           client_id: clientId,
-          assignee_id: newTask.assignee_id || null,
+          assigned_to: newTask.assignee_id || user.id, // Default to current user
           status: 'todo',
-          priority: 'medium',
+          priority: newTask.priority || 'medium',
           created_by: user.id,
         })
       
@@ -490,12 +590,12 @@ export default function ClientDetail() {
       
       toast({
         title: '✅ Task created',
-        description: `"${newTask.title}" added to board`,
+        description: `"${newTask.title}" has been assigned`,
         variant: 'success',
       })
       
       setCreateTaskOpen(false)
-      setNewTask({ title: '', description: '', board_id: '', assignee_id: '' })
+      setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium' })
       fetchClientData(true)
     } catch (error) {
       console.error('Error creating task:', error)
@@ -777,11 +877,9 @@ export default function ClientDetail() {
                       <span className="ml-2 hidden sm:inline">New Board</span>
                     </Button>
                     <Button
-                      variant="outline"
                       size="sm"
                       onClick={() => setCreateTaskOpen(true)}
-                      disabled={boards.length === 0}
-                      title={boards.length === 0 ? 'Create a board first' : 'Create a task'}
+                      className="bg-brand-orange hover:bg-brand-orange/90"
                     >
                       <Ticket className="h-4 w-4" />
                       <span className="ml-2 hidden sm:inline">New Task</span>
@@ -1168,14 +1266,8 @@ export default function ClientDetail() {
                   </div>
                   <Button 
                     size="sm"
-                    onClick={() => {
-                      // Navigate to boards with this client, or show a toast
-                      toast({ 
-                        title: 'Create ticket', 
-                        description: 'Go to a board to create tickets for this client' 
-                      })
-                      navigate(`/boards?client=${clientId}`)
-                    }}
+                    onClick={() => setCreateTaskOpen(true)}
+                    className="bg-brand-orange hover:bg-brand-orange/90"
                   >
                     <Ticket className="h-4 w-4 mr-2" />
                     New Ticket
@@ -1640,33 +1732,186 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
       
-      {/* Create Task Dialog */}
+      {/* Create Task Dialog - Improved */}
       <Dialog open={createTaskOpen} onOpenChange={setCreateTaskOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-brand-teal" />
-              Create Quick Task
+              <Ticket className="h-5 w-5 text-brand-orange" />
+              New Task for {client?.name}
             </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Create a task and assign it to a team member
+            </p>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto space-y-5 py-4">
+            {/* Service Category - Shows suggestions */}
+            {client?.account_services && client.account_services.length > 0 && (
+              <div className="space-y-2">
+                <Label>Service Category</Label>
+                <div className="flex flex-wrap gap-2">
+                  {client.account_services.map((service) => (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => setNewTask(prev => ({ 
+                        ...prev, 
+                        service_category: prev.service_category === service ? '' : service 
+                      }))}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                        newTask.service_category === service
+                          ? "bg-brand-orange text-white"
+                          : "bg-muted hover:bg-muted/80 text-foreground"
+                      )}
+                    >
+                      {service}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Task Suggestions - Show when category is selected */}
+            {newTask.service_category && TASK_SUGGESTIONS[newTask.service_category] && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-brand-purple" />
+                  Quick Ideas
+                </Label>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {TASK_SUGGESTIONS[newTask.service_category].slice(0, 4).map((suggestion, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setNewTask(prev => ({
+                        ...prev,
+                        title: suggestion.title,
+                        description: suggestion.description,
+                      }))}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all hover:border-brand-purple/50 hover:bg-brand-purple/5",
+                        newTask.title === suggestion.title && "border-brand-purple bg-brand-purple/5"
+                      )}
+                    >
+                      <p className="font-medium text-sm">{suggestion.title}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{suggestion.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Task Title */}
             <div className="space-y-2">
               <Label>Task Title *</Label>
               <Input
-                placeholder="e.g., Complete discovery document"
+                placeholder="What needs to be done?"
                 value={newTask.title}
                 onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                className="text-base"
               />
             </div>
             
+            {/* Description */}
             <div className="space-y-2">
-              <Label>Board *</Label>
-              <Select value={newTask.board_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, board_id: value }))}>
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Add details, context, or requirements..."
+                value={newTask.description}
+                onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            
+            {/* Two column layout for assignee and priority */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Assign To */}
+              <div className="space-y-2">
+                <Label>Assign To</Label>
+                <Select 
+                  value={newTask.assignee_id || user?.id || ''} 
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, assignee_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allTeamMembers.map(member => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <span className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={member.avatar_url} />
+                            <AvatarFallback className="text-[10px]">{member.full_name?.[0]}</AvatarFallback>
+                          </Avatar>
+                          {member.full_name}
+                          {member.id === user?.id && <span className="text-xs text-muted-foreground">(you)</span>}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Defaults to you if not changed</p>
+              </div>
+              
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select 
+                  value={newTask.priority} 
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-gray-400" />
+                        Low
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                        Medium
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                        High
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="urgent">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        Urgent
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Board - Optional now */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                Board
+                <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Select 
+                value={newTask.board_id} 
+                onValueChange={(value) => setNewTask(prev => ({ ...prev, board_id: value }))}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a board..." />
+                  <SelectValue placeholder="Auto-assign to General Tasks" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">
+                    <span className="text-muted-foreground">General Tasks (auto-create)</span>
+                  </SelectItem>
                   {boards.map(board => (
                     <SelectItem key={board.id} value={board.id}>
                       {board.name}
@@ -1674,62 +1919,34 @@ export default function ClientDetail() {
                   ))}
                 </SelectContent>
               </Select>
-              {boards.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No boards yet. <button onClick={() => { setCreateTaskOpen(false); setCreateBoardOpen(true); }} className="text-brand-orange hover:underline">Create a board first</button>
-                </p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Assign To (optional)</Label>
-              <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, assignee_id: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
-                  {allTeamMembers.map(member => (
-                    <SelectItem key={member.id} value={member.id}>
-                      <span className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={member.avatar_url} />
-                          <AvatarFallback className="text-[10px]">{member.full_name?.[0]}</AvatarFallback>
-                        </Avatar>
-                        {member.full_name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Description (optional)</Label>
-              <Textarea
-                placeholder="Task details..."
-                value={newTask.description}
-                onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to add to "General Tasks" board
+              </p>
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => {
               setCreateTaskOpen(false)
-              setNewTask({ title: '', description: '', board_id: '', assignee_id: '' })
+              setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium' })
             }}>
               Cancel
             </Button>
-            <Button onClick={handleCreateTask} disabled={savingTask || !newTask.title.trim() || !newTask.board_id}>
+            <Button 
+              onClick={handleCreateTask} 
+              disabled={savingTask || !newTask.title.trim()}
+              className="bg-brand-orange hover:bg-brand-orange/90"
+            >
               {savingTask ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
-                'Create Task'
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Task
+                </>
               )}
             </Button>
           </DialogFooter>
