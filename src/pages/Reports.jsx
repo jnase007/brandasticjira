@@ -1741,12 +1741,7 @@ export default function Reports() {
     doc.setFont('helvetica', 'normal')
     doc.text(title, 110, headerY + 30)
     doc.text(`Generated ${formatDate(new Date())}`, 110, headerY + 48)
-    if (logoDataUrl) {
-      const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 28
-      const logoWidth = (logoProps.width / logoProps.height) * logoHeight
-      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', 50, 38, logoWidth, logoHeight, undefined, 'FAST')
-    }
+    // Top logo removed per request (footer logo remains)
 
     autoTable(doc, {
       startY: 110,
@@ -1766,9 +1761,9 @@ export default function Reports() {
     )
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 20
+      const logoHeight = 10
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
-      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - 60 - logoWidth, pageHeight - 34, logoWidth, logoHeight, undefined, 'FAST')
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - 60 - logoWidth, pageHeight - 28, logoWidth, logoHeight, undefined, 'FAST')
     }
     doc.save(filename.replace('.csv', '.pdf'))
     toast({ title: 'PDF exported!', variant: 'success' })
