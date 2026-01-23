@@ -19,23 +19,27 @@ const LOADING_MESSAGES = [
   { text: "Chasing deadlines...", icon: Rocket },
 ]
 
-// Bouncing letter animation
-const BouncingLetter = ({ letter, index }) => (
-  <motion.span
-    className="inline-block font-bold"
+// Floating rocket animation
+const FloatingRocket = ({ style, delay }) => (
+  <motion.div
+    className="absolute text-brand-orange/40"
+    style={style}
+    initial={{ opacity: 0, y: 40, x: -20, rotate: -20 }}
     animate={{
-      y: [0, -8, 0],
-      color: ['#F7931E', '#FF6B6B', '#F7931E'],
+      opacity: [0, 0.6, 0.8, 0],
+      y: [40, -20, -120],
+      x: [-20, 10, 40],
+      rotate: [-20, -10, 0],
     }}
     transition={{
-      duration: 0.6,
+      duration: 3.5,
       repeat: Infinity,
-      delay: index * 0.1,
+      delay,
       ease: "easeInOut",
     }}
   >
-    {letter}
-  </motion.span>
+    <Rocket className="h-6 w-6" />
+  </motion.div>
 )
 
 export default function LoadingScreen({ onRetry, error }) {
@@ -92,6 +96,11 @@ export default function LoadingScreen({ onRetry, error }) {
             }}
           />
         ))}
+        {/* Rockets */}
+        <FloatingRocket style={{ left: '10%', bottom: '15%' }} delay={0.2} />
+        <FloatingRocket style={{ left: '25%', bottom: '5%' }} delay={1.1} />
+        <FloatingRocket style={{ left: '70%', bottom: '10%' }} delay={0.6} />
+        <FloatingRocket style={{ left: '85%', bottom: '0%' }} delay={1.6} />
       </div>
 
       <div className="relative text-center z-10">
@@ -163,13 +172,6 @@ export default function LoadingScreen({ onRetry, error }) {
             </motion.div>
           ))}
         </motion.div>
-
-        {/* Bouncing "Brandastic" text */}
-        <div className="text-2xl mb-4">
-          {"Brandastic".split('').map((letter, i) => (
-            <BouncingLetter key={i} letter={letter} index={i} />
-          ))}
-        </div>
 
         {/* Rotating message with icon */}
         <AnimatePresence mode="wait">
