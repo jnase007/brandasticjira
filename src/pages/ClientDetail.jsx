@@ -607,7 +607,6 @@ export default function ClientDetail() {
           client_id: resolvedClientId,
           role: selectedRole,
           user_id: selectedUserId,
-          user_name: selectedMember?.full_name || 'Unknown',
         }, { onConflict: 'client_id,role' })
 
       const { error } = await Promise.race([upsertPromise, timeout])

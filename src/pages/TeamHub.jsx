@@ -257,8 +257,8 @@ export default function TeamHub() {
 
     try {
       const [clientsRes, assignmentsRes, adSpendRes, teamRes] = await Promise.all([
-        supabase.from('clients').select('*').eq('is_active', true).order('name'),
-        supabase.from('client_team_assignments').select('*'),
+        supabase.from('clients').select('*').neq('is_active', false).order('name'),
+        supabase.from('client_team_assignments').select('*, user:user_id(id, full_name, avatar_url)'),
         supabase.from('ad_spend').select('*').order('month'),
         supabase.from('profiles').select('*').in('role', ['team', 'admin']).order('full_name'),
       ])
@@ -349,11 +349,15 @@ export default function TeamHub() {
     const assignment = teamAssignments.find(
       a => a.client_id === clientId && a.role === role
     )
-    return assignment?.user_name || ''
+    // Return user info if we have it, otherwise return empty
+    if (assignment?.user) {
+      return assignment.user.full_name || ''
+    }
+    return ''
   }
 
   // Update team assignment
-  const updateAssignment = async (clientId, role, userName) => {
+  const updateAssignment = async (clientId, role, userId) => {
     try {
       const existing = teamAssignments.find(
         a => a.client_id === clientId && a.role === role
@@ -362,21 +366,24 @@ export default function TeamHub() {
       if (existing) {
         await supabase
           .from('client_team_assignments')
-          .update({ user_name: userName })
+          .update({ user_id: userId })
           .eq('id', existing.id)
       } else {
         await supabase
           .from('client_team_assignments')
-          .insert({ client_id: clientId, role, user_name: userName })
+          .insert({ client_id: clientId, role, user_id: userId })
       }
 
-      // Refresh assignments
-      const { data } = await supabase.from('client_team_assignments').select('*')
+      // Refresh assignments with user info
+      const { data } = await supabase
+        .from('client_team_assignments')
+        .select('*, user:user_id(id, full_name, avatar_url)')
       setTeamAssignments(data || [])
       
       toast({ title: 'Updated', variant: 'success' })
     } catch (error) {
-      toast({ title: 'Error updating', variant: 'destructive' })
+      console.error('Assignment error:', error)
+      toast({ title: 'Error updating', description: error.message, variant: 'destructive' })
     }
     setEditingCell(null)
   }
