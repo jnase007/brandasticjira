@@ -81,7 +81,7 @@ const itemVariants = {
 export default function ClientDetail() {
   const { clientId } = useParams()
   const navigate = useNavigate()
-  const { user, isTeam, startClientPreview } = useAuth()
+  const { user, isTeam, startClientPreview, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -469,11 +469,22 @@ export default function ClientDetail() {
     }
   }
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    if (authLoading) {
+      console.log('[ClientDetail] Auth still loading, waiting...')
+      return
+    }
+    if (!user) {
+      console.log('[ClientDetail] No user after auth loaded')
+      setLoading(false)
+      return
+    }
     if (clientId) {
+      console.log('[ClientDetail] Auth ready, fetching client:', clientId)
       fetchClientData()
     }
-  }, [clientId])
+  }, [clientId, authLoading, user?.id])
 
   // Add a new note
   const handleAddNote = async () => {

@@ -680,7 +680,7 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId }) {
 
 // Main Component
 export default function ClientPortal() {
-  const { profile, user, clientPreviewMode, previewClientId, isActualAdmin } = useAuth()
+  const { profile, user, clientPreviewMode, previewClientId, isActualAdmin, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const [client, setClient] = useState(null)
   const [boards, setBoards] = useState([])
@@ -784,10 +784,12 @@ export default function ClientPortal() {
   }, [profile?.client_id, clientPreviewMode, previewClientId, previewClient?.id])
 
   useEffect(() => {
+    // Wait for auth to be ready
+    if (authLoading) return
     // Wait for previewClient to be loaded in preview mode
     if (clientPreviewMode && !previewClientId && !previewClient) return
     fetchData()
-  }, [fetchData, clientPreviewMode, previewClientId, previewClient])
+  }, [fetchData, clientPreviewMode, previewClientId, previewClient, authLoading])
 
   // Fetch messages for a request
   const fetchMessages = async (requestId) => {

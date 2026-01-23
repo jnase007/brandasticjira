@@ -53,7 +53,7 @@ const COLUMNS = [
 
 export default function BoardDetail() {
   const { boardId } = useParams()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
   const [board, setBoard] = useState(null)
@@ -93,9 +93,15 @@ export default function BoardDetail() {
     }
   }, [boardId])
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     fetchData()
-  }, [fetchData])
+  }, [fetchData, authLoading, user?.id])
 
   // Real-time updates
   useBoardRealtime(boardId, {

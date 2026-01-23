@@ -84,7 +84,7 @@ import { FileUpload, InlineFileUpload } from '../components/FileUpload'
 export default function TicketDetail() {
   const { ticketId } = useParams()
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
   const [ticket, setTicket] = useState(null)
@@ -175,9 +175,15 @@ export default function TicketDetail() {
     }
   }, [ticketId])
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     fetchData()
-  }, [fetchData])
+  }, [fetchData, authLoading, user?.id])
 
   // Real-time comments
   useCommentsRealtime(activeTicketId, {

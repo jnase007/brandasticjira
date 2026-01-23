@@ -139,7 +139,7 @@ const itemVariants = {
 }
 
 export default function Admin() {
-  const { profile, isAdmin, user } = useAuth()
+  const { profile, isAdmin, user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -263,9 +263,20 @@ export default function Admin() {
     }
   }
 
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
+    if (authLoading) {
+      console.log('[Admin] Auth still loading, waiting...')
+      return
+    }
+    if (!user) {
+      console.log('[Admin] No user after auth loaded')
+      setLoading(false)
+      return
+    }
+    console.log('[Admin] Auth ready, fetching data...')
     fetchData()
-  }, [])
+  }, [authLoading, user?.id])
 
   // Generate invite link
   const handleInvite = async () => {
