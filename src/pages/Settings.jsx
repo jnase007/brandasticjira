@@ -32,8 +32,8 @@ const itemVariants = {
 }
 
 export default function Settings() {
-  const { user, profile, updateUserProfile, uploadAvatar, justLoggedIn, profileSynced, clearLoginState } = useAuth()
-  const { stats, getRank, getLevelProgress, achievements } = useGamification()
+  const { user, profile, loading: authLoading, updateUserProfile, uploadAvatar, justLoggedIn, profileSynced, clearLoginState, refreshProfile } = useAuth()
+  const { stats, getRank, getLevelProgress, achievements, syncWithRealData } = useGamification()
   const { toast } = useToast()
   const fileInputRef = useRef(null)
   const bannerInputRef = useRef(null)
@@ -105,23 +105,20 @@ export default function Settings() {
 
   // Sync profile data when it loads
   useEffect(() => {
-    if (profile?.full_name) {
-      setFullName(profile.full_name)
-    }
-    if (profile?.tagline !== undefined) {
+    if (profile) {
+      console.log('[Settings] Profile loaded:', { 
+        id: profile.id, 
+        email: profile.email, 
+        full_name: profile.full_name 
+      })
+      setFullName(profile.full_name || '')
       setTagline(profile.tagline || '')
-    }
-    if (profile?.birthday !== undefined) {
       setBirthday(profile.birthday || '')
-    }
-    if (profile?.work_start_date !== undefined) {
       setWorkStartDate(profile.work_start_date || '')
-    }
-    if (profile?.show_birthday !== undefined) {
       setShowBirthday(profile.show_birthday ?? true)
-    }
-    if (profile?.banner_url !== undefined) {
       setBannerUrl(profile.banner_url || '')
+    } else {
+      console.log('[Settings] Profile is null/undefined')
     }
   }, [profile])
 
@@ -441,6 +438,45 @@ export default function Settings() {
   const progress = getLevelProgress(stats?.xp || 0)
   const unlockedAchievements = stats?.achievements?.length || 0
   const totalAchievements = achievements?.length || 0
+
+  // Show loading state if auth is still loading
+  if (authLoading) {
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
+          <p className="text-muted-foreground">Loading your profile...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show prompt to refresh if profile is missing data
+  if (!profile?.full_name && !authLoading) {
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center">
+            <RefreshCw className="h-8 w-8 text-amber-500" />
+          </div>
+          <h2 className="text-xl font-bold">Profile Not Loaded</h2>
+          <p className="text-muted-foreground max-w-md">
+            Your profile data didn't load properly. This can happen after being idle. 
+            Try refreshing, or your profile may need to be synced.
+          </p>
+          <div className="flex gap-3">
+            <Button onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Page
+            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/login'}>
+              Re-login
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <motion.div
