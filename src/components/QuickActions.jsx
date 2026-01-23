@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const QUICK_ACTIONS = [
   { id: 'timer', icon: Timer, label: 'Start Timer', color: 'bg-green-500', shortcut: 'T' },
-  { id: 'ticket', icon: FileText, label: 'New Ticket', color: 'bg-blue-500', shortcut: 'N' },
+  { id: 'ticket', icon: FileText, label: 'New Task', color: 'bg-blue-500', shortcut: 'N' },
   { id: 'search', icon: Search, label: 'Search', color: 'bg-purple-500', shortcut: '/' },
   { id: 'boards', icon: Kanban, label: 'Boards', color: 'bg-orange-500', path: '/boards' },
   { id: 'time', icon: Clock, label: 'Time Log', color: 'bg-teal-500', path: '/time' },

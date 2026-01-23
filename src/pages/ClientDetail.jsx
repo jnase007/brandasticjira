@@ -1031,7 +1031,7 @@ export default function ClientDetail() {
             </TabsTrigger>
             <TabsTrigger value="tickets" className="flex items-center gap-2">
               <Ticket className="h-4 w-4" />
-              Tickets
+              Tasks
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -1261,7 +1261,7 @@ export default function ClientDetail() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Tickets & Tasks</CardTitle>
+                    <CardTitle>Tasks</CardTitle>
                     <CardDescription>All work items for this client</CardDescription>
                   </div>
                   <Button 
@@ -1270,7 +1270,7 @@ export default function ClientDetail() {
                     className="bg-brand-orange hover:bg-brand-orange/90"
                   >
                     <Ticket className="h-4 w-4 mr-2" />
-                    New Ticket
+                    New Task
                   </Button>
                 </div>
               </CardHeader>

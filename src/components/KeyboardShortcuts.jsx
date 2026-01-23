@@ -13,7 +13,7 @@ const SHORTCUTS = [
   ]},
   { category: 'Actions', shortcuts: [
     { keys: ['C', 'B'], description: 'Create New Board' },
-    { keys: ['C', 'T'], description: 'Create New Ticket' },
+    { keys: ['C', 'T'], description: 'Create New Task' },
     { keys: ['T', 'S'], description: 'Start Timer' },
     { keys: ['T', 'X'], description: 'Stop Timer' },
   ]},

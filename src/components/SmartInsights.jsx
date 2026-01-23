@@ -61,7 +61,7 @@ export function SmartInsights() {
         if (completedTickets > 0) {
           insightsList.push({
             type: 'productivity',
-            title: `${completedTickets} tickets completed`,
+            title: `${completedTickets} tasks completed`,
             description: 'Great momentum this month! Keep crushing it.',
             metric: `${completedTickets}`,
             metricLabel: 'completed',
@@ -134,7 +134,7 @@ export function SmartInsights() {
           insightsList.push({
             type: 'tip',
             title: 'Welcome to Brandastic! 👋',
-            description: 'Start by tracking time or completing tickets to see your insights.',
+            description: 'Start by tracking time or completing tasks to see your insights.',
           })
         }
 

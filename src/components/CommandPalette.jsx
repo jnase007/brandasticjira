@@ -24,7 +24,7 @@ const COMMANDS = [
   { id: 'boards', label: 'Go to Boards', icon: Kanban, shortcut: 'G B', action: 'navigate', path: '/boards', category: 'Navigation' },
   { id: 'settings', label: 'Go to Settings', icon: Settings, shortcut: 'G S', action: 'navigate', path: '/settings', category: 'Navigation' },
   { id: 'new-board', label: 'Create New Board', icon: Plus, shortcut: 'C B', action: 'navigate', path: '/boards?new=true', category: 'Actions' },
-  { id: 'new-ticket', label: 'Create New Ticket', icon: Ticket, shortcut: 'C T', action: 'custom', category: 'Actions' },
+  { id: 'new-ticket', label: 'Create New Task', icon: Ticket, shortcut: 'C T', action: 'custom', category: 'Actions' },
   { id: 'start-timer', label: 'Start Timer', icon: Clock, shortcut: 'T S', action: 'custom', category: 'Time Tracking' },
   { id: 'stop-timer', label: 'Stop Timer', icon: Clock, shortcut: 'T X', action: 'custom', category: 'Time Tracking' },
   { id: 'toggle-theme', label: 'Toggle Dark Mode', icon: Moon, shortcut: 'T D', action: 'theme', category: 'Preferences' },
@@ -149,7 +149,7 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search commands, pages, tickets..."
+                  placeholder="Search commands, pages, tasks..."
                   value={query}
                   onChange={(e) => {
                     setQuery(e.target.value)

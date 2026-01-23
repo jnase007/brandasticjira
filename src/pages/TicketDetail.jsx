@@ -184,7 +184,7 @@ export default function TicketDetail() {
       setTicket({ ...ticket, ...data })
       setEditMode(false)
       toast({
-        title: 'Ticket updated',
+        title: 'Task updated',
         description: 'Your changes have been saved.',
         variant: 'success',
       })
@@ -206,14 +206,14 @@ export default function TicketDetail() {
       if (error) throw error
 
       toast({
-        title: 'Ticket deleted',
-        description: 'The ticket has been removed.',
+        title: 'Task deleted',
+        description: 'The task has been removed.',
       })
       navigate(`/boards/${ticket.board_id}`)
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to delete ticket.',
+        description: 'Failed to delete task.',
         variant: 'destructive',
       })
     }

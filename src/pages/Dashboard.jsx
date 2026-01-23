@@ -675,7 +675,7 @@ export default function Dashboard({ onConfetti }) {
                     <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
                       <Award className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No tickets yet</p>
+                    <p className="text-sm text-muted-foreground">No tasks yet</p>
                   </div>
                 ) : (
                   recentTickets.map((ticket, index) => (

@@ -99,7 +99,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
       setRunningEntry(data)
       toast({
         title: 'Timer started',
-        description: 'Time tracking has begun for this ticket.',
+        description: 'Time tracking has begun for this task.',
       })
     } catch (error) {
       toast({
@@ -182,7 +182,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
 
       toast({
         title: 'Time logged',
-        description: `Added ${formatDuration(totalMinutes)} to this ticket.`,
+        description: `Added ${formatDuration(totalMinutes)} to this task.`,
         variant: 'success',
       })
     } catch (error) {

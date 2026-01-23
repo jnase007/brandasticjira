@@ -163,7 +163,7 @@ export default function BoardDetail() {
       if (error) {
         toast({
           title: 'Error',
-          description: 'Failed to update ticket position.',
+          description: 'Failed to update task position.',
           variant: 'destructive',
         })
         // Revert on error
@@ -177,7 +177,7 @@ export default function BoardDetail() {
     if (!newTicket.title.trim()) {
       toast({
         title: 'Missing title',
-        description: 'Please enter a ticket title.',
+        description: 'Please enter a task title.',
         variant: 'destructive',
       })
       return
@@ -212,14 +212,14 @@ export default function BoardDetail() {
       })
 
       toast({
-        title: 'Ticket created',
+        title: 'Task created',
         description: `${data.ticket_id} has been created.`,
         variant: 'success',
       })
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to create ticket.',
+        description: 'Failed to create task.',
         variant: 'destructive',
       })
     } finally {
@@ -282,7 +282,7 @@ export default function BoardDetail() {
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search tickets..."
+              placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-8"
@@ -313,7 +313,7 @@ export default function BoardDetail() {
           </Button>
           <Button onClick={() => setCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Ticket
+            Add Task
           </Button>
         </div>
       </div>
@@ -396,11 +396,11 @@ export default function BoardDetail() {
         </div>
       </DragDropContext>
 
-      {/* Create Ticket Dialog */}
+      {/* Create Task Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create New Ticket</DialogTitle>
+            <DialogTitle>Create New Task</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>

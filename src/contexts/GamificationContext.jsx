@@ -17,7 +17,7 @@ const LEVEL_XP = [0, 100, 250, 500, 1000, 1750, 2750, 4000, 5500, 7500, 10000, 1
 const ACHIEVEMENTS = [
   // Getting Started
   { id: 'first_login', name: 'Welcome!', desc: 'Log in for the first time', icon: Star, xp: 10, category: 'starter' },
-  { id: 'first_ticket', name: 'Task Master', desc: 'Create your first ticket', icon: CheckCircle, xp: 25, category: 'starter' },
+  { id: 'first_ticket', name: 'Task Master', desc: 'Create your first task', icon: CheckCircle, xp: 25, category: 'starter' },
   { id: 'first_complete', name: 'Done Deal', desc: 'Complete your first ticket', icon: Trophy, xp: 50, category: 'starter' },
   { id: 'first_time_log', name: 'Time Keeper', desc: 'Log time for the first time', icon: Clock, xp: 25, category: 'starter' },
   { id: 'first_comment', name: 'Communicator', desc: 'Leave your first comment', icon: MessageSquare, xp: 15, category: 'starter' },

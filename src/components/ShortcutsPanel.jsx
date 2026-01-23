@@ -20,7 +20,7 @@ const SHORTCUTS = [
     items: [
       { keys: ['⌘', 'K'], description: 'Open command palette' },
       { keys: ['T'], description: 'Toggle timer' },
-      { keys: ['N'], description: 'New ticket' },
+      { keys: ['N'], description: 'New task' },
       { keys: ['/'], description: 'Focus search' },
       { keys: ['?'], description: 'Show keyboard shortcuts' },
     ],
@@ -35,8 +35,8 @@ const SHORTCUTS = [
   {
     category: 'Boards',
     items: [
-      { keys: ['C'], description: 'Create new ticket' },
-      { keys: ['F'], description: 'Filter tickets' },
+      { keys: ['C'], description: 'Create new task' },
+      { keys: ['F'], description: 'Filter tasks' },
       { keys: ['←', '→'], description: 'Navigate columns' },
     ],
   },

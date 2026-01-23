@@ -77,9 +77,9 @@ export const EMPTY_STATES = {
     action: "Create First Board",
   },
   tickets: {
-    title: "No tickets? Is this heaven? 😇",
-    subtitle: "Just kidding. Add some tasks to stay productive!",
-    action: "Create First Ticket",
+    title: "No tasks yet? Time to get productive! 📝",
+    subtitle: "Add your first task and start crushing it!",
+    action: "Create First Task",
   },
   timeEntries: {
     title: "Time flies when you're having fun! ⏰",
@@ -110,9 +110,9 @@ export const SUCCESS_MESSAGES = {
     "💾 Saved! Your future self thanks you.",
   ],
   ticketCreated: [
-    "📝 Ticket created! Add it to the pile!",
+    "📝 Task created! Add it to the pile!",
     "✨ Task added! One step closer to greatness!",
-    "🎯 New ticket! Let's crush it!",
+    "🎯 New task! Let's crush it!",
   ],
   ticketCompleted: [
     "🎉 DONE! You're on fire!",
@@ -174,7 +174,7 @@ export const PLACEHOLDERS = {
   search: [
     "Search for anything...",
     "What are you looking for?",
-    "Find clients, boards, tickets...",
+    "Find clients, boards, tasks...",
   ],
   comment: [
     "Add a brilliant comment...",
@@ -189,7 +189,7 @@ export const FUN_FACTS = [
   "🎮 Pro tip: Press ⌘K to open quick search!",
   "☕ Coffee break? You've earned it!",
   "🚀 You're doing great! Keep it up!",
-  "✨ Every ticket completed makes a client smile!",
+  "✨ Every task completed makes a client smile!",
   "🎯 Focus mode: activated!",
   "💪 You've got this!",
   "🌟 Making magic happen, one task at a time!",

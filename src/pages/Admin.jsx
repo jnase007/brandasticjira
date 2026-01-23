@@ -417,7 +417,7 @@ export default function Admin() {
 
       toast({
         title: '🎉 Import complete!',
-        description: `Imported ${imported} tickets${errors > 0 ? `, ${errors} failed` : ''}`,
+        description: `Imported ${imported} tasks${errors > 0 ? `, ${errors} failed` : ''}`,
         variant: 'success',
       })
 
@@ -591,7 +591,7 @@ export default function Admin() {
                   const results = await seedSampleClients()
                   toast({
                     title: '🌱 Sample data added!',
-                    description: `Created ${results.clients.length} clients, ${results.boards.length} boards, ${results.tickets.length} tickets`,
+                    description: `Created ${results.clients.length} clients, ${results.boards.length} boards, ${results.tickets.length} tasks`,
                     variant: 'success',
                   })
                   fetchData(true)
