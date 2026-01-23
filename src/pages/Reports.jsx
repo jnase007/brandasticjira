@@ -1654,6 +1654,7 @@ export default function Reports() {
     else setLoading(true)
 
     try {
+      // Fetch base data first
       const [employeesRes, clientsRes, clientRatesRes, timeEntriesRes] = await Promise.all([
         supabase
           .from('profiles')
@@ -1663,21 +1664,63 @@ export default function Reports() {
         supabase
           .from('clients')
           .select('*')
-          .neq('is_active', false)
+          .or('is_active.is.true,is_active.is.null')
           .order('name'),
         supabase
           .from('client_rates')
           .select('*'),
+        // Use simpler query without joins for reliability
         supabase
           .from('time_entries')
-          .select('*, user:profiles(id, full_name, email, avatar_url), client:clients(id, name, color), ticket:tickets(id, title, ticket_id)')
-          .order('date', { ascending: false }),
+          .select('*')
+          .order('created_at', { ascending: false }),
       ])
 
-      setEmployees(employeesRes.data || [])
-      setClients(clientsRes.data || [])
+      const employeesData = employeesRes.data || []
+      const clientsData = clientsRes.data || []
+      const rawTimeEntries = timeEntriesRes.data || []
+
+      console.log('[Reports] Fetched time entries:', rawTimeEntries.length)
+      
+      // Normalize time entries and add user/client data
+      const userMap = employeesData.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+      const clientMap = clientsData.reduce((acc, c) => ({ ...acc, [c.id]: c }), {})
+      
+      // Fetch ticket data for entries that have ticket_id
+      const ticketIds = [...new Set(rawTimeEntries.map(e => e.ticket_id).filter(Boolean))]
+      let ticketMap = {}
+      if (ticketIds.length > 0) {
+        const { data: tickets } = await supabase
+          .from('tickets')
+          .select('id, title, ticket_id')
+          .in('id', ticketIds)
+        ticketMap = (tickets || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {})
+      }
+      
+      const normalizedEntries = rawTimeEntries.map(entry => {
+        // Normalize the date field
+        const date = entry.date || 
+          (entry.start_time ? entry.start_time.split('T')[0] : null) ||
+          (entry.created_at ? entry.created_at.split('T')[0] : null)
+        
+        return {
+          ...entry,
+          date,
+          minutes: entry.minutes ?? entry.duration_minutes ?? 0,
+          billable: entry.billable ?? true,
+          user: userMap[entry.user_id] || null,
+          client: clientMap[entry.client_id] || null,
+          ticket: ticketMap[entry.ticket_id] || null,
+        }
+      }).filter(e => e.date) // Only keep entries with valid dates
+
+      console.log('[Reports] Normalized entries:', normalizedEntries.length, 
+        'Total minutes:', normalizedEntries.reduce((sum, e) => sum + (e.minutes || 0), 0))
+
+      setEmployees(employeesData)
+      setClients(clientsData)
       setClientRates(clientRatesRes.data || [])
-      setTimeEntries(timeEntriesRes.data || [])
+      setTimeEntries(normalizedEntries)
     } catch (error) {
       console.error('Error fetching report data:', error)
       toast({
