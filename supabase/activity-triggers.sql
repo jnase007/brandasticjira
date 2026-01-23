@@ -48,11 +48,10 @@ DECLARE
   v_client_name TEXT;
   v_client_id UUID;
 BEGIN
-  -- Safely get client_id (might be in ticket or board)
-  v_client_id := COALESCE(
-    (SELECT NEW.client_id WHERE EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'client_id')),
-    (SELECT b.client_id FROM public.boards b WHERE b.id = NEW.board_id)
-  );
+  -- Get client_id through board
+  IF NEW.board_id IS NOT NULL THEN
+    SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
+  END IF;
   
   -- Get client name if we have a client_id
   IF v_client_id IS NOT NULL THEN
@@ -82,7 +81,6 @@ BEGIN
   );
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Log error but don't fail the original operation
   RAISE WARNING 'Activity log error: %', SQLERRM;
   RETURN NEW;
 END;
@@ -101,8 +99,10 @@ DECLARE
   v_client_id UUID;
 BEGIN
   IF OLD.status IS DISTINCT FROM NEW.status THEN
-    -- Safely get client_id
-    v_client_id := (SELECT b.client_id FROM public.boards b WHERE b.id = NEW.board_id);
+    -- Get client_id through board
+    IF NEW.board_id IS NOT NULL THEN
+      SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
+    END IF;
     
     INSERT INTO public.activity_log (
       activity_type,
@@ -146,7 +146,9 @@ DECLARE
   v_client_id UUID;
 BEGIN
   IF NEW.status = 'done' AND (OLD.status IS NULL OR OLD.status != 'done') THEN
-    v_client_id := (SELECT b.client_id FROM public.boards b WHERE b.id = NEW.board_id);
+    IF NEW.board_id IS NOT NULL THEN
+      SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
+    END IF;
     
     INSERT INTO public.activity_log (
       activity_type,
@@ -190,7 +192,10 @@ DECLARE
 BEGIN
   IF NEW.assigned_to IS NOT NULL AND (OLD.assigned_to IS NULL OR OLD.assigned_to != NEW.assigned_to) THEN
     SELECT full_name INTO v_assignee_name FROM public.profiles WHERE id = NEW.assigned_to;
-    v_client_id := (SELECT b.client_id FROM public.boards b WHERE b.id = NEW.board_id);
+    
+    IF NEW.board_id IS NOT NULL THEN
+      SELECT client_id INTO v_client_id FROM public.boards WHERE id = NEW.board_id;
+    END IF;
     
     INSERT INTO public.activity_log (
       activity_type,
@@ -241,7 +246,7 @@ BEGIN
   FROM public.tickets WHERE id = NEW.ticket_id;
   
   IF v_ticket.board_id IS NOT NULL THEN
-    v_client_id := (SELECT client_id FROM public.boards WHERE id = v_ticket.board_id);
+    SELECT client_id INTO v_client_id FROM public.boards WHERE id = v_ticket.board_id;
   END IF;
   
   INSERT INTO public.activity_log (
@@ -279,6 +284,7 @@ CREATE TRIGGER trigger_log_comment_added
 
 -- =====================================================
 -- 3. TIME TRACKING ACTIVITIES
+-- Gets client through ticket -> board relationship only
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION log_time_entry()
@@ -288,6 +294,7 @@ DECLARE
   v_client_name TEXT;
   v_client_id UUID;
   v_minutes INT;
+  v_entity_name TEXT;
 BEGIN
   v_minutes := COALESCE(NEW.minutes, NEW.duration_minutes, 0);
   
@@ -296,18 +303,17 @@ BEGIN
     -- Get ticket info if available
     IF NEW.ticket_id IS NOT NULL THEN
       SELECT id, title, ticket_id, board_id INTO v_ticket FROM public.tickets WHERE id = NEW.ticket_id;
+      v_entity_name := v_ticket.title;
+      
       IF v_ticket.board_id IS NOT NULL THEN
-        v_client_id := (SELECT client_id FROM public.boards WHERE id = v_ticket.board_id);
+        SELECT client_id INTO v_client_id FROM public.boards WHERE id = v_ticket.board_id;
       END IF;
     END IF;
     
-    -- Try to get client_id from time_entry if it exists there
-    BEGIN
-      v_client_id := COALESCE(v_client_id, NEW.client_id);
-    EXCEPTION WHEN undefined_column THEN
-      -- client_id column doesn't exist on time_entries, that's fine
-      NULL;
-    END;
+    -- Fallback entity name
+    IF v_entity_name IS NULL THEN
+      v_entity_name := COALESCE(NEW.description, 'Time entry');
+    END IF;
     
     -- Get client name
     IF v_client_id IS NOT NULL THEN
@@ -326,7 +332,7 @@ BEGIN
       'time_logged',
       'time_entry',
       NEW.id,
-      COALESCE(v_ticket.title, NEW.description, v_client_name, 'Time entry'),
+      v_entity_name,
       NEW.user_id,
       v_client_id,
       jsonb_build_object(
