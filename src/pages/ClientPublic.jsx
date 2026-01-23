@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Building2, Clock, Kanban, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react'
+import { Building2, Clock, Kanban, CheckCircle2, ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
 import { cn, formatRelativeDate } from '../lib/utils'
+import { supabase } from '../lib/supabase'
 
 export default function ClientPublic() {
   const { token } = useParams()
@@ -12,24 +14,124 @@ export default function ClientPublic() {
   const [error, setError] = useState(null)
   const [payload, setPayload] = useState(null)
 
-  useEffect(() => {
-    const fetchPublicData = async () => {
-      if (!token) return
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch(`/.netlify/functions/client-public?token=${encodeURIComponent(token)}`)
-        if (!res.ok) {
-          throw new Error('Client view not available')
-        }
+  const fetchPublicData = async () => {
+    if (!token) return
+    setLoading(true)
+    setError(null)
+    
+    try {
+      // First try the Netlify function (uses service role key for full access)
+      console.log('[ClientPublic] Trying Netlify function...')
+      const res = await fetch(`/.netlify/functions/client-public?token=${encodeURIComponent(token)}`)
+      
+      if (res.ok) {
         const data = await res.json()
-        setPayload(data)
-      } catch (err) {
-        setError(err.message || 'Unable to load client view')
-      } finally {
-        setLoading(false)
+        if (data.client) {
+          console.log('[ClientPublic] Netlify function succeeded')
+          setPayload(data)
+          return
+        }
       }
+      
+      // If Netlify function fails, try direct Supabase fetch
+      console.log('[ClientPublic] Netlify function failed, trying direct Supabase fetch...')
+      
+      // Fetch client by public_token
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_enabled, public_token')
+        .eq('public_token', token)
+        .maybeSingle()
+      
+      if (clientError) {
+        console.error('[ClientPublic] Client fetch error:', clientError)
+        throw new Error('Unable to load client data')
+      }
+      
+      if (!client) {
+        throw new Error('Client not found')
+      }
+      
+      // Check if public access is enabled
+      if (client.public_enabled === false) {
+        throw new Error('Public access is disabled for this client')
+      }
+      
+      console.log('[ClientPublic] Found client:', client.name)
+      
+      // Fetch related data
+      const [boardsRes, ticketsRes, projectsRes, activityRes] = await Promise.all([
+        supabase
+          .from('boards')
+          .select('id, name, description, created_at')
+          .eq('client_id', client.id)
+          .eq('is_archived', false)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('tickets')
+          .select('id, title, ticket_id, status, priority, board_id, created_at')
+          .eq('client_id', client.id)
+          .order('updated_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('client_projects')
+          .select('id, title')
+          .eq('client_id', client.id)
+          .eq('is_visible_to_client', true)
+          .order('completed_date', { ascending: false })
+          .catch(() => ({ data: [] })),
+        supabase
+          .from('activity_log')
+          .select('id, entity_name, created_at')
+          .eq('client_id', client.id)
+          .order('created_at', { ascending: false })
+          .limit(5)
+          .catch(() => ({ data: [] })),
+      ])
+      
+      // Try to get hours summary
+      let hoursSummary = null
+      try {
+        const now = new Date()
+        const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+        const startOfNextMonth = now.getMonth() === 11
+          ? `${now.getFullYear() + 1}-01-01`
+          : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
+        
+        const { data: timeData } = await supabase
+          .from('time_entries')
+          .select('minutes')
+          .eq('client_id', client.id)
+          .gte('date', startOfMonth)
+          .lt('date', startOfNextMonth)
+        
+        const totalMinutes = (timeData || []).reduce((sum, e) => sum + (e.minutes || 0), 0)
+        hoursSummary = {
+          hours_used: Math.round(totalMinutes / 60 * 10) / 10,
+          monthly_hours: client.monthly_hours || 0,
+        }
+      } catch (e) {
+        console.warn('[ClientPublic] Could not calculate hours:', e)
+      }
+      
+      setPayload({
+        client,
+        boards: boardsRes.data || [],
+        tickets: ticketsRes.data || [],
+        projects: projectsRes?.data || [],
+        recent_updates: activityRes?.data || [],
+        hours_summary: hoursSummary,
+      })
+      
+    } catch (err) {
+      console.error('[ClientPublic] Error:', err)
+      setError(err.message || 'Unable to load client view')
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchPublicData()
   }, [token])
 
@@ -70,11 +172,22 @@ export default function ClientPublic() {
         <div className="max-w-4xl mx-auto">
           <Card>
             <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-brand-orange/20 to-brand-coral/10 flex items-center justify-center">
+                <Building2 className="h-8 w-8 text-brand-orange" />
+              </div>
               <h2 className="text-xl font-semibold mb-2">Client view unavailable</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                This shareable link is invalid or has been disabled.
+              <p className="text-sm text-muted-foreground mb-6">
+                {error || 'This shareable link is invalid or has been disabled.'}
               </p>
-              <Link to="/login" className="text-brand-orange text-sm">Return to login</Link>
+              <div className="flex justify-center gap-3">
+                <Button onClick={fetchPublicData} variant="outline" className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </Button>
+                <Button asChild variant="default" className="bg-brand-orange hover:bg-brand-orange/90">
+                  <Link to="/login">Return to Login</Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
