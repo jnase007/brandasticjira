@@ -113,6 +113,73 @@ export function GamificationProvider({ children }) {
     return RANKS[0]
   }
 
+  // Sync stats with real data from database (time_entries, tickets, comments)
+  const syncWithRealData = useCallback(async () => {
+    if (!user) return
+
+    try {
+      // Fetch actual time entries to calculate real hours logged
+      const { data: timeEntries } = await supabase
+        .from('time_entries')
+        .select('minutes')
+        .eq('user_id', user.id)
+
+      const totalMinutes = (timeEntries || []).reduce((sum, e) => sum + (e.minutes || 0), 0)
+      const actualHoursLogged = totalMinutes / 60
+
+      // Fetch completed tickets count
+      const { count: ticketsCount } = await supabase
+        .from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('assigned_to', user.id)
+        .eq('status', 'done')
+
+      // Fetch comments count
+      const { count: commentsCount } = await supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+
+      const actualTickets = ticketsCount || 0
+      const actualComments = commentsCount || 0
+
+      // Calculate XP from real data
+      // Base: 1 XP per 5 min logged + 10 XP per ticket + 5 XP per comment
+      const calculatedXP = Math.floor(totalMinutes / 5) + (actualTickets * 10) + (actualComments * 5)
+
+      // Update gamification stats with real data
+      const { error: upsertError } = await supabase
+        .from('user_gamification_stats')
+        .upsert({
+          user_id: user.id,
+          hours_logged: actualHoursLogged,
+          tickets_completed: actualTickets,
+          comments_count: actualComments,
+          xp: calculatedXP,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+
+      if (!upsertError) {
+        setStats(prev => ({
+          ...prev,
+          hoursLogged: actualHoursLogged,
+          ticketsCompleted: actualTickets,
+          commentsCount: actualComments,
+          xp: calculatedXP,
+          level: getLevel(calculatedXP),
+        }))
+        console.log('[Gamification] Synced with real data:', { 
+          hours: actualHoursLogged.toFixed(1), 
+          tickets: actualTickets, 
+          comments: actualComments,
+          xp: calculatedXP 
+        })
+      }
+    } catch (error) {
+      console.log('Error syncing gamification data:', error)
+    }
+  }, [user])
+
   // Fetch user stats
   const fetchStats = useCallback(async () => {
     if (!user) return
@@ -136,26 +203,14 @@ export function GamificationProvider({ children }) {
           longestStreak: gamData.longest_streak || 0,
           achievements: gamData.achievements || [],
         })
-      } else if (error?.code === 'PGRST116') {
-        // No row exists yet - create initial stats
-        const { data: newStats } = await supabase
-          .from('user_gamification_stats')
-          .insert({ user_id: user.id })
-          .select()
-          .single()
         
-        if (newStats) {
-          setStats({
-            xp: 0,
-            level: 1,
-            ticketsCompleted: 0,
-            hoursLogged: 0,
-            commentsCount: 0,
-            currentStreak: 0,
-            longestStreak: 0,
-            achievements: [],
-          })
+        // If hours logged seems stale (0 but user might have time entries), sync with real data
+        if (gamData.hours_logged === 0 || gamData.hours_logged === null) {
+          syncWithRealData()
         }
+      } else if (error?.code === 'PGRST116') {
+        // No row exists yet - sync from real data to bootstrap
+        await syncWithRealData()
       }
     } catch (error) {
       // Table might not exist yet, that's ok
@@ -163,7 +218,7 @@ export function GamificationProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, syncWithRealData])
 
   useEffect(() => {
     fetchStats()
@@ -346,6 +401,7 @@ export function GamificationProvider({ children }) {
     trackTimeLogged,
     trackComment,
     refreshStats: fetchStats,
+    syncWithRealData, // Sync gamification stats with actual database records
   }
 
   return (

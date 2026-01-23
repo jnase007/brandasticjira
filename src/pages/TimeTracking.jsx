@@ -15,6 +15,7 @@ import {
 } from '../components/ui/dropdown-menu'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useGamification } from '../contexts/GamificationContext'
 import { cn, formatDate, formatDuration, getInitials } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -100,6 +101,7 @@ function getProfitColor(profit) {
 export default function TimeTracking() {
   const { user, profile, isAdmin } = useAuth()
   const { toast } = useToast()
+  const { trackTimeLogged } = useGamification()
   
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -343,6 +345,10 @@ export default function TimeTracking() {
       })
 
       toast({ title: 'Time logged!', variant: 'success' })
+      
+      // Track for gamification (XP, achievements)
+      trackTimeLogged(totalMinutes)
+      
       setAddTimeDialogOpen(false)
       setTimeEntry({
         client_id: '',

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { supabase, createManualTimeEntry } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useGamification } from '../contexts/GamificationContext'
 import { cn } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import {
@@ -179,6 +180,7 @@ export default function FloatingTimer({
 }) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const { trackTimeLogged } = useGamification()
   
   const [isRunning, setIsRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -696,6 +698,9 @@ export default function FloatingTimer({
         variant: 'success',
         duration: 3500,
       })
+      
+      // Track for gamification (XP, achievements)
+      trackTimeLogged(totalMinutes)
       
       // Reset
       setSeconds(0)
