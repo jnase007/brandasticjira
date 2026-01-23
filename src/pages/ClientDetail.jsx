@@ -39,6 +39,7 @@ import {
 } from '../components/ui/dialog'
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
+import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplates'
 
 // Pipeline stages with colors
 const PIPELINE_STAGES = [
@@ -121,6 +122,11 @@ export default function ClientDetail() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
   const [newTask, setNewTask] = useState({ title: '', description: '', board_id: '', assignee_id: '' })
   const [savingTask, setSavingTask] = useState(false)
+  
+  // Template selector state
+  const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false)
+  const [selectedTemplates, setSelectedTemplates] = useState([])
+  const [creatingFromTemplate, setCreatingFromTemplate] = useState(false)
   
   // Team roles
   const TEAM_ROLES = [
@@ -498,6 +504,94 @@ export default function ClientDetail() {
       setSavingTask(false)
     }
   }
+  
+  // Handle creating project from templates
+  const handleCreateFromTemplates = async () => {
+    if (selectedTemplates.length === 0) {
+      toast({ title: 'Select at least one template', variant: 'destructive' })
+      return
+    }
+    
+    setCreatingFromTemplate(true)
+    try {
+      let boardsCreated = 0
+      let tasksCreated = 0
+      
+      for (const templateId of selectedTemplates) {
+        const template = PROJECT_TEMPLATES.find(t => t.id === templateId)
+        if (!template) continue
+        
+        // Create board for this template
+        const { data: boardData, error: boardError } = await supabase
+          .from('boards')
+          .insert({
+            name: template.name,
+            description: template.description,
+            client_id: clientId,
+            created_by: user.id,
+            is_archived: false,
+          })
+          .select()
+          .single()
+        
+        if (boardError) {
+          console.error('Error creating board:', boardError)
+          continue
+        }
+        
+        boardsCreated++
+        
+        // Create tasks for this board
+        const tasksToInsert = template.tasks.map((task, index) => ({
+          title: task.title,
+          board_id: boardData.id,
+          client_id: clientId,
+          status: 'todo',
+          priority: task.priority || 'medium',
+          time_estimate: task.estimate ? Math.round(task.estimate * 60) : null,
+          position: index,
+          created_by: user.id,
+        }))
+        
+        const { error: tasksError } = await supabase
+          .from('tickets')
+          .insert(tasksToInsert)
+        
+        if (tasksError) {
+          console.error('Error creating tasks:', tasksError)
+        } else {
+          tasksCreated += template.tasks.length
+        }
+      }
+      
+      toast({
+        title: '🚀 Project created!',
+        description: `Created ${boardsCreated} boards with ${tasksCreated} tasks`,
+        variant: 'success',
+      })
+      
+      setTemplateSelectorOpen(false)
+      setSelectedTemplates([])
+      fetchClientData(true)
+    } catch (error) {
+      console.error('Error creating from templates:', error)
+      toast({ title: 'Error creating project', description: error.message, variant: 'destructive' })
+    } finally {
+      setCreatingFromTemplate(false)
+    }
+  }
+  
+  // Toggle template selection
+  const toggleTemplate = (templateId) => {
+    setSelectedTemplates(prev => 
+      prev.includes(templateId) 
+        ? prev.filter(id => id !== templateId)
+        : [...prev, templateId]
+    )
+  }
+  
+  // Get templates grouped by category
+  const templatesByCategory = getTemplatesByCategory()
 
   if (loading) {
     return (
@@ -664,6 +758,15 @@ export default function ClientDetail() {
                     >
                       <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
                       <span className="ml-2 hidden sm:inline">Refresh</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTemplateSelectorOpen(true)}
+                      className="border-brand-purple text-brand-purple hover:bg-brand-purple/10"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">From Template</span>
                     </Button>
                     <Button
                       variant="outline"
@@ -1630,6 +1733,123 @@ export default function ClientDetail() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Template Selector Dialog */}
+      <Dialog open={templateSelectorOpen} onOpenChange={setTemplateSelectorOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="h-6 w-6 text-brand-purple" />
+              Create Project from Templates
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Select the service packages for <strong>{client?.name}</strong>. Each template creates a board with pre-configured tasks.
+            </p>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto py-4 space-y-6">
+            {Object.entries(templatesByCategory).map(([category, templates]) => (
+              <div key={category}>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  {category}
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {templates.map(template => {
+                    const isSelected = selectedTemplates.includes(template.id)
+                    return (
+                      <button
+                        key={template.id}
+                        onClick={() => toggleTemplate(template.id)}
+                        className={cn(
+                          "p-4 rounded-xl border-2 text-left transition-all hover:shadow-md",
+                          isSelected 
+                            ? "border-brand-purple bg-brand-purple/5 shadow-sm" 
+                            : "border-muted hover:border-muted-foreground/30"
+                        )}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{template.icon}</span>
+                            <div>
+                              <p className="font-semibold">{template.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {template.tasks.length} tasks • ~{template.estimatedHours}h
+                              </p>
+                            </div>
+                          </div>
+                          <div className={cn(
+                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                            isSelected 
+                              ? "border-brand-purple bg-brand-purple" 
+                              : "border-muted-foreground/30"
+                          )}>
+                            {isSelected && <CheckCircle className="h-3 w-3 text-white" />}
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {template.description}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Summary Footer */}
+          <div className="border-t pt-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                {selectedTemplates.length > 0 ? (
+                  <div className="flex items-center gap-4">
+                    <Badge variant="outline" className="text-brand-purple border-brand-purple">
+                      {selectedTemplates.length} template{selectedTemplates.length !== 1 ? 's' : ''} selected
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedTemplates.reduce((sum, id) => {
+                        const t = PROJECT_TEMPLATES.find(t => t.id === id)
+                        return sum + (t?.tasks.length || 0)
+                      }, 0)} tasks • 
+                      ~{selectedTemplates.reduce((sum, id) => {
+                        const t = PROJECT_TEMPLATES.find(t => t.id === id)
+                        return sum + (t?.estimatedHours || 0)
+                      }, 0)}h estimated
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Select templates to get started</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  setTemplateSelectorOpen(false)
+                  setSelectedTemplates([])
+                }}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateFromTemplates} 
+                  disabled={creatingFromTemplate || selectedTemplates.length === 0}
+                  className="bg-brand-purple hover:bg-brand-purple/90"
+                >
+                  {creatingFromTemplate ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Create {selectedTemplates.length} Board{selectedTemplates.length !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </motion.div>
