@@ -5,7 +5,7 @@ import {
   Building2, FileText, Check, Zap, Search, Ticket, Loader2,
   ArrowUp, ArrowDown, CornerDownLeft
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, createManualTimeEntry } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
@@ -671,7 +671,10 @@ export default function FloatingTimer({
         timeEntry.ticket_id = selectedTicket.id
       }
       
-      const { error } = await supabase.from('time_entries').insert(timeEntry)
+      const { error } = await createManualTimeEntry({
+        ...timeEntry,
+        duration_seconds: seconds,
+      })
 
       if (error) {
         console.error('Supabase error:', error)

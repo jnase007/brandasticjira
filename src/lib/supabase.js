@@ -510,38 +510,78 @@ export async function stopTimeEntry(entryId) {
   const durationSeconds = Math.max(1, Math.round((endTime - startTime) / 1000))
   const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
 
-  const { data, error } = await supabase
+  const updatePayload = {
+    end_time: endTime.toISOString(),
+    is_running: false,
+    duration_minutes: durationMinutes,
+    minutes: durationMinutes,
+    date: endTime.toISOString().split('T')[0],
+  }
+
+  let { data, error } = await supabase
     .from('time_entries')
-    .update({
-      end_time: endTime.toISOString(),
-      is_running: false,
-      duration_minutes: durationMinutes,
-      minutes: durationMinutes,
-      date: endTime.toISOString().split('T')[0],
-    })
+    .update(updatePayload)
     .eq('id', entryId)
     .select()
     .single()
+
+  // Fallback for older schemas missing some columns
+  if (error && error.message?.includes('column')) {
+    const fallbackPayload = {
+      end_time: endTime.toISOString(),
+      is_running: false,
+    }
+    ;({ data, error } = await supabase
+      .from('time_entries')
+      .update(fallbackPayload)
+      .eq('id', entryId)
+      .select()
+      .single())
+  }
+
   return { data, error }
 }
 
 export async function createManualTimeEntry(entryData) {
   const startDate = entryData.start_time ? new Date(entryData.start_time) : new Date()
   const endDate = entryData.end_time ? new Date(entryData.end_time) : new Date()
-  const durationSeconds = Math.max(1, Math.round((endDate - startDate) / 1000))
+  const durationSeconds = Math.max(
+    1,
+    entryData.duration_seconds ?? Math.round((endDate - startDate) / 1000)
+  )
   const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
-  const { data, error } = await supabase
+  const payload = {
+    ...entryData,
+    is_running: false,
+    duration_minutes: durationMinutes,
+    minutes: entryData.minutes ?? durationMinutes,
+    date: entryData.date ?? startDate.toISOString().split('T')[0],
+    billable: entryData.billable ?? true,
+  }
+
+  let { data, error } = await supabase
     .from('time_entries')
-    .insert({
-      ...entryData,
-      is_running: false,
-      duration_minutes: durationMinutes,
-      minutes: entryData.minutes ?? durationMinutes,
-      date: entryData.date ?? startDate.toISOString().split('T')[0],
-      billable: entryData.billable ?? true,
-    })
+    .insert(payload)
     .select()
     .single()
+
+  if (error && error.message?.includes('column')) {
+    const fallbackPayload = {
+      user_id: entryData.user_id,
+      client_id: entryData.client_id,
+      ticket_id: entryData.ticket_id ?? null,
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
+      description: entryData.description ?? null,
+      notes: entryData.notes ?? null,
+    }
+    ;({ data, error } = await supabase
+      .from('time_entries')
+      .insert(fallbackPayload)
+      .select()
+      .single())
+  }
+
   return { data, error }
 }
 
