@@ -283,15 +283,20 @@ export function AuthProvider({ children }) {
   // Sign out
   const signOut = async () => {
     try {
-      // Call Supabase signOut first (this clears the session)
-      const { error } = await supabase.auth.signOut()
-      
-      // Then clear React state
+      // Clear React state first
       setUser(null)
       setProfile(null)
+      setLoading(false)
       
-      // Clear custom cached data
+      // Clear all custom cached data
       localStorage.removeItem('viewMode')
+      
+      // Call Supabase signOut with global scope to clear all sessions
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
+      
+      if (error) {
+        console.error('Supabase signOut error:', error)
+      }
       
       return { error }
     } catch (err) {
