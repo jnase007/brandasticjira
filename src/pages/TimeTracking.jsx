@@ -153,9 +153,10 @@ export default function TimeTracking() {
           .from('client_rates')
           .select('*'),
         // Simpler query: fetch all entries and filter client-side for reliability
+        // Note: Only join on columns that definitely exist (user, ticket)
         supabase
           .from('time_entries')
-          .select('*, client:clients(name, color), user:profiles(full_name, avatar_url, hourly_cost), ticket:tickets(id, title, ticket_id)')
+          .select('*, user:profiles(full_name, avatar_url, hourly_cost), ticket:tickets(id, title, ticket_id, board:boards(client:clients(id, name, color)))')
           .order('created_at', { ascending: false }),
       ])
 
@@ -179,6 +180,8 @@ export default function TimeTracking() {
           entry.date ||
           (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
         billable: entry.billable ?? true,
+        // Get client from ticket -> board -> client path
+        client: entry.client || entry.ticket?.board?.client || null,
       }))
 
       setEmployees(employeesRes.data || [])
@@ -200,7 +203,9 @@ export default function TimeTracking() {
         normalized: normalizedEntries.length,
         myEntries: myEntries.length,
         dateRange: { startDate, endDate },
-        userId: currentUserId
+        userId: currentUserId,
+        sampleEntry: allEntries[0] || 'none',
+        timeEntriesError: timeEntriesRes.error,
       })
     } catch (error) {
       console.error('Error fetching time tracking data:', error)
