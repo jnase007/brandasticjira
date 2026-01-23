@@ -1914,14 +1914,14 @@ export default function ClientDetail() {
                 <span className="text-xs text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Select 
-                value={newTask.board_id} 
-                onValueChange={(value) => setNewTask(prev => ({ ...prev, board_id: value }))}
+                value={newTask.board_id || '__auto__'} 
+                onValueChange={(value) => setNewTask(prev => ({ ...prev, board_id: value === '__auto__' ? '' : value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Auto-assign to General Tasks" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">
+                  <SelectItem value="__auto__">
                     <span className="text-muted-foreground">General Tasks (auto-create)</span>
                   </SelectItem>
                   {boards.map(board => (
