@@ -433,10 +433,22 @@ export async function deleteTimeEntry(entryId) {
 // ============================================
 
 export async function getClientHoursSummary() {
-  const { data, error } = await supabase
-    .from('client_hours_summary')
-    .select('*')
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from('client_hours_summary')
+      .select('*')
+    
+    // If view doesn't exist, return empty array gracefully
+    if (error && (error.message?.includes('does not exist') || error.code === '42P01')) {
+      console.warn('client_hours_summary view not found, using fallback')
+      return { data: [], error: null }
+    }
+    
+    return { data: data || [], error }
+  } catch (e) {
+    console.warn('Error fetching client hours summary:', e)
+    return { data: [], error: null }
+  }
 }
 
 // ============================================

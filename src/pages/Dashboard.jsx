@@ -99,29 +99,37 @@ export default function Dashboard({ onConfetti }) {
     else setLoading(true)
     setFetchError(null)
     
-    // Add timeout to prevent hanging forever
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
-    )
-    
     try {
-      const fetchPromise = Promise.all([
-        getClients(),
-        getBoards(),
-        getClientHoursSummary(),
-        getTickets(),
+      // Fetch each independently to prevent one failure from blocking all
+      const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.allSettled([
+        Promise.race([
+          getClients(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+        ]),
+        Promise.race([
+          getBoards(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+        ]),
+        Promise.race([
+          getClientHoursSummary(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+        ]).catch(() => ({ data: [], error: null })), // Gracefully handle if view doesn't exist
+        Promise.race([
+          getTickets(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+        ]),
       ])
 
-      const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.race([fetchPromise, timeout])
-
-      // Check for errors
-      if (clientsRes.error) throw clientsRes.error
-      if (boardsRes.error) throw boardsRes.error
-
-      setClients(clientsRes.data || [])
-      setBoards(boardsRes.data || [])
-      setHoursSummary(hoursRes.data || [])
-      setRecentTickets((ticketsRes.data || []).slice(0, 5))
+      // Extract data, defaulting to empty arrays on failure
+      setClients(clientsRes.status === 'fulfilled' && clientsRes.value?.data ? clientsRes.value.data : [])
+      setBoards(boardsRes.status === 'fulfilled' && boardsRes.value?.data ? boardsRes.value.data : [])
+      setHoursSummary(hoursRes.status === 'fulfilled' && hoursRes.value?.data ? hoursRes.value.data : [])
+      setRecentTickets(ticketsRes.status === 'fulfilled' && ticketsRes.value?.data ? ticketsRes.value.data.slice(0, 5) : [])
+      
+      // Only show error if ALL critical data failed
+      if (clientsRes.status === 'rejected' && boardsRes.status === 'rejected') {
+        setFetchError('Some data failed to load. Try refreshing.')
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
       setFetchError(error.message || 'Failed to load data')
