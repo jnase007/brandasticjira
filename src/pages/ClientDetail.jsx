@@ -8,7 +8,7 @@ import {
   Play, Ticket, Loader2, ChevronRight, Target, Zap,
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
-  Sparkles, AlertTriangle, Trophy, ArrowRight, Save
+  Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -117,6 +117,16 @@ export default function ClientDetail() {
   // Team assignments state
   const [teamAssignments, setTeamAssignments] = useState([])
   const [allTeamMembers, setAllTeamMembers] = useState([])
+  
+  // Client wins state
+  const [clientWins, setClientWins] = useState([])
+  const [addWinOpen, setAddWinOpen] = useState(false)
+  const [newWin, setNewWin] = useState({
+    title: '',
+    description: '',
+    category: 'general',
+  })
+  const [savingWin, setSavingWin] = useState(false)
   const [assignTeamOpen, setAssignTeamOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState('')
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -385,6 +395,18 @@ export default function ClientDetail() {
         console.log('Error fetching team members:', err)
       }
       
+      // Fetch client wins for this client
+      try {
+        const { data: winsData } = await supabase
+          .from('client_wins')
+          .select('*, user:user_id(id, full_name, avatar_url)')
+          .eq('client_id', resolvedClientId)
+          .order('created_at', { ascending: false })
+        setClientWins(winsData || [])
+      } catch (err) {
+        console.log('Client wins table may not exist yet:', err)
+      }
+      
       // Fetch boards for this client
       try {
         const { data: boardsData } = await supabase
@@ -498,6 +520,64 @@ export default function ClientDetail() {
       })
     } finally {
       setSavingNote(false)
+    }
+  }
+
+  // Add a new client win
+  const handleAddWin = async () => {
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
+    if (!newWin.title.trim()) {
+      toast({ title: 'Please enter a title for the win', variant: 'destructive' })
+      return
+    }
+    
+    setSavingWin(true)
+    try {
+      const { data, error } = await supabase
+        .from('client_wins')
+        .insert({
+          client_id: resolvedClientId,
+          user_id: user.id,
+          title: newWin.title,
+          description: newWin.description || null,
+          category: newWin.category,
+        })
+        .select('*, user:user_id(id, full_name, avatar_url)')
+        .single()
+      
+      if (error) throw error
+      
+      setClientWins(prev => [data, ...prev])
+      setNewWin({ title: '', description: '', category: 'general' })
+      setAddWinOpen(false)
+      
+      // Log activity
+      logActivity({
+        activity_type: 'client_win_added',
+        user_id: user.id,
+        entity_type: 'client',
+        entity_id: resolvedClientId,
+        entity_name: client?.name,
+        metadata: { win_title: newWin.title, category: newWin.category },
+      })
+      
+      toast({
+        title: '🏆 Win added!',
+        description: 'Nice work! Your win has been saved.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error adding win:', error)
+      toast({
+        title: 'Error adding win',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingWin(false)
     }
   }
 
@@ -1318,6 +1398,15 @@ export default function ClientDetail() {
               <Users className="h-4 w-4" />
               <span>Team</span>
             </TabsTrigger>
+            <TabsTrigger value="wins" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
+              <Award className="h-4 w-4" />
+              <span>Wins</span>
+              {clientWins.length > 0 && (
+                <span className="ml-1 text-[10px] bg-yellow-500 text-white px-1.5 rounded-full">
+                  {clientWins.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* Messages Tab */}
@@ -1840,6 +1929,80 @@ export default function ClientDetail() {
               )}
             </div>
           </TabsContent>
+
+          {/* Wins Tab */}
+          <TabsContent value="wins">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Award className="h-5 w-5 text-yellow-500" />
+                      Client Wins
+                    </CardTitle>
+                    <CardDescription>Celebrate successes and achievements for {client.name}</CardDescription>
+                  </div>
+                  <Button onClick={() => setAddWinOpen(true)} className="bg-yellow-500 hover:bg-yellow-600">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Win
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {clientWins.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Award className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No wins yet</h3>
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Be the first to document a win for this client!
+                    </p>
+                    <Button onClick={() => setAddWinOpen(true)} variant="outline">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Add First Win
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {clientWins.map((win) => (
+                      <motion.div
+                        key={win.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="relative p-4 rounded-xl border bg-gradient-to-br from-yellow-500/10 to-orange-500/10 hover:shadow-lg hover:border-yellow-500/30 transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Trophy className="h-5 w-5 text-yellow-500" />
+                            <h3 className="font-semibold">{win.title}</h3>
+                          </div>
+                          {win.is_featured && (
+                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3">{win.description}</p>
+                        {win.category && win.category !== 'general' && (
+                          <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 border-yellow-500/30">
+                            {win.category.replace('_', ' ')}
+                          </Badge>
+                        )}
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={win.user?.avatar_url} />
+                            <AvatarFallback className="text-xs">
+                              {win.user?.full_name?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs text-muted-foreground">
+                            {win.user?.full_name} • {formatDate(win.created_at)}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </motion.div>
 
@@ -1964,6 +2127,87 @@ export default function ClientDetail() {
                 </>
               ) : (
                 'Assign'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Win Dialog */}
+      <Dialog open={addWinOpen} onOpenChange={setAddWinOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              Add Client Win
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Win Title *</Label>
+              <Input
+                placeholder="e.g., 50% increase in conversions!"
+                value={newWin.title}
+                onChange={(e) => setNewWin(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={newWin.category} onValueChange={(v) => setNewWin(prev => ({ ...prev, category: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General Win</SelectItem>
+                  <SelectItem value="conversion_rate">Conversion Rate</SelectItem>
+                  <SelectItem value="traffic_growth">Traffic Growth</SelectItem>
+                  <SelectItem value="roi">ROI Improvement</SelectItem>
+                  <SelectItem value="revenue">Revenue Increase</SelectItem>
+                  <SelectItem value="leads">Lead Generation</SelectItem>
+                  <SelectItem value="seo">SEO Rankings</SelectItem>
+                  <SelectItem value="social">Social Media</SelectItem>
+                  <SelectItem value="design">Design/Creative</SelectItem>
+                  <SelectItem value="launch">Campaign Launch</SelectItem>
+                  <SelectItem value="testimonial">Client Testimonial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Description (optional)</Label>
+              <Textarea
+                placeholder="Tell us more about this win..."
+                value={newWin.description}
+                onChange={(e) => setNewWin(prev => ({ ...prev, description: e.target.value }))}
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAddWinOpen(false)
+              setNewWin({ title: '', description: '', category: 'general' })
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddWin} 
+              disabled={savingWin || !newWin.title.trim()}
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              {savingWin ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Add Win
+                </>
               )}
             </Button>
           </DialogFooter>
