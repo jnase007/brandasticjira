@@ -104,23 +104,26 @@ export default function Dashboard({ onConfetti }) {
     setFetchError(null)
     
     try {
+      // Timeout for slower mobile networks (15 seconds)
+      const FETCH_TIMEOUT = 15000
+      
       // Fetch each independently to prevent one failure from blocking all
       const [clientsRes, boardsRes, hoursRes, ticketsRes] = await Promise.allSettled([
         Promise.race([
           getClients(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), FETCH_TIMEOUT))
         ]),
         Promise.race([
           getBoards(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), FETCH_TIMEOUT))
         ]),
         Promise.race([
           getClientHoursSummary(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), FETCH_TIMEOUT))
         ]).catch(() => ({ data: [], error: null })), // Gracefully handle if view doesn't exist
         Promise.race([
           getTickets(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), FETCH_TIMEOUT))
         ]),
       ])
 
