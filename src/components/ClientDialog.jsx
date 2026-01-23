@@ -687,15 +687,16 @@ export default function ClientDialog({
                         </div>
 
                         <div>
-                          <Label className="text-sm font-medium">Funder</Label>
+                          <Label className="text-sm font-medium">Phone Number</Label>
                           <Input
-                            placeholder="e.g., Program sponsor, donor, grant"
+                            placeholder="e.g., (555) 123-4567"
+                            type="tel"
                             value={formData.contact_funder}
                             onChange={(e) => setFormData(prev => ({ ...prev, contact_funder: e.target.value }))}
                             className="mt-1.5 h-11"
                           />
                           <p className="text-xs text-muted-foreground mt-1">
-                            Optional: funding contact or sponsor for this client.
+                            Contact phone number for this client.
                           </p>
                         </div>
 
