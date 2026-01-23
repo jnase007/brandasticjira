@@ -18,12 +18,23 @@ export async function handler(event) {
   })
 
   try {
-    const { data: client } = await supabase
+    let clientQuery = supabase
       .from('clients')
       .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_enabled, public_token')
       .eq('public_token', token)
-      .eq('public_enabled', true)
-      .maybeSingle()
+      .or('public_enabled.is.null,public_enabled.eq.true')
+
+    let { data: client, error: clientError } = await clientQuery.maybeSingle()
+
+    // Fallback for schemas missing public_enabled
+    if (clientError && clientError.message?.includes('public_enabled')) {
+      const fallbackRes = await supabase
+        .from('clients')
+        .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_token')
+        .eq('public_token', token)
+        .maybeSingle()
+      client = fallbackRes.data
+    }
 
     if (!client) {
       return { statusCode: 404, body: JSON.stringify({ error: 'Not found' }) }
