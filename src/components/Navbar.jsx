@@ -13,9 +13,12 @@ import {
   Menu,
   X,
   Clock,
+  Building2,
+  Ticket,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { searchTickets } from '../lib/supabase'
+import { globalSearch } from '../lib/supabase'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -46,7 +49,7 @@ export default function Navbar() {
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState([])
+  const [searchResults, setSearchResults] = useState({ tickets: [], clients: [], team: [] })
   const [searching, setSearching] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
@@ -54,15 +57,17 @@ export default function Navbar() {
   const handleSearch = async (query) => {
     setSearchQuery(query)
     if (query.length < 2) {
-      setSearchResults([])
+      setSearchResults({ tickets: [], clients: [], team: [] })
       return
     }
 
     setSearching(true)
-    const { data } = await searchTickets(query)
-    setSearchResults(data || [])
+    const results = await globalSearch(query)
+    setSearchResults(results)
     setSearching(false)
   }
+  
+  const hasResults = searchResults.tickets.length > 0 || searchResults.clients.length > 0 || searchResults.team.length > 0
 
   const handleLogout = async () => {
     await signOut()
@@ -252,53 +257,138 @@ export default function Navbar() {
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle>Search Tickets</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-brand-orange" />
+              Search Everything
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
-              placeholder="Search by title, ID, or description..."
+              placeholder="Search tasks, clients, or team members..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               autoFocus
+              className="h-11"
             />
-            <div className="max-h-[300px] overflow-y-auto space-y-2">
+            <div className="max-h-[400px] overflow-y-auto space-y-4">
               {searching && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Searching...
                 </p>
               )}
-              {!searching && searchResults.length === 0 && searchQuery.length >= 2 && (
+              {!searching && !hasResults && searchQuery.length >= 2 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No results found
+                  No results found for "{searchQuery}"
                 </p>
               )}
-              {searchResults.map((ticket) => (
-                <Link
-                  key={ticket.id}
-                  to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
-                  onClick={() => setSearchOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: ticket.client?.color || '#94A3B8' }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {ticket.ticket_id}
-                      </span>
-                      <span className="text-sm font-medium truncate">
-                        {ticket.title}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {ticket.board?.name} · {ticket.client?.name}
-                    </p>
+              
+              {/* Clients */}
+              {searchResults.clients.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Building2 className="h-3 w-3" />
+                    Clients
+                  </p>
+                  <div className="space-y-1">
+                    {searchResults.clients.map((client) => (
+                      <Link
+                        key={client.id}
+                        to={`/clients/${client.slug || client.id}`}
+                        onClick={() => setSearchOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      >
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                          style={{ backgroundColor: client.color || '#F7931E' }}
+                        >
+                          {client.name?.[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{client.name}</p>
+                          {client.contact_name && (
+                            <p className="text-xs text-muted-foreground">{client.contact_name}</p>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                </Link>
-              ))}
+                </div>
+              )}
+              
+              {/* Tasks */}
+              {searchResults.tickets.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Ticket className="h-3 w-3" />
+                    Tasks
+                  </p>
+                  <div className="space-y-1">
+                    {searchResults.tickets.map((ticket) => (
+                      <Link
+                        key={ticket.id}
+                        to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
+                        onClick={() => setSearchOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: ticket.client?.color || '#94A3B8' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {ticket.ticket_id}
+                            </span>
+                            <span className="text-sm font-medium truncate">
+                              {ticket.title}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {ticket.board?.name} · {ticket.client?.name}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Team Members */}
+              {searchResults.team.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Users className="h-3 w-3" />
+                    Team Members
+                  </p>
+                  <div className="space-y-1">
+                    {searchResults.team.map((member) => (
+                      <Link
+                        key={member.id}
+                        to={`/team/${member.id}`}
+                        onClick={() => setSearchOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.avatar_url} />
+                          <AvatarFallback className="text-xs">
+                            {getInitials(member.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{member.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+            
+            {/* Keyboard hint */}
+            <p className="text-xs text-muted-foreground text-center border-t pt-3">
+              Type at least 2 characters to search
+            </p>
           </div>
         </DialogContent>
       </Dialog>

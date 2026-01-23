@@ -768,6 +768,46 @@ export async function searchTickets(query) {
   return { data, error }
 }
 
+// Global search - searches tickets, clients, and team members
+export async function globalSearch(query) {
+  const searchTerm = `%${query}%`
+  
+  const [ticketsRes, clientsRes, teamRes] = await Promise.all([
+    // Search tickets
+    supabase
+      .from('tickets')
+      .select(`
+        id, title, ticket_id, status, priority,
+        board:boards(id, name),
+        client:clients(id, name, color, slug)
+      `)
+      .or(`title.ilike.${searchTerm},ticket_id.ilike.${searchTerm},description.ilike.${searchTerm}`)
+      .limit(10),
+    
+    // Search clients
+    supabase
+      .from('clients')
+      .select('id, name, color, slug, contact_email, contact_name')
+      .or(`name.ilike.${searchTerm},contact_email.ilike.${searchTerm},contact_name.ilike.${searchTerm}`)
+      .neq('is_active', false)
+      .limit(10),
+    
+    // Search team members
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, role')
+      .or(`full_name.ilike.${searchTerm},email.ilike.${searchTerm}`)
+      .in('role', ['team', 'admin'])
+      .limit(10),
+  ])
+  
+  return {
+    tickets: ticketsRes.data || [],
+    clients: clientsRes.data || [],
+    team: teamRes.data || [],
+  }
+}
+
 // ============================================
 // ACTIVITY LOG
 // ============================================
