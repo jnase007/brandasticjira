@@ -673,17 +673,67 @@ export async function deleteTimeEntry(entryId) {
 
 export async function getClientHoursSummary() {
   try {
+    // First try the view
     const { data, error } = await supabase
       .from('client_hours_summary')
       .select('*')
     
-    // If view doesn't exist, return empty array gracefully
-    if (error && (error.message?.includes('does not exist') || error.code === '42P01')) {
-      console.warn('client_hours_summary view not found, using fallback')
+    // If view works and has data, return it
+    if (!error && data && data.length > 0) {
+      console.log('[ClientHoursSummary] View returned', data.length, 'records')
+      return { data, error: null }
+    }
+    
+    // Fallback: calculate from clients and time_entries tables
+    console.log('[ClientHoursSummary] View empty or failed, calculating from raw data...')
+    
+    // Get all clients
+    const { data: clients, error: clientsError } = await supabase
+      .from('clients')
+      .select('id, name, color, monthly_hours')
+      .neq('is_active', false)
+    
+    if (clientsError || !clients) {
+      console.warn('[ClientHoursSummary] Failed to fetch clients:', clientsError)
       return { data: [], error: null }
     }
     
-    return { data: data || [], error }
+    // Get current month's time entries grouped by client
+    const now = new Date()
+    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const startOfNextMonth = now.getMonth() === 11
+      ? `${now.getFullYear() + 1}-01-01`
+      : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
+    
+    const { data: timeEntries, error: timeError } = await supabase
+      .from('time_entries')
+      .select('client_id, minutes')
+      .gte('date', startOfMonth)
+      .lt('date', startOfNextMonth)
+    
+    if (timeError) {
+      console.warn('[ClientHoursSummary] Failed to fetch time entries:', timeError)
+    }
+    
+    // Calculate hours per client
+    const hoursByClient = {}
+    for (const entry of timeEntries || []) {
+      if (entry.client_id) {
+        hoursByClient[entry.client_id] = (hoursByClient[entry.client_id] || 0) + (entry.minutes || 0) / 60
+      }
+    }
+    
+    // Build summary
+    const summary = clients.map(client => ({
+      client_id: client.id,
+      client_name: client.name,
+      color: client.color,
+      monthly_hours: client.monthly_hours || 0,
+      hours_used: Math.round((hoursByClient[client.id] || 0) * 10) / 10,
+    }))
+    
+    console.log('[ClientHoursSummary] Calculated summary for', summary.length, 'clients')
+    return { data: summary, error: null }
   } catch (e) {
     console.warn('Error fetching client hours summary:', e)
     return { data: [], error: null }

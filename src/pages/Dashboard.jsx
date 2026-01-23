@@ -131,10 +131,30 @@ export default function Dashboard({ onConfetti }) {
       ])
 
       // Extract data, defaulting to empty arrays on failure
-      setClients(clientsRes.status === 'fulfilled' && clientsRes.value?.data ? clientsRes.value.data : [])
-      setBoards(boardsRes.status === 'fulfilled' && boardsRes.value?.data ? boardsRes.value.data : [])
-      setHoursSummary(hoursRes.status === 'fulfilled' && hoursRes.value?.data ? hoursRes.value.data : [])
+      const clientsData = clientsRes.status === 'fulfilled' && clientsRes.value?.data ? clientsRes.value.data : []
+      const boardsData = boardsRes.status === 'fulfilled' && boardsRes.value?.data ? boardsRes.value.data : []
+      const hoursData = hoursRes.status === 'fulfilled' && hoursRes.value?.data ? hoursRes.value.data : []
       const ticketsData = ticketsRes.status === 'fulfilled' && ticketsRes.value?.data ? ticketsRes.value.data : []
+      
+      console.log('[Dashboard] Data received:', {
+        clients: clientsData.length,
+        boards: boardsData.length,
+        hoursSummary: hoursData.length,
+        tickets: ticketsData.length,
+      })
+      
+      // Log hours summary for debugging company stats
+      if (hoursData.length > 0) {
+        const totalHours = hoursData.reduce((sum, c) => sum + (c.hours_used || 0), 0)
+        const totalAvailable = hoursData.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)
+        console.log('[Dashboard] Hours summary:', { totalHoursUsed: totalHours, totalHoursAvailable: totalAvailable })
+      } else {
+        console.log('[Dashboard] Hours summary is empty - company stats will be 0')
+      }
+      
+      setClients(clientsData)
+      setBoards(boardsData)
+      setHoursSummary(hoursData)
       setAllTickets(ticketsData)
       setRecentTickets(ticketsData.slice(0, 5))
 
