@@ -329,22 +329,32 @@ export default function TimeTracking() {
     }
   }
 
-  // Calculate totals
-  const totalTrackedMinutes = timeEntries.reduce((sum, te) => sum + te.minutes, 0)
-  const totalBillableMinutes = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
-  const totalTrackedHours = totalTrackedMinutes / 60
-  const totalBillableHours = totalBillableMinutes / 60
-  const totalRevenue = clients.reduce((sum, c) => sum + getClientStats(c.id).revenue, 0)
-  const totalCost = clients.reduce((sum, c) => sum + getClientStats(c.id).cost, 0)
-  const totalProfit = totalRevenue - totalCost
-  const avgEfficiency = employees.length > 0
-    ? employees.reduce((sum, e) => sum + getEmployeeStats(e.id).efficiency, 0) / employees.length
-    : 0
-
   // My stats
   const myStats = getEmployeeStats(user?.id)
   const myTotalMinutes = myTimeEntries.reduce((sum, te) => sum + te.minutes, 0)
   const myBillableMinutes = myTimeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
+
+  // Privacy: non-admins only see their own time data
+  const visibleEmployees = isAdmin ? employees : employees.filter(e => e.id === user?.id)
+  const visibleTimeEntries = isAdmin ? timeEntries : myTimeEntries
+
+  // Calculate totals
+  const totalTrackedMinutes = visibleTimeEntries.reduce((sum, te) => sum + te.minutes, 0)
+  const totalBillableMinutes = visibleTimeEntries.filter(te => te.billable).reduce((sum, te) => sum + te.minutes, 0)
+  const totalTrackedHours = totalTrackedMinutes / 60
+  const totalBillableHours = totalBillableMinutes / 60
+  const totalRevenue = visibleTimeEntries.reduce((sum, entry) => {
+    const rate = clientRates.find(cr => cr.client_id === entry.client_id)?.hourly_rate || 75
+    return sum + (entry.billable ? (entry.minutes / 60) * rate : 0)
+  }, 0)
+  const totalCost = visibleTimeEntries.reduce((sum, entry) => {
+    const costRate = entry.user?.hourly_cost || 0
+    return sum + (entry.minutes / 60) * costRate
+  }, 0)
+  const totalProfit = totalRevenue - totalCost
+  const avgEfficiency = visibleEmployees.length > 0
+    ? visibleEmployees.reduce((sum, e) => sum + getEmployeeStats(e.id).efficiency, 0) / visibleEmployees.length
+    : 0
 
   if (loading) {
     return (
@@ -602,16 +612,20 @@ export default function TimeTracking() {
       </motion.div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="employees" className="space-y-6">
+      <Tabs defaultValue={isAdmin ? "employees" : "entries"} className="space-y-6">
         <TabsList className="bg-muted/50">
-          <TabsTrigger value="employees" className="gap-2">
-            <Users className="h-4 w-4" />
-            Team Efficiency
-          </TabsTrigger>
-          <TabsTrigger value="clients" className="gap-2">
-            <Building2 className="h-4 w-4" />
-            Client Profitability
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="employees" className="gap-2">
+              <Users className="h-4 w-4" />
+              Team Efficiency
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="clients" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Client Profitability
+            </TabsTrigger>
+          )}
           <TabsTrigger value="entries" className="gap-2">
             <Clock className="h-4 w-4" />
             Time Entries
@@ -619,6 +633,7 @@ export default function TimeTracking() {
         </TabsList>
 
         {/* Team Efficiency Tab */}
+        {isAdmin && (
         <TabsContent value="employees">
           <motion.div variants={itemVariants}>
             <Card>
@@ -647,7 +662,7 @@ export default function TimeTracking() {
                       </tr>
                     </thead>
                     <tbody>
-                      {employees.map((employee, index) => {
+                      {visibleEmployees.map((employee, index) => {
                         const stats = getEmployeeStats(employee.id)
                         
                         return (
@@ -724,8 +739,10 @@ export default function TimeTracking() {
             </Card>
           </motion.div>
         </TabsContent>
+        )}
 
         {/* Client Profitability Tab */}
+        {isAdmin && (
         <TabsContent value="clients">
           <motion.div variants={itemVariants}>
             <Card>
@@ -848,6 +865,7 @@ export default function TimeTracking() {
             </Card>
           </motion.div>
         </TabsContent>
+        )}
 
         {/* Time Entries Tab */}
         <TabsContent value="entries">
@@ -857,7 +875,7 @@ export default function TimeTracking() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xl">Time Entries</CardTitle>
                   <Badge variant="outline">
-                    {timeEntries.length} entries
+                      {visibleTimeEntries.length} entries
                   </Badge>
                 </div>
               </CardHeader>
@@ -875,14 +893,14 @@ export default function TimeTracking() {
                       </tr>
                     </thead>
                     <tbody>
-                      {timeEntries.length === 0 ? (
+                      {visibleTimeEntries.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="text-center py-12 text-muted-foreground">
                             No time entries for this month
                           </td>
                         </tr>
                       ) : (
-                        timeEntries.map((entry, index) => (
+                        visibleTimeEntries.map((entry, index) => (
                           <motion.tr
                             key={entry.id}
                             initial={{ opacity: 0 }}
