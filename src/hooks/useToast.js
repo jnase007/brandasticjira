@@ -18,6 +18,7 @@ function genId() {
 }
 
 const toastTimeouts = new Map()
+const autoDismissTimeouts = new Map()
 
 const addToRemoveQueue = (toastId) => {
   if (toastTimeouts.has(toastId)) {
@@ -120,6 +121,17 @@ function toast({ ...props }) {
       },
     },
   })
+
+  if (props.duration != null) {
+    if (autoDismissTimeouts.has(id)) {
+      clearTimeout(autoDismissTimeouts.get(id))
+    }
+    const timeout = setTimeout(() => {
+      autoDismissTimeouts.delete(id)
+      dismiss()
+    }, props.duration)
+    autoDismissTimeouts.set(id, timeout)
+  }
 
   return {
     id: id,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase, getProfile } from '../lib/supabase'
 
 const AuthContext = createContext({})
@@ -21,6 +21,8 @@ export function AuthProvider({ children }) {
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [profileSynced, setProfileSynced] = useState(false)
   const [authError, setAuthError] = useState(null)
+  const refreshInFlightRef = useRef(false)
+  const lastRefreshRef = useRef(0)
   
   // View mode toggle (admin can switch between admin and team view)
   const [viewMode, setViewMode] = useState(() => {
@@ -420,6 +422,69 @@ export function AuthProvider({ children }) {
       setProfile(data)
     }
   }
+
+  const refreshSessionAndProfile = useCallback(async (source = 'unknown') => {
+    if (refreshInFlightRef.current) return
+    refreshInFlightRef.current = true
+    try {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Session refresh timeout')), 8000)
+      )
+
+      const { data, error } = await Promise.race([
+        supabase.auth.getSession(),
+        timeout,
+      ])
+
+      if (error) {
+        console.warn('Session refresh error:', error)
+        setAuthError(error.message)
+        return
+      }
+
+      if (data?.session?.user) {
+        setUser(data.session.user)
+        const profileRes = await Promise.race([
+          getProfile(data.session.user.id),
+          timeout,
+        ])
+        if (profileRes?.data) {
+          setProfile(profileRes.data)
+        }
+      }
+    } catch (error) {
+      console.warn(`Session refresh failed (${source}):`, error?.message || error)
+    } finally {
+      refreshInFlightRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const maybeRefresh = (source) => {
+      const now = Date.now()
+      if (now - lastRefreshRef.current < 15000) return
+      lastRefreshRef.current = now
+      refreshSessionAndProfile(source)
+    }
+
+    const handleFocus = () => maybeRefresh('focus')
+    const handleOnline = () => maybeRefresh('online')
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        maybeRefresh('visible')
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('online', handleOnline)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [refreshSessionAndProfile])
 
   // Retry auth (for when stuck on loading)
   const retryAuth = useCallback(async () => {

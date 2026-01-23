@@ -90,6 +90,7 @@ export default function Dashboard({ onConfetti }) {
   const [recentTickets, setRecentTickets] = useState([])
   const [allTickets, setAllTickets] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
+  const [runningTimer, setRunningTimer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -164,6 +165,43 @@ export default function Dashboard({ onConfetti }) {
   useEffect(() => {
     fetchData()
   }, [profile?.id])
+
+  useEffect(() => {
+    const updateRunningTimer = async () => {
+      const saved = localStorage.getItem('activeTimer')
+      if (!saved) {
+        setRunningTimer(null)
+        return
+      }
+      try {
+        const parsed = JSON.parse(saved)
+        if (!parsed?.startTime) {
+          setRunningTimer(null)
+          return
+        }
+        let clientName = parsed.clientName
+        if (!clientName && parsed.clientId) {
+          const { data } = await supabase
+            .from('clients')
+            .select('id, name')
+            .eq('id', parsed.clientId)
+            .maybeSingle()
+          clientName = data?.name
+        }
+        setRunningTimer({
+          ...parsed,
+          clientName,
+          elapsedSeconds: Math.floor((Date.now() - new Date(parsed.startTime).getTime()) / 1000),
+        })
+      } catch {
+        setRunningTimer(null)
+      }
+    }
+
+    updateRunningTimer()
+    const interval = setInterval(updateRunningTimer, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Calculate totals
   const totalClients = clients.length
@@ -331,6 +369,35 @@ export default function Dashboard({ onConfetti }) {
           </div>
         </div>
       </motion.div>
+
+      {runningTimer && (
+        <motion.div variants={itemVariants} className="mb-6">
+          <Card className="border-brand-orange/30 bg-brand-orange/5">
+            <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-brand-orange">Timer running</p>
+                <p className="text-sm text-muted-foreground">
+                  Tracking{' '}
+                  <span className="font-medium">
+                    {runningTimer.description || runningTimer.clientName || 'a task'}
+                  </span>
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (window.openTimerWithClient && runningTimer.clientId) {
+                    window.openTimerWithClient({ id: runningTimer.clientId, name: runningTimer.clientName })
+                  }
+                }}
+              >
+                Open Timer
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {viewMode === 'company' && (
         <>

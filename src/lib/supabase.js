@@ -99,7 +99,7 @@ export async function getClients() {
   const { data, error } = await supabase
     .from('clients')
     .select('*')
-    .eq('is_active', true)
+    .neq('is_active', false)
     .order('name')
   return { data, error }
 }
@@ -507,7 +507,8 @@ export async function stopTimeEntry(entryId) {
     .single()
 
   const startTime = existingEntry?.start_time ? new Date(existingEntry.start_time) : endTime
-  const durationMinutes = Math.round((endTime - startTime) / 60000)
+  const durationSeconds = Math.max(1, Math.round((endTime - startTime) / 1000))
+  const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
 
   const { data, error } = await supabase
     .from('time_entries')
@@ -527,7 +528,8 @@ export async function stopTimeEntry(entryId) {
 export async function createManualTimeEntry(entryData) {
   const startDate = entryData.start_time ? new Date(entryData.start_time) : new Date()
   const endDate = entryData.end_time ? new Date(entryData.end_time) : new Date()
-  const durationMinutes = Math.round((endDate - startDate) / 60000)
+  const durationSeconds = Math.max(1, Math.round((endDate - startDate) / 1000))
+  const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
   const { data, error } = await supabase
     .from('time_entries')
     .insert({

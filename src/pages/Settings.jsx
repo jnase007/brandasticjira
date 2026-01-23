@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, Bell, Shield, Palette, Save, Upload, Camera, Check, 
@@ -37,6 +37,32 @@ export default function Settings() {
   const { toast } = useToast()
   const fileInputRef = useRef(null)
   const bannerInputRef = useRef(null)
+  const autosaveTimeoutRef = useRef(null)
+  const preferencesSnapshotRef = useRef(null)
+
+  const DEFAULT_NOTIFICATION_PREFS = {
+    ticketAssignments: true,
+    commentReplies: true,
+    achievements: true,
+    weeklySummary: false,
+  }
+
+  const getStoredTheme = useCallback((userId) => {
+    if (!userId) return localStorage.getItem('theme') || 'light'
+    return localStorage.getItem(`theme:${userId}`) || localStorage.getItem('theme') || 'light'
+  }, [])
+
+  const getStoredNotificationPrefs = useCallback((userId) => {
+    if (!userId) return DEFAULT_NOTIFICATION_PREFS
+    const raw = localStorage.getItem(`notification_prefs:${userId}`)
+    if (!raw) return DEFAULT_NOTIFICATION_PREFS
+    try {
+      const parsed = JSON.parse(raw)
+      return { ...DEFAULT_NOTIFICATION_PREFS, ...parsed }
+    } catch {
+      return DEFAULT_NOTIFICATION_PREFS
+    }
+  }, [])
 
   const [fullName, setFullName] = useState(profile?.full_name || '')
   const [tagline, setTagline] = useState(profile?.tagline || '')
@@ -50,9 +76,8 @@ export default function Settings() {
   const [showWelcome, setShowWelcome] = useState(false)
   
   // Theme state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'system'
-  })
+  const [theme, setTheme] = useState(() => getStoredTheme(user?.id))
+  const [notificationPrefs, setNotificationPrefs] = useState(() => getStoredNotificationPrefs(user?.id))
 
   // Autosave state
   const [autosaveEnabled, setAutosaveEnabled] = useState(() => {
@@ -100,6 +125,19 @@ export default function Settings() {
     }
   }, [profile])
 
+  // Load user-specific appearance + notification preferences
+  useEffect(() => {
+    if (!user?.id) return
+    const storedTheme = getStoredTheme(user.id)
+    const storedNotifications = getStoredNotificationPrefs(user.id)
+    setTheme(storedTheme)
+    setNotificationPrefs(storedNotifications)
+    preferencesSnapshotRef.current = JSON.stringify({
+      theme: storedTheme,
+      notificationPrefs: storedNotifications,
+    })
+  }, [user?.id, getStoredTheme, getStoredNotificationPrefs])
+
   // Apply theme when it changes
   useEffect(() => {
     const applyTheme = (themeName) => {
@@ -121,6 +159,9 @@ export default function Settings() {
     }
 
     applyTheme(theme)
+    if (user?.id) {
+      localStorage.setItem(`theme:${user.id}`, theme)
+    }
     localStorage.setItem('theme', theme)
 
     // Listen for system theme changes when in system mode
@@ -140,6 +181,54 @@ export default function Settings() {
       description: `Switched to ${newTheme === 'system' ? 'system' : newTheme} mode`,
     })
   }
+
+  const savePreferences = useCallback(async (prefs) => {
+    if (!user?.id) return
+    localStorage.setItem(`theme:${user.id}`, prefs.theme)
+    localStorage.setItem('theme', prefs.theme)
+    localStorage.setItem(`notification_prefs:${user.id}`, JSON.stringify(prefs.notificationPrefs))
+  }, [user?.id])
+
+  // Autosave appearance + notification preferences
+  useEffect(() => {
+    if (!user?.id || !autosaveEnabled) return
+    const currentSnapshot = JSON.stringify({ theme, notificationPrefs })
+
+    if (!preferencesSnapshotRef.current) {
+      preferencesSnapshotRef.current = currentSnapshot
+      return
+    }
+
+    if (currentSnapshot === preferencesSnapshotRef.current) return
+
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await savePreferences({ theme, notificationPrefs })
+        preferencesSnapshotRef.current = currentSnapshot
+        toast({
+          title: '✓ Settings saved',
+          description: 'Your preferences have been updated.',
+          duration: 2000,
+        })
+      } catch (error) {
+        toast({
+          title: 'Failed to save settings',
+          description: error?.message || 'Please try again.',
+          variant: 'destructive',
+        })
+      }
+    }, 1500)
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current)
+      }
+    }
+  }, [theme, notificationPrefs, autosaveEnabled, user?.id, savePreferences, toast])
 
   const handleSaveProfile = async () => {
     setSaving(true)
@@ -784,24 +873,24 @@ export default function Settings() {
                 <div className="space-y-4">
                   {[
                     { 
+                      key: 'ticketAssignments',
                       label: 'Email notifications for new tickets', 
                       desc: 'Get notified when tickets are assigned to you',
-                      default: true
                     },
                     { 
+                      key: 'commentReplies',
                       label: 'Email notifications for comments', 
                       desc: 'Get notified when someone comments on your tickets',
-                      default: true
                     },
                     { 
+                      key: 'achievements',
                       label: 'Achievement notifications', 
                       desc: 'Get notified when you unlock new achievements',
-                      default: true
                     },
                     { 
+                      key: 'weeklySummary',
                       label: 'Weekly summary', 
                       desc: 'Receive a weekly summary of your activity',
-                      default: false
                     },
                   ].map((item, index) => (
                     <div key={index} className="flex items-start justify-between p-4 rounded-lg border">
@@ -810,7 +899,18 @@ export default function Settings() {
                         <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked={item.default} />
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={!!notificationPrefs[item.key]}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setNotificationPrefs(prev => ({
+                              ...prev,
+                              [item.key]: checked,
+                            }))
+                          }}
+                        />
                         <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-orange"></div>
                       </label>
                     </div>

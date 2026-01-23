@@ -78,17 +78,26 @@ export function FileUpload({
 
       if (error) throw error
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Prefer signed URL for private buckets, fallback to public URL
+      let fileUrl = null
+      const { data: signed } = await supabase.storage
         .from(bucket)
-        .getPublicUrl(filePath)
+        .createSignedUrl(filePath, 60 * 60)
+      if (signed?.signedUrl) {
+        fileUrl = signed.signedUrl
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath)
+        fileUrl = publicUrl
+      }
 
       const uploadedFile = {
         id: fileId,
         name: file.name,
         size: file.size,
         type: file.type,
-        url: publicUrl,
+        url: fileUrl,
         path: filePath,
         uploadedAt: new Date().toISOString(),
       }

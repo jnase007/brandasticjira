@@ -25,6 +25,7 @@ const TeamMemberDetail = lazy(() => import('./pages/TeamMemberDetail'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const WorkflowGuide = lazy(() => import('./pages/WorkflowGuide'))
 const Diagnostics = lazy(() => import('./pages/Diagnostics'))
+const ClientPublic = lazy(() => import('./pages/ClientPublic'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -397,25 +398,49 @@ function App() {
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
 
-  // Initialize theme from localStorage - default to LIGHT mode
+  // Initialize theme from localStorage (user-specific when available)
   useEffect(() => {
-    const stored = localStorage.getItem('theme')
-    // Only enable dark mode if explicitly set to 'dark' in localStorage
-    const shouldBeDark = stored === 'dark'
-    
-    setIsDark(shouldBeDark)
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      // Ensure we're in light mode by default
-      document.documentElement.classList.remove('dark')
+    const applyTheme = (themeName) => {
+      const root = document.documentElement
+
+      if (themeName === 'system') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (prefersDark) {
+          root.classList.add('dark')
+        } else {
+          root.classList.remove('dark')
+        }
+      } else if (themeName === 'dark') {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
     }
-  }, [])
+
+    const storedTheme = user?.id
+      ? localStorage.getItem(`theme:${user.id}`)
+      : localStorage.getItem('theme')
+
+    const themePreference = storedTheme || 'light'
+    applyTheme(themePreference)
+    setIsDark(document.documentElement.classList.contains('dark'))
+
+    if (themePreference === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      const handleChange = () => {
+        applyTheme('system')
+        setIsDark(document.documentElement.classList.contains('dark'))
+      }
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+  }, [user?.id])
 
   // Toggle dark mode
   const toggleDarkMode = useCallback(() => {
     setIsDark(prev => {
       const next = !prev
+      const nextTheme = next ? 'dark' : 'light'
       if (next) {
         document.documentElement.classList.add('dark')
         localStorage.setItem('theme', 'dark')
@@ -423,9 +448,12 @@ function App() {
         document.documentElement.classList.remove('dark')
         localStorage.setItem('theme', 'light')
       }
+      if (user?.id) {
+        localStorage.setItem(`theme:${user.id}`, nextTheme)
+      }
       return next
     })
-  }, [])
+  }, [user?.id])
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -629,6 +657,12 @@ function App() {
                 }
               />
 
+              {/* Public client view (shareable link) */}
+              <Route
+                path="/client-view/:token"
+                element={<ClientPublic />}
+              />
+
               {/* Admin route */}
               <Route
                 path="/admin"
@@ -654,6 +688,7 @@ function App() {
           <Routes location={location} key={location.pathname}>
             <Route path="/login" element={<Login />} />
             <Route path="/demo" element={<Demo />} />
+            <Route path="/client-view/:token" element={<ClientPublic />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </AnimatePresence>

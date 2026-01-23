@@ -364,11 +364,11 @@ export default function TimeTracking() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto"
+      className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-x-hidden"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-xl bg-gradient-to-br from-brand-blue to-brand-teal">
@@ -380,7 +380,7 @@ export default function TimeTracking() {
               Track time, monitor efficiency, and analyze profitability
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <Button
               variant="outline"
               size="sm"
@@ -399,7 +399,7 @@ export default function TimeTracking() {
       </motion.div>
 
       {/* Month Selector */}
-      <motion.div variants={itemVariants} className="flex items-center gap-4 mb-8">
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3 mb-8">
         <Button
           variant="outline"
           size="icon"
@@ -414,12 +414,12 @@ export default function TimeTracking() {
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select
             value={selectedMonth.toString()}
             onValueChange={(v) => setSelectedMonth(parseInt(v))}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 max-w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -432,7 +432,7 @@ export default function TimeTracking() {
             value={selectedYear.toString()}
             onValueChange={(v) => setSelectedYear(parseInt(v))}
           >
-            <SelectTrigger className="w-24">
+            <SelectTrigger className="w-24 max-w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -462,7 +462,7 @@ export default function TimeTracking() {
       <motion.div variants={itemVariants} className="mb-8">
         <Card className="bg-gradient-to-r from-brand-orange/10 via-brand-coral/5 to-transparent border-brand-orange/20">
           <CardContent className="p-6">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
               <Avatar className="h-16 w-16">
                 <AvatarImage src={profile?.avatar_url} />
                 <AvatarFallback className="text-lg bg-brand-orange text-white">
@@ -475,7 +475,7 @@ export default function TimeTracking() {
                   Target: {myStats.targetHours}h/month
                 </p>
               </div>
-              <div className="flex items-center gap-8">
+              <div className="flex flex-wrap items-center gap-6 sm:gap-8">
                 <div className="text-center">
                   <p className="text-3xl font-bold">
                     <AnimatedCounter value={Math.round(myStats.totalHours * 10) / 10} decimals={1} />h
@@ -494,7 +494,7 @@ export default function TimeTracking() {
                   </div>
                   <p className="text-sm text-muted-foreground">Efficiency</p>
                 </div>
-                <div className="w-32">
+                <div className="w-full sm:w-32">
                   <Progress value={Math.min(100, myStats.efficiency)} className="h-3" />
                 </div>
               </div>

@@ -279,9 +279,10 @@ export default function TicketDetail() {
         entity_name: ticket?.ticket_id || ticket?.title,
       })
     } catch (error) {
+      const errorMessage = error?.message || 'Failed to add comment.'
       toast({
         title: 'Error',
-        description: 'Failed to add comment.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -706,8 +707,8 @@ export default function TicketDetail() {
 
               <TabsContent value="attachments" className="mt-4">
                 <FileUpload
-                  bucket="documents"
-                  folder={`tickets/${activeTicketId || ticketId}`}
+                  bucket="attachments"
+                  folder={`${ticket.client_id}/${activeTicketId || ticketId}`}
                   accept="all"
                   multiple={true}
                   maxFiles={20}
@@ -732,7 +733,15 @@ export default function TicketDetail() {
                         uploadedAt: file.uploadedAt,
                       },
                     ]
-                    await updateTicket(activeTicketId, { attachments: updatedAttachments })
+                    const { error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+                    if (error) {
+                      toast({
+                        title: 'Error',
+                        description: error.message || 'Failed to save attachment.',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
                     setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
                   }}
                   onRemove={async (file) => {

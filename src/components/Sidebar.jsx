@@ -39,7 +39,6 @@ const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
-  { path: '/how-it-works', icon: BookOpen, label: 'How It Works', shortcut: 'G W' },
   { path: '/time', icon: Clock, label: 'Time Tracking', shortcut: 'G T' },
   { path: '/clients', icon: Building2, label: 'Clients', shortcut: 'G C' },
   { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },

@@ -187,6 +187,23 @@ export default function Admin() {
 
   const [fetchError, setFetchError] = useState(null)
 
+  // Hourly rate editing (user costs)
+  const [editingRateUserId, setEditingRateUserId] = useState(null)
+  const [rateValue, setRateValue] = useState('')
+  const [savingRate, setSavingRate] = useState(false)
+
+  // Overhead settings (shared across admin + team hub)
+  const [monthlyOverhead, setMonthlyOverhead] = useState(() => {
+    const saved = localStorage.getItem('company_monthly_overhead')
+    return saved ? parseFloat(saved) : 37000
+  })
+  const [targetBillableHours, setTargetBillableHours] = useState(() => {
+    const saved = localStorage.getItem('company_target_billable_hours')
+    return saved ? parseFloat(saved) : 745
+  })
+
+  const overheadPerHour = targetBillableHours > 0 ? monthlyOverhead / targetBillableHours : 0
+
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
@@ -463,6 +480,50 @@ export default function Admin() {
         variant: 'destructive',
       })
     }
+  }
+
+  const handleUpdateHourlyRate = async (userId, newRate) => {
+    setSavingRate(true)
+    try {
+      const rate = parseFloat(newRate)
+      const { error } = await supabase
+        .from('profiles')
+        .update({ hourly_cost: isNaN(rate) ? 0 : rate })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      setUsers(prev =>
+        prev.map(u => u.id === userId ? { ...u, hourly_cost: isNaN(rate) ? 0 : rate } : u)
+      )
+
+      toast({
+        title: '✅ Hourly rate updated',
+        description: `Set to $${isNaN(rate) ? 0 : rate}/hr`,
+        variant: 'success',
+      })
+      setEditingRateUserId(null)
+      setRateValue('')
+    } catch (error) {
+      console.error('Error updating hourly rate:', error)
+      toast({
+        title: 'Error updating rate',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingRate(false)
+    }
+  }
+
+  const handleSaveOverhead = () => {
+    localStorage.setItem('company_monthly_overhead', String(monthlyOverhead || 0))
+    localStorage.setItem('company_target_billable_hours', String(targetBillableHours || 0))
+    toast({
+      title: '✅ Overhead saved',
+      description: `$${(monthlyOverhead || 0).toLocaleString()}/month ÷ ${targetBillableHours || 0} hrs = $${overheadPerHour.toFixed(2)}/hr overhead`,
+      variant: 'success',
+    })
   }
 
   // Handle opening edit dialog
@@ -776,6 +837,7 @@ export default function Admin() {
                       <tr>
                         <th className="text-left py-3 px-4 text-sm font-medium">User</th>
                         <th className="text-left py-3 px-4 text-sm font-medium">Role</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium">Hourly Rate</th>
                         <th className="text-left py-3 px-4 text-sm font-medium">Status</th>
                         <th className="text-left py-3 px-4 text-sm font-medium">Joined</th>
                         <th className="text-right py-3 px-4 text-sm font-medium">Actions</th>
@@ -784,7 +846,7 @@ export default function Admin() {
                     <tbody>
                       {filteredUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                          <td colSpan={6} className="text-center py-8 text-muted-foreground">
                             No users found
                           </td>
                         </tr>
@@ -823,6 +885,56 @@ export default function Admin() {
                               >
                                 {user.role}
                               </Badge>
+                            </td>
+                            <td className="py-3 px-4">
+                              {user.role === 'client' ? (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  {editingRateUserId === user.id ? (
+                                    <>
+                                      <Input
+                                        value={rateValue}
+                                        onChange={(e) => setRateValue(e.target.value)}
+                                        className="h-8 w-24"
+                                        inputMode="decimal"
+                                      />
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        disabled={savingRate}
+                                        onClick={() => handleUpdateHourlyRate(user.id, rateValue)}
+                                      >
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                      </Button>
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingRateUserId(null)
+                                          setRateValue('')
+                                        }}
+                                      >
+                                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-sm">${user.hourly_cost || 0}/hr</span>
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingRateUserId(user.id)
+                                          setRateValue(String(user.hourly_cost ?? 0))
+                                        }}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
@@ -892,6 +1004,48 @@ export default function Admin() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Overhead Settings</CardTitle>
+                <CardDescription>
+                  Apply a shared overhead to calculate fully-loaded hourly cost.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3 items-end">
+                  <div>
+                    <Label htmlFor="monthly-overhead">Monthly Overhead</Label>
+                    <Input
+                      id="monthly-overhead"
+                      inputMode="decimal"
+                      value={monthlyOverhead}
+                      onChange={(e) => setMonthlyOverhead(parseFloat(e.target.value) || 0)}
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="target-hours">Target Billable Hours</Label>
+                    <Input
+                      id="target-hours"
+                      inputMode="decimal"
+                      value={targetBillableHours}
+                      onChange={(e) => setTargetBillableHours(parseFloat(e.target.value) || 0)}
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div className="rounded-lg border bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Overhead per hour</p>
+                    <p className="text-xl font-semibold">${overheadPerHour.toFixed(2)}/hr</p>
+                  </div>
+                </div>
+                <div className="flex justify-end mt-4">
+                  <Button onClick={handleSaveOverhead}>
+                    Save Overhead
+                  </Button>
                 </div>
               </CardContent>
             </Card>

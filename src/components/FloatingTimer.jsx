@@ -9,6 +9,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from './ui/dialog'
 
 // Format seconds to HH:MM:SS
 function formatTime(seconds) {
@@ -189,6 +197,8 @@ export default function FloatingTimer({
   const [showNewTaskInput, setShowNewTaskInput] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [creatingTask, setCreatingTask] = useState(false)
+  const [conflictOpen, setConflictOpen] = useState(false)
+  const [pendingStart, setPendingStart] = useState(null)
   
   // Data
   const [clients, setClients] = useState([])
@@ -562,7 +572,7 @@ export default function FloatingTimer({
   }, [])
 
   // Start timer
-  const handleStart = () => {
+  const startTimer = () => {
     if (!selectedClient) {
       toast({
         title: 'Select a project first',
@@ -591,7 +601,22 @@ export default function FloatingTimer({
     toast({
       title: '⏱️ Timer started!',
       description: `Tracking: ${description || selectedClient.name}`,
+      duration: 2500,
     })
+  }
+
+  const handleStart = () => {
+    if (isRunning) {
+      setPendingStart({
+        description,
+        client: selectedClient,
+        ticket: selectedTicket,
+        isBillable,
+      })
+      setConflictOpen(true)
+      return
+    }
+    startTimer()
   }
 
   // Stop timer and save
@@ -665,7 +690,8 @@ export default function FloatingTimer({
       toast({
         title: '✅ Time saved!',
         description: `Logged ${timeDisplay.trim()} for ${selectedClient?.name}`,
-        variant: 'success'
+        variant: 'success',
+        duration: 3500,
       })
       
       // Reset
@@ -714,6 +740,38 @@ export default function FloatingTimer({
         dragMomentum={false}
         className="fixed z-50 cursor-move bottom-6 right-6 max-sm:bottom-24 max-sm:right-4 max-sm:left-4 max-sm:w-auto"
       >
+        <Dialog open={conflictOpen} onOpenChange={setConflictOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Timer already running</DialogTitle>
+              <DialogDescription>
+                You can only track one task at a time. Do you want to stop the current timer and start this one?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setConflictOpen(false)}>
+                Keep current timer
+              </Button>
+              <Button
+                onClick={() => {
+                  setConflictOpen(false)
+                  setIsRunning(false)
+                  localStorage.removeItem('activeTimer')
+                  if (pendingStart) {
+                    setDescription(pendingStart.description || '')
+                    setSelectedClient(pendingStart.client || null)
+                    setSelectedTicket(pendingStart.ticket || null)
+                    setIsBillable(pendingStart.isBillable !== false)
+                  }
+                  startTimer()
+                }}
+              >
+                Switch timer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {minimized ? (
           // Minimized - floating button
           <motion.button

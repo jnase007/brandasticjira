@@ -57,7 +57,7 @@ function ReportHeader({ title, subtitle }) {
     <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-6 mb-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img src={BRAND_LOGO} alt="Brandastic" className="h-8 w-auto" />
+          <img src={BRAND_LOGO} alt="Brandastic" className="h-6 w-auto" />
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Brandastic Report</p>
             <h2 className="text-lg font-semibold">{title}</h2>
@@ -75,7 +75,7 @@ function ReportFooter() {
     <div className="mt-8 flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
       <span>© {new Date().getFullYear()} Brandastic</span>
       <div className="flex items-center gap-2">
-        <img src={BRAND_LOGO} alt="Brandastic" className="h-5 w-auto opacity-70" />
+        <img src={BRAND_LOGO} alt="Brandastic" className="h-4 w-auto opacity-70" />
         <span>Report generated in Brandastic PM</span>
       </div>
     </div>
@@ -1742,7 +1742,10 @@ export default function Reports() {
     doc.text(title, 110, headerY + 30)
     doc.text(`Generated ${formatDate(new Date())}`, 110, headerY + 48)
     if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'PNG', 50, 30, 44, 44, undefined, 'FAST')
+      const logoProps = doc.getImageProperties(logoDataUrl)
+      const logoHeight = 28
+      const logoWidth = (logoProps.width / logoProps.height) * logoHeight
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', 50, 38, logoWidth, logoHeight, undefined, 'FAST')
     }
 
     autoTable(doc, {
@@ -1762,7 +1765,10 @@ export default function Reports() {
       pageHeight - 20
     )
     if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'PNG', pageWidth - 100, pageHeight - 40, 32, 32, undefined, 'FAST')
+      const logoProps = doc.getImageProperties(logoDataUrl)
+      const logoHeight = 20
+      const logoWidth = (logoProps.width / logoProps.height) * logoHeight
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - 60 - logoWidth, pageHeight - 34, logoWidth, logoHeight, undefined, 'FAST')
     }
     doc.save(filename.replace('.csv', '.pdf'))
     toast({ title: 'PDF exported!', variant: 'success' })

@@ -207,6 +207,7 @@ export default function ClientDetail() {
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false)
   const [selectedTemplates, setSelectedTemplates] = useState([])
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false)
+  const [sharingLink, setSharingLink] = useState(false)
   
   // Team roles
   const TEAM_ROLES = [
@@ -407,6 +408,44 @@ export default function ClientDetail() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+    }
+  }
+
+  const handleShareClientLink = async () => {
+    if (!resolvedClientId) {
+      toast({ title: 'Client not ready yet', variant: 'destructive' })
+      return
+    }
+    setSharingLink(true)
+    try {
+      let token = client?.public_token
+      if (!token) {
+        token = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2) + Date.now().toString(36)
+        const { error } = await supabase
+          .from('clients')
+          .update({ public_enabled: true, public_token: token })
+          .eq('id', resolvedClientId)
+        if (error) throw error
+      } else if (!client?.public_enabled) {
+        const { error } = await supabase
+          .from('clients')
+          .update({ public_enabled: true })
+          .eq('id', resolvedClientId)
+        if (error) throw error
+      }
+
+      const link = `${window.location.origin}/client-view/${token}`
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link)
+      }
+      toast({ title: 'Shareable link copied', description: link, variant: 'success' })
+      fetchClientData(true)
+    } catch (error) {
+      toast({ title: 'Unable to create link', description: error.message, variant: 'destructive' })
+    } finally {
+      setSharingLink(false)
     }
   }
 
@@ -918,7 +957,7 @@ export default function ClientDetail() {
           
           {/* Profile Info - Properly spaced below banner */}
           <CardContent className="relative pt-0 pb-4">
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+            <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
               {/* Logo - overlaps banner */}
               <div className="-mt-12 md:-mt-14 relative z-10 flex-shrink-0">
                 <div 
@@ -935,10 +974,10 @@ export default function ClientDetail() {
               
               {/* Info */}
               <div className="flex-1 pt-1 md:pt-3">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                   <div className="min-w-0">
                     {/* Name & Badges */}
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h1 className="text-2xl md:text-3xl font-display font-bold">{client.name}</h1>
                       
                       {/* Pipeline Stage Badge */}
@@ -979,7 +1018,7 @@ export default function ClientDetail() {
                     
                     {/* Services */}
                     {client.account_services && client.account_services.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
+                      <div className="flex flex-wrap gap-1.5 mb-1">
                         {client.account_services.map((service, i) => (
                           <Badge key={i} variant="secondary" className="text-xs">{service}</Badge>
                         ))}
@@ -988,7 +1027,7 @@ export default function ClientDetail() {
 
                     {/* Contact Info */}
                     {(client.contact_email || client.contact_name) && (
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         {client.contact_name && (
                           <span className="flex items-center gap-1.5">
                             <Users className="h-4 w-4" />
@@ -1006,7 +1045,7 @@ export default function ClientDetail() {
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="flex flex-wrap gap-2 flex-shrink-0">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 flex-shrink-0 lg:max-w-[520px]">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1052,6 +1091,17 @@ export default function ClientDetail() {
                       >
                         <Eye className="h-4 w-4" />
                         <span className="ml-2 hidden sm:inline">Client View</span>
+                      </Button>
+                    )}
+                    {isTeam && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShareClientLink}
+                        disabled={sharingLink}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        <span className="ml-2 hidden sm:inline">Share Link</span>
                       </Button>
                     )}
                     <Button

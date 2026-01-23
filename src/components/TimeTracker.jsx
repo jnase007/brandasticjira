@@ -101,6 +101,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
       toast({
         title: 'Timer started',
         description: 'Time tracking has begun for this task.',
+        duration: 2500,
       })
     } catch (error) {
       toast({
@@ -140,6 +141,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
         title: 'Timer stopped',
         description: `Logged ${formatDuration(data.duration_minutes)}.`,
         variant: 'success',
+        duration: 3000,
       })
     } catch (error) {
       toast({
