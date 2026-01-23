@@ -102,6 +102,35 @@ export default function ClientDetail() {
   
   // Pipeline stage editing
   const [editingStage, setEditingStage] = useState(false)
+  
+  // Team assignments state
+  const [teamAssignments, setTeamAssignments] = useState([])
+  const [allTeamMembers, setAllTeamMembers] = useState([])
+  const [assignTeamOpen, setAssignTeamOpen] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [savingAssignment, setSavingAssignment] = useState(false)
+  
+  // Boards state
+  const [boards, setBoards] = useState([])
+  const [createBoardOpen, setCreateBoardOpen] = useState(false)
+  const [newBoard, setNewBoard] = useState({ name: '', description: '' })
+  const [savingBoard, setSavingBoard] = useState(false)
+  
+  // Quick task state
+  const [createTaskOpen, setCreateTaskOpen] = useState(false)
+  const [newTask, setNewTask] = useState({ title: '', description: '', board_id: '', assignee_id: '' })
+  const [savingTask, setSavingTask] = useState(false)
+  
+  // Team roles
+  const TEAM_ROLES = [
+    { value: 'marketing_manager', label: 'Marketing Manager', color: 'bg-purple-500' },
+    { value: 'account_specialist', label: 'Account Specialist', color: 'bg-blue-500' },
+    { value: 'marketing_coordinator', label: 'Marketing Coordinator', color: 'bg-green-500' },
+    { value: 'paid_media', label: 'Paid Media', color: 'bg-orange-500' },
+    { value: 'seo', label: 'SEO', color: 'bg-teal-500' },
+    { value: 'design', label: 'Design', color: 'bg-pink-500' },
+  ]
 
   // Fetch all client data
   const fetchClientData = async (showRefresh = false) => {
@@ -198,6 +227,42 @@ export default function ClientDetail() {
         setNotes(notesData || [])
       } catch (err) {
         console.log('Notes table may not exist yet:', err)
+      }
+      
+      // Fetch team assignments for this client
+      try {
+        const { data: assignmentsData } = await supabase
+          .from('client_team_assignments')
+          .select('*, user:user_id(id, full_name, avatar_url, email)')
+          .eq('client_id', clientId)
+        setTeamAssignments(assignmentsData || [])
+      } catch (err) {
+        console.log('Team assignments table may not exist yet:', err)
+      }
+      
+      // Fetch all team members for assignment dropdown
+      try {
+        const { data: allMembers } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, email, role')
+          .in('role', ['team', 'admin'])
+          .order('full_name')
+        setAllTeamMembers(allMembers || [])
+      } catch (err) {
+        console.log('Error fetching team members:', err)
+      }
+      
+      // Fetch boards for this client
+      try {
+        const { data: boardsData } = await supabase
+          .from('boards')
+          .select('*, tickets(id, title, status, assignee_id)')
+          .eq('client_id', clientId)
+          .eq('is_archived', false)
+          .order('created_at', { ascending: false })
+        setBoards(boardsData || [])
+      } catch (err) {
+        console.log('Error fetching boards:', err)
       }
 
     } catch (error) {
@@ -304,6 +369,133 @@ export default function ClientDetail() {
         description: error.message,
         variant: 'destructive',
       })
+    }
+  }
+  
+  // Handle assigning a team member to a role
+  const handleAssignTeamMember = async () => {
+    if (!selectedRole || !selectedUserId) {
+      toast({ title: 'Please select a role and team member', variant: 'destructive' })
+      return
+    }
+    
+    setSavingAssignment(true)
+    try {
+      const selectedMember = allTeamMembers.find(m => m.id === selectedUserId)
+      
+      // Upsert the assignment (update if exists, insert if not)
+      const { error } = await supabase
+        .from('client_team_assignments')
+        .upsert({
+          client_id: clientId,
+          role: selectedRole,
+          user_id: selectedUserId,
+          user_name: selectedMember?.full_name || 'Unknown',
+        }, { onConflict: 'client_id,role' })
+      
+      if (error) throw error
+      
+      toast({
+        title: '✅ Team member assigned',
+        description: `${selectedMember?.full_name} is now the ${TEAM_ROLES.find(r => r.value === selectedRole)?.label}`,
+        variant: 'success',
+      })
+      
+      setAssignTeamOpen(false)
+      setSelectedRole('')
+      setSelectedUserId('')
+      fetchClientData(true)
+    } catch (error) {
+      console.error('Error assigning team member:', error)
+      toast({ title: 'Error assigning team member', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingAssignment(false)
+    }
+  }
+  
+  // Handle creating a new board
+  const handleCreateBoard = async () => {
+    if (!newBoard.name.trim()) {
+      toast({ title: 'Board name is required', variant: 'destructive' })
+      return
+    }
+    
+    setSavingBoard(true)
+    try {
+      const { data, error } = await supabase
+        .from('boards')
+        .insert({
+          name: newBoard.name,
+          description: newBoard.description,
+          client_id: clientId,
+          created_by: user.id,
+          is_archived: false,
+        })
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      toast({
+        title: '✅ Board created',
+        description: `"${newBoard.name}" is ready for tasks`,
+        variant: 'success',
+      })
+      
+      setCreateBoardOpen(false)
+      setNewBoard({ name: '', description: '' })
+      fetchClientData(true)
+      
+      // Navigate to the new board
+      if (data?.id) {
+        navigate(`/boards/${data.id}`)
+      }
+    } catch (error) {
+      console.error('Error creating board:', error)
+      toast({ title: 'Error creating board', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingBoard(false)
+    }
+  }
+  
+  // Handle creating a quick task
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim() || !newTask.board_id) {
+      toast({ title: 'Task title and board are required', variant: 'destructive' })
+      return
+    }
+    
+    setSavingTask(true)
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .insert({
+          title: newTask.title,
+          description: newTask.description,
+          board_id: newTask.board_id,
+          client_id: clientId,
+          assignee_id: newTask.assignee_id || null,
+          status: 'todo',
+          priority: 'medium',
+          created_by: user.id,
+        })
+      
+      if (error) throw error
+      
+      toast({
+        title: '✅ Task created',
+        description: `"${newTask.title}" added to board`,
+        variant: 'success',
+      })
+      
+      setCreateTaskOpen(false)
+      setNewTask({ title: '', description: '', board_id: '', assignee_id: '' })
+      fetchClientData(true)
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast({ title: 'Error creating task', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingTask(false)
     }
   }
 
@@ -463,7 +655,7 @@ export default function ClientDetail() {
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap">
                     <Button
                       variant="outline"
                       size="sm"
@@ -472,6 +664,24 @@ export default function ClientDetail() {
                     >
                       <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
                       <span className="ml-2 hidden sm:inline">Refresh</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreateBoardOpen(true)}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">New Board</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreateTaskOpen(true)}
+                      disabled={boards.length === 0}
+                      title={boards.length === 0 ? 'Create a board first' : 'Create a task'}
+                    >
+                      <Ticket className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">New Task</span>
                     </Button>
                     <Button 
                       size="sm" 
@@ -1005,49 +1215,120 @@ export default function ClientDetail() {
 
           {/* Team Tab */}
           <TabsContent value="team">
-            <Card>
-              <CardHeader>
-                <CardTitle>Team Members</CardTitle>
-                <CardDescription>People who have worked on this client</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {teamMembers.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No team activity yet</p>
+            <div className="space-y-6">
+              {/* Role Assignments */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-brand-purple" />
+                      Team Assignments
+                    </CardTitle>
+                    <CardDescription>Assign team members to specific roles on this client</CardDescription>
                   </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {teamMembers.map((member) => (
-                      <div key={member.id} className="p-4 rounded-xl border hover:shadow-md transition-all">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={member.avatar_url} />
-                            <AvatarFallback>{member.full_name?.[0] || '?'}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold">{member.full_name || 'Unknown'}</p>
-                            <p className="text-sm text-muted-foreground">Team Member</p>
+                  <Button size="sm" onClick={() => setAssignTeamOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Assign Role
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {TEAM_ROLES.map((role) => {
+                      const assignment = teamAssignments.find(a => a.role === role.value)
+                      return (
+                        <div 
+                          key={role.value}
+                          className={cn(
+                            "p-4 rounded-xl border-2 transition-all",
+                            assignment ? "border-brand-purple/30 bg-brand-purple/5" : "border-dashed border-muted-foreground/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge className={cn("text-white", role.color)}>{role.label}</Badge>
+                            {assignment && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon-sm"
+                                onClick={() => {
+                                  setSelectedRole(role.value)
+                                  setSelectedUserId(assignment.user_id || '')
+                                  setAssignTeamOpen(true)
+                                }}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                          {assignment?.user ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={assignment.user.avatar_url} />
+                                <AvatarFallback>{assignment.user.full_name?.[0] || '?'}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{assignment.user.full_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setSelectedRole(role.value)
+                                setAssignTeamOpen(true)
+                              }}
+                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Assign someone
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Time Contributors */}
+              {teamMembers.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Time Contributors</CardTitle>
+                    <CardDescription>Team members who have logged time on this client</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {teamMembers.map((member) => (
+                        <div key={member.id} className="p-4 rounded-xl border hover:shadow-md transition-all">
+                          <div className="flex items-center gap-3 mb-3">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={member.avatar_url} />
+                              <AvatarFallback>{member.full_name?.[0] || '?'}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold">{member.full_name || 'Unknown'}</p>
+                              <p className="text-sm text-muted-foreground">Team Member</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-center">
+                            <div className="p-2 rounded-lg bg-muted/50">
+                              <p className="font-bold">{Math.round(member.totalMinutes / 60)}h</p>
+                              <p className="text-xs text-muted-foreground">Hours</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-muted/50">
+                              <p className="font-bold text-green-600">
+                                ${Math.round((member.totalMinutes / 60) * 175).toLocaleString()}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Revenue</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-center">
-                          <div className="p-2 rounded-lg bg-muted/50">
-                            <p className="font-bold">{Math.round(member.totalMinutes / 60)}h</p>
-                            <p className="text-xs text-muted-foreground">Hours</p>
-                          </div>
-                          <div className="p-2 rounded-lg bg-muted/50">
-                            <p className="font-bold text-green-600">
-                              ${Math.round((member.totalMinutes / 60) * 175).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Revenue</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </motion.div>
@@ -1123,6 +1404,229 @@ export default function ClientDetail() {
                   <Send className="h-4 w-4 mr-2" />
                   Add Note
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Assign Team Member Dialog */}
+      <Dialog open={assignTeamOpen} onOpenChange={setAssignTeamOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-brand-purple" />
+              Assign Team Member
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEAM_ROLES.map(role => (
+                    <SelectItem key={role.value} value={role.value}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("w-2 h-2 rounded-full", role.color)} />
+                        {role.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Team Member *</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allTeamMembers.map(member => (
+                    <SelectItem key={member.id} value={member.id}>
+                      <span className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={member.avatar_url} />
+                          <AvatarFallback className="text-[10px]">{member.full_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        {member.full_name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAssignTeamOpen(false)
+              setSelectedRole('')
+              setSelectedUserId('')
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssignTeamMember} disabled={savingAssignment || !selectedRole || !selectedUserId}>
+              {savingAssignment ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                'Assign'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Create Board Dialog */}
+      <Dialog open={createBoardOpen} onOpenChange={setCreateBoardOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-brand-orange" />
+              Create New Board
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Board Name *</Label>
+              <Input
+                placeholder="e.g., Discovery, Website Redesign, SEO Campaign"
+                value={newBoard.name}
+                onChange={(e) => setNewBoard(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Description (optional)</Label>
+              <Textarea
+                placeholder="What is this board for?"
+                value={newBoard.description}
+                onChange={(e) => setNewBoard(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setCreateBoardOpen(false)
+              setNewBoard({ name: '', description: '' })
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateBoard} disabled={savingBoard || !newBoard.name.trim()}>
+              {savingBoard ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Board'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Create Task Dialog */}
+      <Dialog open={createTaskOpen} onOpenChange={setCreateTaskOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ticket className="h-5 w-5 text-brand-teal" />
+              Create Quick Task
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Task Title *</Label>
+              <Input
+                placeholder="e.g., Complete discovery document"
+                value={newTask.title}
+                onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Board *</Label>
+              <Select value={newTask.board_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, board_id: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a board..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {boards.map(board => (
+                    <SelectItem key={board.id} value={board.id}>
+                      {board.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {boards.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No boards yet. <button onClick={() => { setCreateTaskOpen(false); setCreateBoardOpen(true); }} className="text-brand-orange hover:underline">Create a board first</button>
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Assign To (optional)</Label>
+              <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask(prev => ({ ...prev, assignee_id: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {allTeamMembers.map(member => (
+                    <SelectItem key={member.id} value={member.id}>
+                      <span className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={member.avatar_url} />
+                          <AvatarFallback className="text-[10px]">{member.full_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        {member.full_name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Description (optional)</Label>
+              <Textarea
+                placeholder="Task details..."
+                value={newTask.description}
+                onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setCreateTaskOpen(false)
+              setNewTask({ title: '', description: '', board_id: '', assignee_id: '' })
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTask} disabled={savingTask || !newTask.title.trim() || !newTask.board_id}>
+              {savingTask ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Task'
               )}
             </Button>
           </DialogFooter>

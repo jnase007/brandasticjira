@@ -109,6 +109,31 @@ ALTER TABLE public.tickets
 ADD COLUMN IF NOT EXISTS time_estimate INTEGER;
 
 -- ============================================
+-- CREATE CLIENT_TEAM_ASSIGNMENTS TABLE IF NOT EXISTS
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.client_team_assignments (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('marketing_manager', 'account_specialist', 'marketing_coordinator', 'paid_media', 'seo', 'design')),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(client_id, role)
+);
+
+-- Enable RLS on client_team_assignments
+ALTER TABLE public.client_team_assignments ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "Team can manage assignments" ON public.client_team_assignments;
+
+-- Create policy for client_team_assignments
+CREATE POLICY "Team can manage assignments" ON public.client_team_assignments
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- ============================================
 -- CREATE CLIENT_NOTES TABLE IF NOT EXISTS
 -- ============================================
 
