@@ -654,14 +654,13 @@ export default function FloatingTimer({
       
       const timeEntry = {
         user_id: user.id,
-        client_id: selectedClient.id,
+        // Note: client_id not stored on time_entries - client is inferred from ticket->board->client
         description: description || selectedClient.name || 'No description',
         notes: description || '',
         minutes: totalMinutes,
         date: endTime.toISOString().split('T')[0],
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
-        duration_minutes: totalMinutes,
         is_running: false,
         billable: isBillable,
       }

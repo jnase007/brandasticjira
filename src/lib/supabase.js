@@ -615,10 +615,16 @@ export async function createManualTimeEntry(entryData) {
     entryData.duration_seconds ?? Math.round((endDate - startDate) / 1000)
   )
   const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
+  
+  // Build payload with only fields that definitely exist
   const payload = {
-    ...entryData,
+    user_id: entryData.user_id,
+    ticket_id: entryData.ticket_id ?? null,
+    start_time: startDate.toISOString(),
+    end_time: endDate.toISOString(),
+    description: entryData.description ?? null,
+    notes: entryData.notes ?? null,
     is_running: false,
-    duration_minutes: durationMinutes,
     minutes: entryData.minutes ?? durationMinutes,
     date: entryData.date ?? startDate.toISOString().split('T')[0],
     billable: entryData.billable ?? true,
@@ -630,19 +636,20 @@ export async function createManualTimeEntry(entryData) {
     .select()
     .single()
 
+  // If error mentions a column, try minimal payload
   if (error && error.message?.includes('column')) {
-    const fallbackPayload = {
+    console.warn('Time entry insert failed, trying minimal payload:', error.message)
+    const minimalPayload = {
       user_id: entryData.user_id,
-      client_id: entryData.client_id,
       ticket_id: entryData.ticket_id ?? null,
-      start_time: startDate.toISOString(),
-      end_time: endDate.toISOString(),
       description: entryData.description ?? null,
-      notes: entryData.notes ?? null,
+      minutes: durationMinutes,
+      date: startDate.toISOString().split('T')[0],
+      is_running: false,
     }
     ;({ data, error } = await supabase
       .from('time_entries')
-      .insert(fallbackPayload)
+      .insert(minimalPayload)
       .select()
       .single())
   }
