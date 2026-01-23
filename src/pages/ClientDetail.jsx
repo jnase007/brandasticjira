@@ -40,6 +40,7 @@ import {
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplates'
+import ClientDialog from '../components/ClientDialog'
 
 // Pipeline stages with colors
 const PIPELINE_STAGES = [
@@ -117,6 +118,9 @@ export default function ClientDetail() {
   const [createBoardOpen, setCreateBoardOpen] = useState(false)
   const [newBoard, setNewBoard] = useState({ name: '', description: '' })
   const [savingBoard, setSavingBoard] = useState(false)
+  
+  // Edit client state
+  const [editClientOpen, setEditClientOpen] = useState(false)
   
   // Quick task state
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
@@ -850,6 +854,14 @@ export default function ClientDetail() {
 
                   {/* Quick Actions */}
                   <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditClientOpen(true)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">Edit</span>
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -2069,6 +2081,17 @@ export default function ClientDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Client Dialog */}
+      <ClientDialog
+        open={editClientOpen}
+        onOpenChange={setEditClientOpen}
+        client={client}
+        onSuccess={(updatedClient) => {
+          setClient(updatedClient)
+          toast({ title: 'Client updated!', variant: 'success' })
+        }}
+      />
     </motion.div>
   )
 }
