@@ -59,7 +59,33 @@ export default function ClientPublic() {
       
       console.log('[ClientPublic] Found client:', client.name)
       
-      // Fetch related data
+      // Fetch related data - wrap optional queries in try/catch
+      const fetchProjects = async () => {
+        try {
+          return await supabase
+            .from('client_projects')
+            .select('id, title')
+            .eq('client_id', client.id)
+            .eq('is_visible_to_client', true)
+            .order('completed_date', { ascending: false })
+        } catch {
+          return { data: [] }
+        }
+      }
+      
+      const fetchActivity = async () => {
+        try {
+          return await supabase
+            .from('activity_log')
+            .select('id, entity_name, created_at')
+            .eq('client_id', client.id)
+            .order('created_at', { ascending: false })
+            .limit(5)
+        } catch {
+          return { data: [] }
+        }
+      }
+      
       const [boardsRes, ticketsRes, projectsRes, activityRes] = await Promise.all([
         supabase
           .from('boards')
@@ -73,20 +99,8 @@ export default function ClientPublic() {
           .eq('client_id', client.id)
           .order('updated_at', { ascending: false })
           .limit(100),
-        supabase
-          .from('client_projects')
-          .select('id, title')
-          .eq('client_id', client.id)
-          .eq('is_visible_to_client', true)
-          .order('completed_date', { ascending: false })
-          .catch(() => ({ data: [] })),
-        supabase
-          .from('activity_log')
-          .select('id, entity_name, created_at')
-          .eq('client_id', client.id)
-          .order('created_at', { ascending: false })
-          .limit(5)
-          .catch(() => ({ data: [] })),
+        fetchProjects(),
+        fetchActivity(),
       ])
       
       // Try to get hours summary
@@ -116,8 +130,8 @@ export default function ClientPublic() {
       
       setPayload({
         client,
-        boards: boardsRes.data || [],
-        tickets: ticketsRes.data || [],
+        boards: boardsRes?.data || [],
+        tickets: ticketsRes?.data || [],
         projects: projectsRes?.data || [],
         recent_updates: activityRes?.data || [],
         hours_summary: hoursSummary,
