@@ -431,6 +431,7 @@ export function AuthProvider({ children }) {
         setTimeout(() => reject(new Error('Session refresh timeout')), 8000)
       )
 
+      // First, try to get the current session
       const { data, error } = await Promise.race([
         supabase.auth.getSession(),
         timeout,
@@ -440,6 +441,27 @@ export function AuthProvider({ children }) {
         console.warn('Session refresh error:', error)
         setAuthError(error.message)
         return
+      }
+
+      // If we have a session, proactively refresh the token to prevent staleness
+      if (data?.session) {
+        // Check if token is expiring soon (within 5 minutes)
+        const expiresAt = data.session.expires_at
+        const now = Math.floor(Date.now() / 1000)
+        const expiresIn = expiresAt - now
+        
+        if (expiresIn < 300) { // Less than 5 minutes until expiry
+          console.log(`[Auth] Token expiring in ${expiresIn}s, refreshing proactively...`)
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (refreshError) {
+            console.warn('[Auth] Proactive token refresh failed:', refreshError.message)
+            // If refresh fails but we still have a session, continue
+          } else if (refreshData?.session) {
+            console.log('[Auth] Token refreshed successfully')
+            setUser(refreshData.session.user)
+          }
+        }
       }
 
       if (data?.session?.user) {
@@ -479,10 +501,17 @@ export function AuthProvider({ children }) {
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibility)
 
+    // Periodic background refresh every 10 minutes to prevent token expiry
+    const backgroundRefreshInterval = setInterval(() => {
+      console.log('[Auth] Periodic background session check...')
+      refreshSessionAndProfile('periodic')
+    }, 10 * 60 * 1000) // Every 10 minutes
+
     return () => {
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('online', handleOnline)
       document.removeEventListener('visibilitychange', handleVisibility)
+      clearInterval(backgroundRefreshInterval)
     }
   }, [refreshSessionAndProfile])
 

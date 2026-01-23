@@ -177,12 +177,14 @@ export default function ClientManagement() {
   const [projectSaving, setProjectSaving] = useState(false)
 
   const [fetchError, setFetchError] = useState(null)
+  const [sessionStale, setSessionStale] = useState(false)
 
   // Fetch data with timeout to prevent hanging
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
     setFetchError(null)
+    setSessionStale(false)
 
     // Add timeout to prevent hanging forever
     const timeout = new Promise((_, reject) => 
@@ -190,6 +192,24 @@ export default function ClientManagement() {
     )
 
     try {
+      // First, validate the session is still active
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        console.warn('Session invalid or expired:', sessionError?.message || 'No session')
+        setSessionStale(true)
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+
+      // Try to refresh the session proactively
+      const { error: refreshError } = await supabase.auth.refreshSession()
+      if (refreshError) {
+        console.warn('Session refresh failed:', refreshError.message)
+        // Don't fail hard, the current session might still work
+      }
+
       // Fetch clients first - this is the main table we need
       const clientsPromise = supabase
         .from('clients')
@@ -200,6 +220,15 @@ export default function ClientManagement() {
       
       if (clientsRes.error) {
         console.error('Clients fetch error:', clientsRes.error)
+        // Check for auth/RLS related errors
+        if (clientsRes.error.message?.includes('JWT') || 
+            clientsRes.error.message?.includes('token') ||
+            clientsRes.error.code === 'PGRST301') {
+          setSessionStale(true)
+          setLoading(false)
+          setRefreshing(false)
+          return
+        }
         // If table doesn't exist, show empty state so user can import
         if (clientsRes.error.message?.includes('does not exist')) {
           toast({
@@ -411,6 +440,43 @@ export default function ClientManagement() {
 
   const pendingRequests = requests.filter(r => r.status === 'pending')
 
+  // Handle reconnecting when session is stale
+  const handleReconnect = async () => {
+    setRefreshing(true)
+    try {
+      // Force a full session refresh
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error) {
+        // If refresh fails, user needs to log in again
+        toast({
+          title: 'Session expired',
+          description: 'Please log in again to continue.',
+          variant: 'destructive',
+        })
+        // Redirect to login after a moment
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 1500)
+        return
+      }
+      
+      if (data?.session) {
+        toast({ title: 'Reconnected!', description: 'Loading your data...' })
+        setSessionStale(false)
+        await fetchData(true)
+      }
+    } catch (err) {
+      console.error('Reconnect failed:', err)
+      toast({
+        title: 'Connection failed',
+        description: 'Please try logging out and back in.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
@@ -421,6 +487,48 @@ export default function ClientManagement() {
           ))}
         </div>
         <Skeleton className="h-96" />
+      </div>
+    )
+  }
+
+  // Show reconnect UI when session is stale
+  if (sessionStale) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mb-6">
+            <RefreshCw className="h-10 w-10 text-amber-500" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Connection Lost</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            Your session needs to be refreshed. This can happen after being idle for a while.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleReconnect}
+              disabled={refreshing}
+              className="bg-gradient-to-r from-brand-orange to-brand-coral"
+            >
+              {refreshing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reconnecting...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reconnect Now
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/login'}
+            >
+              Log In Again
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }

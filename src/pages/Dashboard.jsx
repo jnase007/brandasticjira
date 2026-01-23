@@ -105,6 +105,20 @@ export default function Dashboard({ onConfetti }) {
     setFetchError(null)
     
     try {
+      // Validate and refresh session first to prevent stale token issues
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const expiresAt = session.expires_at
+        const now = Math.floor(Date.now() / 1000)
+        const expiresIn = expiresAt - now
+        
+        // Proactively refresh if token expires within 5 minutes
+        if (expiresIn < 300) {
+          console.log('[Dashboard] Refreshing session before fetch...')
+          await supabase.auth.refreshSession()
+        }
+      }
+
       // Timeout for slower mobile networks (15 seconds)
       const FETCH_TIMEOUT = 15000
       
