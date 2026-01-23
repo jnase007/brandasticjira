@@ -935,22 +935,14 @@ export default function Dashboard({ onConfetti }) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">My Hours This Month</p>
+                      <p className="text-sm font-medium text-muted-foreground">My Hours</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-purple transition-colors">
-                        <HoursCounter value={Math.round(myTimeStats.trackedMinutes / 60 * 10) / 10} />
-                        <span className="text-lg text-muted-foreground font-normal ml-1">
-                          /{myTimeStats.targetHours}h
-                        </span>
+                        <HoursCounter value={Math.round(myTimeStats.trackedMinutes / 60)} />
+                        <span className="text-base text-muted-foreground font-normal">/{myTimeStats.targetHours}h</span>
                       </p>
-                      <div className="mt-3">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                          <span>{Math.round((myTimeStats.trackedMinutes / 60 / myTimeStats.targetHours) * 100)}% of goal</span>
-                          <span>{Math.max(0, Math.round(myTimeStats.targetHours - myTimeStats.trackedMinutes / 60))}h remaining</span>
-                        </div>
-                        <Progress 
-                          value={Math.min(100, (myTimeStats.trackedMinutes / 60 / myTimeStats.targetHours) * 100)} 
-                          className="h-2"
-                        />
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{Math.round((myTimeStats.trackedMinutes / 60 / myTimeStats.targetHours) * 100)}% • {Math.max(0, Math.round(myTimeStats.targetHours - myTimeStats.trackedMinutes / 60))}h left</span>
                       </div>
                     </div>
                     <div className="relative">
