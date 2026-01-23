@@ -125,6 +125,24 @@ export default function ClientManagement() {
   const [projects, setProjects] = useState([])
   const [clientUsers, setClientUsers] = useState([])
   
+  // Pinned clients (stored in localStorage)
+  const [pinnedClients, setPinnedClients] = useState(() => {
+    const stored = localStorage.getItem('pinnedClients')
+    return stored ? JSON.parse(stored) : []
+  })
+  
+  const togglePinClient = (clientId) => {
+    setPinnedClients(prev => {
+      const newPinned = prev.includes(clientId) 
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+      localStorage.setItem('pinnedClients', JSON.stringify(newPinned))
+      return newPinned
+    })
+  }
+  
+  const isPinned = (clientId) => pinnedClients.includes(clientId)
+  
   // Dialogs
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [requestDialogOpen, setRequestDialogOpen] = useState(false)
@@ -380,9 +398,16 @@ export default function ClientManagement() {
   // Filter
   const activeClients = clients.filter((c) => c.is_active !== false)
 
-  const filteredClients = activeClients.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredClients = activeClients
+    .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Pinned clients first
+      const aPinned = pinnedClients.includes(a.id)
+      const bPinned = pinnedClients.includes(b.id)
+      if (aPinned && !bPinned) return -1
+      if (!aPinned && bPinned) return 1
+      return a.name.localeCompare(b.name)
+    })
 
   const pendingRequests = requests.filter(r => r.status === 'pending')
 
@@ -670,8 +695,29 @@ export default function ClientManagement() {
                     <motion.div
                       variants={itemVariants}
                       whileHover={{ y: -2 }}
-                      className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group"
+                      className={cn(
+                        "p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group relative",
+                        isPinned(client.id) && "ring-2 ring-yellow-400/50 border-yellow-400/30"
+                      )}
                     >
+                      {/* Pin button */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          togglePinClient(client.id)
+                        }}
+                        className={cn(
+                          "absolute top-2 right-2 p-1.5 rounded-lg transition-all z-10",
+                          isPinned(client.id) 
+                            ? "bg-yellow-500 text-white" 
+                            : "bg-muted/50 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-yellow-500 hover:text-white"
+                        )}
+                        title={isPinned(client.id) ? "Unpin client" : "Pin client"}
+                      >
+                        <Star className={cn("h-4 w-4", isPinned(client.id) && "fill-current")} />
+                      </button>
+                      
                       <div className="flex items-center gap-3 mb-3">
                         {client.logo_url ? (
                           <img

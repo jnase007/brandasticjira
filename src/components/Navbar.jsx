@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -52,7 +52,26 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState({ tickets: [], clients: [], team: [] })
   const [searching, setSearching] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => 
+    document.documentElement.classList.contains('dark')
+  )
+
+  // Keyboard shortcut: Cmd+K or Ctrl+K to open search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+      // Escape to close search
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false)
+      }
+    }
+    
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [searchOpen])
 
   const handleSearch = async (query) => {
     setSearchQuery(query)
@@ -139,14 +158,17 @@ export default function Navbar() {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* Search button */}
+              {/* Search button with keyboard hint */}
               <Button
                 variant="ghost"
-                size="icon"
                 onClick={() => setSearchOpen(true)}
-                className="hidden sm:flex"
+                className="hidden sm:flex items-center gap-2 px-3"
+                title="Search (⌘K)"
               >
                 <Search className="h-4 w-4" />
+                <kbd className="hidden lg:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
               </Button>
 
               {/* Dark mode toggle */}

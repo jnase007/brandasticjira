@@ -43,9 +43,18 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
       <div 
         className={cn(
           "absolute left-0 top-0 bottom-0 w-1 rounded-l-xl",
-          priorityInfo.color.replace('priority-', 'bg-priority-')
+          isOverdue ? "bg-red-500" : priorityInfo.color.replace('priority-', 'bg-priority-')
         )}
       />
+      
+      {/* Overdue badge */}
+      {isOverdue && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 shadow-lg animate-pulse">
+            OVERDUE
+          </Badge>
+        </div>
+      )}
 
       <Link to={ticketLink} className="block pl-2">
         {/* Header */}

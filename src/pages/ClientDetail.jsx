@@ -1030,6 +1030,32 @@ export default function ClientDetail() {
         </Button>
       </motion.div>
 
+      {/* Budget Alert Banner */}
+      {monthlyBudget > 0 && budgetUsed >= 80 && (
+        <motion.div 
+          variants={itemVariants} 
+          className={cn(
+            "mb-4 p-3 rounded-lg flex items-center gap-3",
+            budgetUsed >= 100 
+              ? "bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400"
+              : "bg-yellow-500/10 border border-yellow-500/30 text-yellow-700 dark:text-yellow-400"
+          )}
+        >
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">
+              {budgetUsed >= 100 
+                ? `⚠️ Budget exceeded! ${currentMonthHours}h used of ${monthlyBudget}h monthly budget (${budgetUsed}%)`
+                : `⚡ Approaching budget limit: ${currentMonthHours}h used of ${monthlyBudget}h (${budgetUsed}%)`
+              }
+            </p>
+          </div>
+          <Badge variant={budgetUsed >= 100 ? "destructive" : "outline"} className="ml-auto">
+            {budgetUsed}%
+          </Badge>
+        </motion.div>
+      )}
+
       {/* Client Header */}
       <motion.div variants={itemVariants} className="mb-8">
         <Card className="overflow-hidden">
@@ -1671,9 +1697,19 @@ export default function ClientDetail() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{ticket.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{ticket.title}</p>
+                            {ticket.due_date && new Date(ticket.due_date) < new Date() && ticket.status !== 'done' && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">OVERDUE</Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
                             {ticket.boards?.name || 'General Tasks'} • {ticket.ticket_id || ticket.id?.substring(0, 8)}
+                            {ticket.due_date && (
+                              <span className={ticket.due_date && new Date(ticket.due_date) < new Date() && ticket.status !== 'done' ? ' text-red-500' : ''}>
+                                {' '}• Due {formatDate(ticket.due_date)}
+                              </span>
+                            )}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                             {ticket.assigned_user ? (
