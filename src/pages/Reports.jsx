@@ -56,13 +56,9 @@ function ReportHeader({ title, subtitle }) {
   return (
     <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-6 mb-6">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <img src={BRAND_LOGO} alt="Brandastic" className="h-6 w-auto" />
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Brandastic Report</p>
-            <h2 className="text-lg font-semibold">{title}</h2>
-            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-          </div>
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <Badge variant="secondary" className="hidden sm:inline-flex">Internal</Badge>
       </div>
@@ -71,15 +67,8 @@ function ReportHeader({ title, subtitle }) {
 }
 
 function ReportFooter() {
-  return (
-    <div className="mt-8 flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
-      <span>© {new Date().getFullYear()} Brandastic</span>
-      <div className="flex items-center gap-2">
-        <img src={BRAND_LOGO} alt="Brandastic" className="h-4 w-auto opacity-70" />
-        <span>Report generated in Brandastic PM</span>
-      </div>
-    </div>
-  )
+  // Footer only shows in PDF exports, not in web view
+  return null
 }
 
 const containerVariants = {
