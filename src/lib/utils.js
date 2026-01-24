@@ -14,7 +14,15 @@ export function cn(...inputs) {
  */
 export function formatDate(date, formatStr = 'MMM d, yyyy') {
   if (!date) return ''
-  return format(new Date(date), formatStr)
+  try {
+    const d = new Date(date)
+    // Check if date is valid
+    if (isNaN(d.getTime())) return ''
+    return format(d, formatStr)
+  } catch (e) {
+    console.warn('Invalid date:', date)
+    return ''
+  }
 }
 
 /**
@@ -22,7 +30,15 @@ export function formatDate(date, formatStr = 'MMM d, yyyy') {
  */
 export function formatRelativeDate(date) {
   if (!date) return ''
-  return formatDistanceToNow(new Date(date), { addSuffix: true })
+  try {
+    const d = new Date(date)
+    // Check if date is valid
+    if (isNaN(d.getTime())) return ''
+    return formatDistanceToNow(d, { addSuffix: true })
+  } catch (e) {
+    console.warn('Invalid date:', date)
+    return ''
+  }
 }
 
 /**
