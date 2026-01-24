@@ -1825,7 +1825,7 @@ export default function ClientDetail() {
                         <div className="text-right">
                           <p className="font-semibold">{Math.round(entry.minutes / 60)}h {entry.minutes % 60}m</p>
                           {entry.billable && (
-                            <Badge variant="secondary" className="text-green-600">Billable</Badge>
+                            <Badge className="bg-green-500 text-white hover:bg-green-600">Billable</Badge>
                           )}
                         </div>
                       </div>

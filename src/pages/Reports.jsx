@@ -1245,7 +1245,7 @@ function TimeReports({ employees, clients, timeEntries, selectedYear, selectedMo
                           </td>
                           <td className="p-3 text-right">{formatHours(entry.minutes || 0)}</td>
                           <td className="p-3 text-right">
-                            <Badge variant={entry.billable ? 'default' : 'secondary'}>
+                            <Badge className={entry.billable ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}>
                               {entry.billable ? 'Billable' : 'Non-billable'}
                             </Badge>
                           </td>
