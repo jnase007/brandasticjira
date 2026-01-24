@@ -26,6 +26,8 @@ const NotFound = lazy(() => import('./pages/NotFound'))
 const WorkflowGuide = lazy(() => import('./pages/WorkflowGuide'))
 const Diagnostics = lazy(() => import('./pages/Diagnostics'))
 const ClientPublic = lazy(() => import('./pages/ClientPublic'))
+const ClientLogin = lazy(() => import('./pages/ClientLogin'))
+const ClientDashboard = lazy(() => import('./pages/ClientDashboard'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -522,6 +524,7 @@ function App() {
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/login" element={<Login />} />
+              <Route path="/client-login" element={<ClientLogin />} />
               <Route path="/demo" element={<Demo />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
@@ -700,6 +703,16 @@ function App() {
                 element={<ClientPublic />}
               />
 
+              {/* Client dashboard (for logged-in clients) */}
+              <Route
+                path="/client-dashboard"
+                element={<ClientDashboard />}
+              />
+              <Route
+                path="/client-login"
+                element={<ClientLogin />}
+              />
+
               {/* Admin route */}
               <Route
                 path="/admin"
@@ -724,6 +737,8 @@ function App() {
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/login" element={<Login />} />
+            <Route path="/client-login" element={<ClientLogin />} />
+            <Route path="/client-dashboard" element={<ClientDashboard />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/client-view/:token" element={<ClientPublic />} />
             <Route path="*" element={<Navigate to="/login" replace />} />

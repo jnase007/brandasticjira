@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, ExternalLink } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, ExternalLink, Building2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -421,6 +422,24 @@ export default function Login() {
                   </>
                 )}
               </p>
+
+              {/* Client Portal Link */}
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <p className="text-center text-white/50 text-sm mb-3">Are you a client?</p>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Link
+                    to="/client-login"
+                    className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-400/30 text-white font-medium hover:from-blue-500/30 hover:to-blue-600/30 transition-all group"
+                  >
+                    <Building2 className="h-4 w-4 text-blue-400" />
+                    <span>Client Portal</span>
+                    <ArrowRight className="h-4 w-4 text-blue-400 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+                </motion.div>
+              </div>
 
               {/* Visit Brandastic.com */}
               <div className="pt-4 border-t border-white/10">
