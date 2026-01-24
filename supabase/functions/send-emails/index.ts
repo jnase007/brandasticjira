@@ -182,6 +182,44 @@ const templates = {
       </div>
     `,
   }),
+
+  mention: (data: any) => ({
+    subject: data.subject || `Someone mentioned you`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); padding: 24px; text-align: center;">
+          <div style="font-size: 36px; margin-bottom: 8px;">@</div>
+          <h1 style="color: white; margin: 0; font-size: 24px;">You were mentioned!</h1>
+        </div>
+        <div style="padding: 24px; background: #f9fafb;">
+          <p style="color: #374151; font-size: 16px; margin: 0 0 16px;">
+            Hi ${data.to_name || 'there'},
+          </p>
+          <p style="color: #374151; font-size: 16px; margin: 0 0 16px;">
+            <strong>${data.from_user_name || 'Someone'}</strong> mentioned you${data.entity_name ? ` in <strong>${data.entity_name}</strong>` : ''}:
+          </p>
+          
+          <div style="background: white; border-radius: 8px; padding: 16px; border-left: 4px solid #3b82f6;">
+            <p style="color: #374151; font-size: 14px; margin: 0; white-space: pre-wrap;">
+              "${data.message_preview || 'No preview available'}"
+            </p>
+          </div>
+          
+          <div style="margin-top: 24px; text-align: center;">
+            <a href="https://brandastic.co${data.url || '/dashboard'}" 
+               style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; 
+                      border-radius: 6px; text-decoration: none; font-weight: 600;">
+              View Message
+            </a>
+          </div>
+        </div>
+        <div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">Brandastic PM • You're receiving this because you have mention notifications enabled.</p>
+          <p style="margin: 8px 0 0;"><a href="https://brandastic.co/settings" style="color: #6b7280;">Manage preferences</a></p>
+        </div>
+      </div>
+    `,
+  }),
 }
 
 // Send email via Resend
