@@ -65,8 +65,7 @@ SELECT
   p.client_id,
   c.name AS client_name,
   c.slug AS client_slug,
-  p.created_at,
-  p.last_seen
+  p.created_at
 FROM profiles p
 LEFT JOIN clients c ON c.id = p.client_id
 WHERE p.role = 'client' OR p.client_id IS NOT NULL

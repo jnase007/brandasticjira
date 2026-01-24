@@ -145,8 +145,11 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [userStatusFilter, setUserStatusFilter] = useState('all') // 'all', 'active', 'inactive'
   
   // Dialog states
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false)
+  const [userToDeactivate, setUserToDeactivate] = useState(null)
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -580,10 +583,47 @@ export default function Admin() {
   }
 
   // Filter users
-  const filteredUsers = users.filter(user =>
-    user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = userStatusFilter === 'all' || 
+      (userStatusFilter === 'active' && user.is_active !== false) ||
+      (userStatusFilter === 'inactive' && user.is_active === false)
+    return matchesSearch && matchesStatus
+  })
+  
+  // Deactivate/Reactivate user
+  const handleToggleUserStatus = async () => {
+    if (!userToDeactivate) return
+    
+    const newStatus = userToDeactivate.is_active === false ? true : false
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: newStatus })
+        .eq('id', userToDeactivate.id)
+      
+      if (error) throw error
+      
+      toast({
+        title: newStatus ? '✅ User reactivated' : '🚫 User deactivated',
+        description: `${userToDeactivate.full_name || userToDeactivate.email} has been ${newStatus ? 'reactivated' : 'deactivated'}.`,
+        variant: 'success',
+      })
+      
+      setDeactivateDialogOpen(false)
+      setUserToDeactivate(null)
+      fetchData(true)
+    } catch (error) {
+      console.error('Error updating user status:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update user status.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Role distribution for chart
   const roleDistribution = [
@@ -834,6 +874,16 @@ export default function Admin() {
                         className="pl-9 rounded-xl"
                       />
                     </div>
+                    <Select value={userStatusFilter} onValueChange={setUserStatusFilter}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Users</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button variant="outline" size="sm">
                       <Download className="h-4 w-4 mr-2" />
                       Export
@@ -949,8 +999,17 @@ export default function Admin() {
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4 text-green-500" />
-                                <span className="text-sm">Active</span>
+                                {user.is_active === false ? (
+                                  <>
+                                    <XCircle className="h-4 w-4 text-red-500" />
+                                    <span className="text-sm text-red-600">Inactive</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                    <span className="text-sm text-green-600">Active</span>
+                                  </>
+                                )}
                               </div>
                             </td>
                             <td className="py-3 px-4 text-sm text-muted-foreground">
@@ -1006,6 +1065,26 @@ export default function Admin() {
                                   >
                                     <Eye className="h-4 w-4" />
                                     <span>View Profile</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    className={cn("gap-2", user.is_active === false ? "text-green-600" : "text-red-600")}
+                                    onClick={() => {
+                                      setUserToDeactivate(user)
+                                      setDeactivateDialogOpen(true)
+                                    }}
+                                  >
+                                    {user.is_active === false ? (
+                                      <>
+                                        <CheckCircle className="h-4 w-4" />
+                                        <span>Reactivate User</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <XCircle className="h-4 w-4" />
+                                        <span>Deactivate User</span>
+                                      </>
+                                    )}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1458,6 +1537,56 @@ export default function Admin() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteClient}>
               Deactivate Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Deactivation Dialog */}
+      <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {userToDeactivate?.is_active === false ? (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  Reactivate Team Member
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-5 w-5 text-red-500" />
+                  Deactivate Team Member
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {userToDeactivate?.is_active === false ? (
+                <>
+                  Are you sure you want to reactivate <strong>{userToDeactivate?.full_name || userToDeactivate?.email}</strong>?
+                  They will be able to log in and access the system again.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to deactivate <strong>{userToDeactivate?.full_name || userToDeactivate?.email}</strong>?
+                  <br /><br />
+                  <span className="text-muted-foreground">
+                    • They will no longer be able to log in<br />
+                    • All their data, time entries, and activity will be preserved<br />
+                    • You can reactivate them at any time
+                  </span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeactivateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant={userToDeactivate?.is_active === false ? "default" : "destructive"} 
+              onClick={handleToggleUserStatus}
+            >
+              {userToDeactivate?.is_active === false ? 'Reactivate User' : 'Deactivate User'}
             </Button>
           </DialogFooter>
         </DialogContent>
