@@ -377,6 +377,14 @@ export default function TeamHub() {
     }
     return ''
   }
+  
+  // Get assignment user ID for a client/role (for select value)
+  const getAssignmentUserId = (clientId, role) => {
+    const assignment = teamAssignments.find(
+      a => a.client_id === clientId && a.role === role
+    )
+    return assignment?.user_id || ''
+  }
 
   // Update team assignment
   const updateAssignment = async (clientId, role, userId) => {
@@ -384,6 +392,24 @@ export default function TeamHub() {
       const existing = teamAssignments.find(
         a => a.client_id === clientId && a.role === role
       )
+
+      // If userId is empty/null, delete the assignment
+      if (!userId || userId === 'none') {
+        if (existing) {
+          await supabase
+            .from('client_team_assignments')
+            .delete()
+            .eq('id', existing.id)
+        }
+        // Refresh and show success
+        const { data } = await supabase
+          .from('client_team_assignments')
+          .select('*, user:user_id(id, full_name, avatar_url)')
+        setTeamAssignments(data || [])
+        toast({ title: 'Assignment removed', variant: 'success' })
+        setEditingCell(null)
+        return
+      }
 
       if (existing) {
         await supabase
@@ -396,13 +422,20 @@ export default function TeamHub() {
           .insert({ client_id: clientId, role, user_id: userId })
       }
 
+      // Find the team member name for the toast
+      const member = teamMembers.find(m => m.id === userId)
+
       // Refresh assignments with user info
       const { data } = await supabase
         .from('client_team_assignments')
         .select('*, user:user_id(id, full_name, avatar_url)')
       setTeamAssignments(data || [])
       
-      toast({ title: 'Updated', variant: 'success' })
+      toast({ 
+        title: '✅ Team member assigned', 
+        description: `${member?.full_name || 'Team member'} is now the ${role.replace(/_/g, ' ')}`,
+        variant: 'success' 
+      })
     } catch (error) {
       console.error('Assignment error:', error)
       toast({ title: 'Error updating', description: error.message, variant: 'destructive' })
@@ -1349,54 +1382,62 @@ export default function TeamHub() {
                             </td>
                             {TEAM_ROLES.map(role => {
                               const cellKey = `${client.id}-${role.key}`
-                              const value = getAssignment(client.id, role.key)
+                              const displayValue = getAssignment(client.id, role.key)
+                              const currentUserId = getAssignmentUserId(client.id, role.key)
                               const isEditing = editingCell === cellKey
 
                               return (
                                 <td key={role.key} className="py-2 px-2">
                                   {isEditing ? (
                                     <div className="flex items-center gap-1">
-                                      <Input
-                                        autoFocus
-                                        value={editValue}
-                                        onChange={(e) => setEditValue(e.target.value)}
-                                        className="h-8 text-sm"
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            updateAssignment(client.id, role.key, editValue)
-                                          } else if (e.key === 'Escape') {
-                                            setEditingCell(null)
-                                          }
+                                      <Select
+                                        defaultValue={currentUserId || 'none'}
+                                        onValueChange={(value) => {
+                                          updateAssignment(client.id, role.key, value)
                                         }}
-                                      />
-                                      <Button
-                                        size="icon-sm"
-                                        variant="ghost"
-                                        onClick={() => updateAssignment(client.id, role.key, editValue)}
                                       >
-                                        <Check className="h-3 w-3 text-green-500" />
-                                      </Button>
+                                        <SelectTrigger className="h-8 text-sm min-w-[140px]">
+                                          <SelectValue placeholder="Select..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">
+                                            <span className="text-muted-foreground italic">— None —</span>
+                                          </SelectItem>
+                                          {teamMembers.map(member => (
+                                            <SelectItem key={member.id} value={member.id}>
+                                              <div className="flex items-center gap-2">
+                                                <Avatar className="h-5 w-5">
+                                                  <AvatarImage src={member.avatar_url} />
+                                                  <AvatarFallback className="text-[10px]">
+                                                    {member.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                                  </AvatarFallback>
+                                                </Avatar>
+                                                <span>{member.full_name}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
                                       <Button
                                         size="icon-sm"
                                         variant="ghost"
                                         onClick={() => setEditingCell(null)}
                                       >
-                                        <X className="h-3 w-3 text-red-500" />
+                                        <X className="h-3 w-3 text-muted-foreground" />
                                       </Button>
                                     </div>
                                   ) : (
                                     <button
                                       onClick={() => {
                                         setEditingCell(cellKey)
-                                        setEditValue(value)
                                       }}
                                       className={cn(
                                         "w-full py-1 px-2 rounded text-sm text-center transition-colors",
                                         "hover:bg-brand-orange/10 cursor-pointer",
-                                        value ? "text-foreground" : "text-muted-foreground/50 italic"
+                                        displayValue ? "text-foreground" : "text-muted-foreground/50 italic"
                                       )}
                                     >
-                                      {value || '-'}
+                                      {displayValue || '-'}
                                     </button>
                                   )}
                                 </td>
