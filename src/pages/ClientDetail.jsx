@@ -705,28 +705,32 @@ export default function ClientDetail() {
       
       const selectedMember = allTeamMembers.find(m => m.id === selectedUserId)
       
-      // Upsert the assignment (update if exists, insert if not)
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please try again.')), 15000)
-      )
-
-      const upsertPromise = supabase
+      // Delete existing assignment for this role (if any), then insert new one
+      // This is more reliable than upsert which requires a unique constraint
+      await supabase
         .from('client_team_assignments')
-        .upsert({
+        .delete()
+        .eq('client_id', resolvedClientId)
+        .eq('role', selectedRole)
+      
+      // Insert the new assignment
+      const { error } = await supabase
+        .from('client_team_assignments')
+        .insert({
           client_id: resolvedClientId,
           role: selectedRole,
           user_id: selectedUserId,
-        }, { onConflict: 'client_id,role' })
-
-      const { error } = await Promise.race([upsertPromise, timeout])
+        })
       
       if (error) throw error
 
       // Refresh assignments only (avoid long full-page refresh)
-      const { data: assignmentsData } = await supabase
+      const { data: assignmentsData, error: fetchError } = await supabase
         .from('client_team_assignments')
         .select('*, user:user_id(id, full_name, avatar_url, email)')
         .eq('client_id', resolvedClientId)
+      
+      console.log('[ClientDetail] Refreshed assignments:', assignmentsData, 'error:', fetchError)
       setTeamAssignments(assignmentsData || [])
       
       toast({
