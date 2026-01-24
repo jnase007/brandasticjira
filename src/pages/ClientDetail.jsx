@@ -331,17 +331,20 @@ export default function ClientDetail() {
         const uniqueMembers = []
         const seenIds = new Set()
         for (const entry of normalizedTimeEntries) {
-          if (entry.profiles && !seenIds.has(entry.user_id)) {
+          // Check for 'user' property (from getTimeEntries join) or 'profiles'
+          const userProfile = entry.user || entry.profiles
+          if (userProfile && !seenIds.has(entry.user_id)) {
             seenIds.add(entry.user_id)
             uniqueMembers.push({
               id: entry.user_id,
-              ...entry.profiles,
+              ...userProfile,
               totalMinutes: normalizedTimeEntries
                 .filter(e => e.user_id === entry.user_id)
                 .reduce((sum, e) => sum + (e.minutes || 0), 0)
             })
           }
         }
+        console.log('[ClientDetail] Team members from time entries:', uniqueMembers.length)
         setTeamMembers(uniqueMembers.sort((a, b) => b.totalMinutes - a.totalMinutes))
       }
 
@@ -707,20 +710,29 @@ export default function ClientDetail() {
       
       // Delete existing assignment for this role (if any), then insert new one
       // This is more reliable than upsert which requires a unique constraint
-      await supabase
+      console.log('[ClientDetail] Deleting existing assignment for role:', selectedRole, 'client:', resolvedClientId)
+      const { error: deleteError } = await supabase
         .from('client_team_assignments')
         .delete()
         .eq('client_id', resolvedClientId)
         .eq('role', selectedRole)
       
+      if (deleteError) {
+        console.warn('[ClientDetail] Delete error (non-fatal):', deleteError)
+      }
+      
       // Insert the new assignment
-      const { error } = await supabase
+      console.log('[ClientDetail] Inserting new assignment:', { client_id: resolvedClientId, role: selectedRole, user_id: selectedUserId })
+      const { data: insertData, error } = await supabase
         .from('client_team_assignments')
         .insert({
           client_id: resolvedClientId,
           role: selectedRole,
           user_id: selectedUserId,
         })
+        .select()
+      
+      console.log('[ClientDetail] Insert result:', insertData, 'error:', error)
       
       if (error) throw error
 
