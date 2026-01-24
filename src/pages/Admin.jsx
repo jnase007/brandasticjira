@@ -194,6 +194,11 @@ export default function Admin() {
   const [editingRateUserId, setEditingRateUserId] = useState(null)
   const [rateValue, setRateValue] = useState('')
   const [savingRate, setSavingRate] = useState(false)
+  
+  // Title editing
+  const [editingTitleUserId, setEditingTitleUserId] = useState(null)
+  const [titleValue, setTitleValue] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
 
   // Overhead settings (shared across admin + team hub)
   const [monthlyOverhead, setMonthlyOverhead] = useState(() => {
@@ -527,6 +532,40 @@ export default function Admin() {
       })
     } finally {
       setSavingRate(false)
+    }
+  }
+  
+  // Save title
+  const handleSaveTitle = async (userId, newTitle) => {
+    setSavingTitle(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ title: newTitle.trim() || null })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      setUsers(prev =>
+        prev.map(u => u.id === userId ? { ...u, title: newTitle.trim() || null } : u)
+      )
+
+      toast({
+        title: '✅ Title updated',
+        description: newTitle.trim() ? `Set to "${newTitle.trim()}"` : 'Title cleared',
+        variant: 'success',
+      })
+      setEditingTitleUserId(null)
+      setTitleValue('')
+    } catch (error) {
+      console.error('Error updating title:', error)
+      toast({
+        title: 'Error updating title',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingTitle(false)
     }
   }
 
@@ -899,6 +938,7 @@ export default function Admin() {
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left py-3 px-4 text-sm font-medium">User</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium">Title</th>
                         <th className="text-left py-3 px-4 text-sm font-medium">Role</th>
                         <th className="text-left py-3 px-4 text-sm font-medium">Hourly Rate</th>
                         <th className="text-left py-3 px-4 text-sm font-medium">Status</th>
@@ -909,7 +949,7 @@ export default function Admin() {
                     <tbody>
                       {filteredUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
                             No users found
                           </td>
                         </tr>
@@ -935,6 +975,65 @@ export default function Admin() {
                                   <p className="text-sm text-muted-foreground">{user.email}</p>
                                 </div>
                               </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              {user.role === 'client' ? (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  {editingTitleUserId === user.id ? (
+                                    <>
+                                      <Input
+                                        value={titleValue}
+                                        onChange={(e) => setTitleValue(e.target.value)}
+                                        className="h-8 w-40"
+                                        placeholder="e.g. Director of Ops"
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            handleSaveTitle(user.id, titleValue)
+                                          } else if (e.key === 'Escape') {
+                                            setEditingTitleUserId(null)
+                                            setTitleValue('')
+                                          }
+                                        }}
+                                        autoFocus
+                                      />
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        onClick={() => handleSaveTitle(user.id, titleValue)}
+                                        disabled={savingTitle}
+                                      >
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                      </Button>
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingTitleUserId(null)
+                                          setTitleValue('')
+                                        }}
+                                      >
+                                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-sm">{user.title || '—'}</span>
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingTitleUserId(user.id)
+                                          setTitleValue(user.title || '')
+                                        }}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3 px-4">
                               <Badge
