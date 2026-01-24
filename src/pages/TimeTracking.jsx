@@ -644,21 +644,21 @@ export default function TimeTracking() {
               <div className="flex flex-wrap items-center gap-6 sm:gap-8">
                 <div className="text-center">
                   <p className="text-3xl font-bold">
-                    <AnimatedCounter value={Math.round(myStats.totalHours * 10) / 10} decimals={1} />h
+                    {(Math.round(myStats.totalHours * 10) / 10).toFixed(1)}h
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDuration(myTotalMinutes)}</p>
                   <p className="text-sm text-muted-foreground">Tracked</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold">
-                    <AnimatedCounter value={Math.round(myStats.billableHours * 10) / 10} decimals={1} />h
+                    {(Math.round(myStats.billableHours * 10) / 10).toFixed(1)}h
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDuration(myBillableMinutes)}</p>
                   <p className="text-sm text-muted-foreground">Billable</p>
                 </div>
                 <div className="text-center">
                   <div className={cn("text-3xl font-bold", getEfficiencyColor(myStats.efficiency))}>
-                    <AnimatedCounter value={myStats.efficiency} />%
+                    {Math.round(myStats.efficiency)}%
                   </div>
                   <p className="text-sm text-muted-foreground">Efficiency</p>
                 </div>
@@ -683,7 +683,7 @@ export default function TimeTracking() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Hours</p>
                   <p className="text-2xl font-bold mt-1">
-                    <AnimatedCounter value={Math.round(totalTrackedHours)} />h
+                    {Math.round(totalTrackedHours)}h
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDuration(totalTrackedMinutes)}</p>
                 </div>
@@ -700,7 +700,7 @@ export default function TimeTracking() {
                 <div>
                   <p className="text-sm text-muted-foreground">Billable Hours</p>
                   <p className="text-2xl font-bold mt-1">
-                    <AnimatedCounter value={Math.round(totalBillableHours)} />h
+                    {Math.round(totalBillableHours)}h
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDuration(totalBillableMinutes)}</p>
                 </div>
@@ -753,7 +753,7 @@ export default function TimeTracking() {
                 <div>
                   <p className="text-sm text-muted-foreground">Avg Efficiency</p>
                   <p className={cn("text-2xl font-bold mt-1", getEfficiencyColor(avgEfficiency))}>
-                    <AnimatedCounter value={Math.round(avgEfficiency)} />%
+                    {Math.round(avgEfficiency)}%
                   </p>
                 </div>
                 <Zap className="h-8 w-8 text-yellow-500/50" />

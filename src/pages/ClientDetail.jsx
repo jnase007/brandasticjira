@@ -1293,7 +1293,7 @@ export default function ClientDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">This Month</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={currentMonthHours} />h
+                    {Math.round(currentMonthHours)}h
                     <span className="text-sm font-normal text-muted-foreground"> / {monthlyBudget}h</span>
                   </p>
                 </div>
@@ -1314,7 +1314,7 @@ export default function ClientDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Revenue</p>
                   <p className="text-2xl font-bold text-green-600">
-                    $<AnimatedCounter value={totalRevenue} />
+                    ${Math.round(totalRevenue).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -1335,7 +1335,7 @@ export default function ClientDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Tickets</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={tickets.length} />
+                    {tickets.length}
                   </p>
                 </div>
               </div>
@@ -1373,7 +1373,7 @@ export default function ClientDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Team Members</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={teamMembers.length} />
+                    {teamMembers.length}
                   </p>
                 </div>
               </div>

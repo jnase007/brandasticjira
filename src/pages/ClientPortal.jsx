@@ -173,7 +173,7 @@ function StatCard({ icon: Icon, iconBg, iconColor, label, value, suffix, subtext
               <p className="text-sm text-muted-foreground mb-1">{label}</p>
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-bold tracking-tight">
-                  <AnimatedCounter value={value} />
+                  {Math.round(value)}
                 </span>
                 {suffix && <span className="text-muted-foreground text-lg">{suffix}</span>}
               </div>

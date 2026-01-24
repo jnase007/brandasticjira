@@ -580,7 +580,7 @@ export default function ClientManagement() {
                 <div>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={activeClients.length} />
+                    {activeClients.length}
                   </p>
                 </div>
               </div>
@@ -598,7 +598,7 @@ export default function ClientManagement() {
                 <div>
                   <p className="text-sm text-muted-foreground">Pending Requests</p>
                   <p className="text-2xl font-bold text-orange-500">
-                    <AnimatedCounter value={pendingRequests.length} />
+                    {pendingRequests.length}
                   </p>
                 </div>
               </div>
@@ -616,7 +616,7 @@ export default function ClientManagement() {
                 <div>
                   <p className="text-sm text-muted-foreground">Client Wins 🎉</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={projects.length} />
+                    {projects.length}
                   </p>
                 </div>
               </div>
@@ -634,7 +634,7 @@ export default function ClientManagement() {
                 <div>
                   <p className="text-sm text-muted-foreground">Client Users</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={clientUsers.length} />
+                    {clientUsers.length}
                   </p>
                 </div>
               </div>

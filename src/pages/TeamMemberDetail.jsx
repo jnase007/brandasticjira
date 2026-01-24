@@ -334,7 +334,7 @@ export default function TeamMemberDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">This Month</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={currentMonthHours} />h
+                    {Math.round(currentMonthHours)}h
                     <span className="text-sm font-normal text-muted-foreground"> / {targetHours}h</span>
                   </p>
                 </div>
@@ -355,7 +355,7 @@ export default function TeamMemberDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Revenue Generated</p>
                   <p className="text-2xl font-bold text-green-600">
-                    $<AnimatedCounter value={totalRevenue} />
+                    ${Math.round(totalRevenue).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -376,7 +376,7 @@ export default function TeamMemberDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Clients</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={clientsWorkedOn.length} />
+                    {clientsWorkedOn.length}
                   </p>
                 </div>
               </div>
@@ -411,7 +411,7 @@ export default function TeamMemberDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Assigned Tickets</p>
                   <p className="text-2xl font-bold">
-                    <AnimatedCounter value={tickets.length} />
+                    {tickets.length}
                   </p>
                 </div>
               </div>

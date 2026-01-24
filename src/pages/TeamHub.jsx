@@ -547,7 +547,7 @@ export default function TeamHub() {
                 <div>
                   <p className="text-sm text-muted-foreground">Active Clients</p>
                   <p className="text-3xl font-bold mt-1">
-                    <AnimatedCounter value={clients.length} />
+                    {clients.length}
                   </p>
                 </div>
                 <Building2 className="h-8 w-8 text-brand-orange/50" />
@@ -563,7 +563,7 @@ export default function TeamHub() {
                 <div>
                   <p className="text-sm text-muted-foreground">Team Members</p>
                   <p className="text-3xl font-bold mt-1">
-                    <AnimatedCounter value={teamMembers.length} />
+                    {teamMembers.length}
                   </p>
                 </div>
                 <Users className="h-8 w-8 text-brand-blue/50" />

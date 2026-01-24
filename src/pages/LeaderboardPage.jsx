@@ -79,7 +79,7 @@ export default function LeaderboardPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Total XP</p>
                     <p className="text-3xl font-bold">
-                      <AnimatedCounter value={stats.xp} />
+                      {stats.xp}
                     </p>
                   </div>
                   <div className="text-right">
@@ -113,21 +113,21 @@ export default function LeaderboardPage() {
                   <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mx-auto mb-2">
                     <Target className="h-6 w-6 text-green-500" />
                   </div>
-                  <p className="text-2xl font-bold"><AnimatedCounter value={stats.ticketsCompleted} /></p>
+                  <p className="text-2xl font-bold">{stats.ticketsCompleted}</p>
                   <p className="text-xs text-muted-foreground">Tickets Done</p>
                 </div>
                 <div className="text-center">
                   <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mx-auto mb-2">
                     <Flame className="h-6 w-6 text-orange-500" />
                   </div>
-                  <p className="text-2xl font-bold"><AnimatedCounter value={stats.currentStreak} /></p>
+                  <p className="text-2xl font-bold">{stats.currentStreak}</p>
                   <p className="text-xs text-muted-foreground">Day Streak</p>
                 </div>
                 <div className="text-center">
                   <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center mx-auto mb-2">
                     <Award className="h-6 w-6 text-yellow-500" />
                   </div>
-                  <p className="text-2xl font-bold"><AnimatedCounter value={stats.achievements?.length || 0} /></p>
+                  <p className="text-2xl font-bold">{stats.achievements?.length || 0}</p>
                   <p className="text-xs text-muted-foreground">Achievements</p>
                 </div>
               </div>

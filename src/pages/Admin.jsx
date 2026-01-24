@@ -715,7 +715,7 @@ export default function Admin() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Users</p>
                   <p className="text-4xl font-bold mt-2 group-hover:text-brand-purple transition-colors">
-                    <AnimatedCounter value={stats.totalUsers} />
+                    {stats.totalUsers}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {stats.activeUsers} team members
@@ -736,7 +736,7 @@ export default function Admin() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
                   <p className="text-4xl font-bold mt-2 group-hover:text-brand-orange transition-colors">
-                    <AnimatedCounter value={stats.totalClients} />
+                    {stats.totalClients}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Active accounts
@@ -757,7 +757,7 @@ export default function Admin() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Boards</p>
                   <p className="text-4xl font-bold mt-2 group-hover:text-brand-blue transition-colors">
-                    <AnimatedCounter value={stats.totalBoards} />
+                    {stats.totalBoards}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Active projects
@@ -778,7 +778,7 @@ export default function Admin() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Tickets</p>
                   <p className="text-4xl font-bold mt-2 group-hover:text-green-500 transition-colors">
-                    <AnimatedCounter value={stats.totalTickets} />
+                    {stats.totalTickets}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     All time
@@ -1396,25 +1396,25 @@ export default function Admin() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="text-center p-4 rounded-xl bg-muted/50">
                     <p className="text-3xl font-bold text-brand-orange">
-                      <AnimatedCounter value={stats.hoursThisMonth} />h
+                      {Math.round(stats.hoursThisMonth)}h
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">Total Monthly Hours</p>
                   </div>
                   <div className="text-center p-4 rounded-xl bg-muted/50">
                     <p className="text-3xl font-bold text-brand-blue">
-                      <AnimatedCounter value={stats.totalBoards} />
+                      {stats.totalBoards}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">Active Boards</p>
                   </div>
                   <div className="text-center p-4 rounded-xl bg-muted/50">
                     <p className="text-3xl font-bold text-brand-purple">
-                      <AnimatedCounter value={users.filter(u => u.role === 'admin').length} />
+                      {users.filter(u => u.role === 'admin').length}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">Admins</p>
                   </div>
                   <div className="text-center p-4 rounded-xl bg-muted/50">
                     <p className="text-3xl font-bold text-green-500">
-                      <AnimatedCounter value={clients.filter(c => c.is_active).length} />
+                      {clients.filter(c => c.is_active).length}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">Active Clients</p>
                   </div>
