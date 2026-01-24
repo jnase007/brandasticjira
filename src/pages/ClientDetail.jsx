@@ -224,15 +224,43 @@ export default function ClientDetail() {
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false)
   const [sharingLink, setSharingLink] = useState(false)
   
-  // Team roles
-  const TEAM_ROLES = [
-    { value: 'marketing_manager', label: 'Marketing Manager', color: 'bg-purple-500' },
-    { value: 'account_specialist', label: 'Account Specialist', color: 'bg-blue-500' },
-    { value: 'marketing_coordinator', label: 'Marketing Coordinator', color: 'bg-green-500' },
-    { value: 'paid_media', label: 'Paid Media', color: 'bg-orange-500' },
-    { value: 'seo', label: 'SEO', color: 'bg-teal-500' },
-    { value: 'design', label: 'Design', color: 'bg-pink-500' },
-  ]
+  // Default team roles with colors
+  const DEFAULT_ROLE_COLORS = {
+    marketing_manager: 'bg-purple-500',
+    account_specialist: 'bg-blue-500',
+    marketing_coordinator: 'bg-green-500',
+    paid_media: 'bg-orange-500',
+    seo: 'bg-teal-500',
+    design: 'bg-pink-500',
+  }
+  
+  // Get roles from localStorage (synced with TeamHub) or use defaults
+  const getTeamRoles = () => {
+    const saved = localStorage.getItem('team_roster_roles')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        return parsed.map(r => ({
+          value: r.key,
+          label: r.label,
+          color: DEFAULT_ROLE_COLORS[r.key] || 'bg-gray-500'
+        }))
+      } catch (e) {
+        console.error('Error parsing saved roles:', e)
+      }
+    }
+    // Default roles
+    return [
+      { value: 'marketing_manager', label: 'Marketing Manager', color: 'bg-purple-500' },
+      { value: 'account_specialist', label: 'Account Specialist', color: 'bg-blue-500' },
+      { value: 'marketing_coordinator', label: 'Marketing Coordinator', color: 'bg-green-500' },
+      { value: 'paid_media', label: 'Paid Media', color: 'bg-orange-500' },
+      { value: 'seo', label: 'SEO', color: 'bg-teal-500' },
+      { value: 'design', label: 'Design', color: 'bg-pink-500' },
+    ]
+  }
+  
+  const TEAM_ROLES = getTeamRoles()
 
   // Fetch all client data
   const fetchClientData = async (showRefresh = false) => {
@@ -2043,68 +2071,82 @@ export default function ClientDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {TEAM_ROLES.map((role) => {
-                      const assignment = teamAssignments.find(a => a.role === role.value)
-                      return (
-                        <div 
-                          key={role.value}
-                          className={cn(
-                            "p-4 rounded-xl border-2 transition-all",
-                            assignment ? "border-brand-purple/30 bg-brand-purple/5" : "border-dashed border-muted-foreground/30"
-                          )}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge className={cn("text-white", role.color)}>{role.label}</Badge>
-                            {assignment && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon-sm"
+                    {/* Show all roles from the list plus any additional from assignments */}
+                    {(() => {
+                      // Get all roles from TEAM_ROLES plus any additional from assignments
+                      const allRoleKeys = new Set(TEAM_ROLES.map(r => r.value))
+                      const additionalRoles = teamAssignments
+                        .filter(a => !allRoleKeys.has(a.role))
+                        .map(a => ({
+                          value: a.role,
+                          label: a.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                          color: 'bg-gray-500'
+                        }))
+                      const allRoles = [...TEAM_ROLES, ...additionalRoles]
+                      
+                      return allRoles.map((role) => {
+                        const assignment = teamAssignments.find(a => a.role === role.value)
+                        return (
+                          <div 
+                            key={role.value}
+                            className={cn(
+                              "p-4 rounded-xl border-2 transition-all",
+                              assignment ? "border-brand-purple/30 bg-brand-purple/5" : "border-dashed border-muted-foreground/30"
+                            )}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge className={cn("text-white", role.color)}>{role.label}</Badge>
+                              {assignment && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon-sm"
+                                  onClick={() => {
+                                    setSelectedRole(role.value)
+                                    setSelectedUserId(assignment.user_id || '')
+                                    setAssignTeamOpen(true)
+                                  }}
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                            {assignment?.user ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={assignment.user.avatar_url} />
+                                  <AvatarFallback>{assignment.user.full_name?.[0] || assignment.user_name?.[0] || '?'}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">{assignment.user.full_name || assignment.user_name}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
+                                </div>
+                              </div>
+                            ) : assignment?.user_name ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback>{assignment.user_name?.[0] || '?'}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">{assignment.user_name}</p>
+                                  <p className="text-xs text-muted-foreground truncate">Assigned</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <button 
                                 onClick={() => {
                                   setSelectedRole(role.value)
-                                  setSelectedUserId(assignment.user_id || '')
                                   setAssignTeamOpen(true)
                                 }}
+                                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
                               >
-                                <Edit2 className="h-3 w-3" />
-                              </Button>
+                                <Plus className="h-3 w-3" />
+                                Assign someone
+                              </button>
                             )}
                           </div>
-                          {assignment?.user ? (
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={assignment.user.avatar_url} />
-                                <AvatarFallback>{assignment.user.full_name?.[0] || assignment.user_name?.[0] || '?'}</AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="font-medium text-sm truncate">{assignment.user.full_name || assignment.user_name}</p>
-                                <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
-                              </div>
-                            </div>
-                          ) : assignment?.user_name ? (
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>{assignment.user_name?.[0] || '?'}</AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="font-medium text-sm truncate">{assignment.user_name}</p>
-                                <p className="text-xs text-muted-foreground truncate">Assigned</p>
-                              </div>
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={() => {
-                                setSelectedRole(role.value)
-                                setAssignTeamOpen(true)
-                              }}
-                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Assign someone
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    })()}
                   </div>
                 </CardContent>
               </Card>
