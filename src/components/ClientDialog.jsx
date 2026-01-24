@@ -347,8 +347,7 @@ export default function ClientDialog({
         slug: formData.slug.trim().toLowerCase(),
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
-        // Note: contact_phone field - save to notes for now since column doesn't exist
-        // To add proper phone field, run: ALTER TABLE clients ADD COLUMN contact_phone TEXT;
+        contact_phone: formData.contact_funder?.trim() || null,
         monthly_hours: parseInt(formData.monthly_hours) || 30,
         color: formData.color,
         account_services: formData.account_services 
@@ -357,11 +356,6 @@ export default function ClientDialog({
         is_active: formData.is_active,
         logo_url: formData.logo_url || null,
         banner_url: formData.banner_url || null,
-      }
-      
-      // Add phone to notes if provided (temporary until column is added)
-      if (formData.contact_funder?.trim()) {
-        dataToSave.notes = `Phone: ${formData.contact_funder.trim()}${formData.notes ? '\n' + formData.notes : ''}`
       }
 
       console.log('Saving client data:', dataToSave)
