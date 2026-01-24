@@ -418,27 +418,41 @@ export default function ClientDetail() {
         console.log('Notes table may not exist yet:', err)
       }
       
-      // Fetch team assignments for this client
-      try {
-        const { data: assignmentsData } = await supabase
-          .from('client_team_assignments')
-          .select('*, user:user_id(id, full_name, avatar_url, email)')
-          .eq('client_id', resolvedClientId)
-        setTeamAssignments(assignmentsData || [])
-      } catch (err) {
-        console.log('Team assignments table may not exist yet:', err)
-      }
-      
-      // Fetch all team members for assignment dropdown
+      // Fetch all team members first (needed for enriching assignments)
+      let allMembersData = []
       try {
         const { data: allMembers } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url, email, role')
           .in('role', ['team', 'admin'])
           .order('full_name')
-        setAllTeamMembers(allMembers || [])
+        allMembersData = allMembers || []
+        setAllTeamMembers(allMembersData)
       } catch (err) {
         console.log('Error fetching team members:', err)
+      }
+      
+      // Fetch team assignments for this client (without join to avoid schema issues)
+      try {
+        const { data: assignmentsData, error: assignError } = await supabase
+          .from('client_team_assignments')
+          .select('*')
+          .eq('client_id', resolvedClientId)
+        
+        if (assignError) {
+          console.error('Team assignments fetch error:', assignError)
+        }
+        
+        // Enrich with user data from allMembersData
+        const enrichedAssignments = (assignmentsData || []).map(a => ({
+          ...a,
+          user: allMembersData.find(m => m.id === a.user_id) || null
+        }))
+        
+        console.log('[ClientDetail] Fetched assignments for client:', resolvedClientId, enrichedAssignments)
+        setTeamAssignments(enrichedAssignments)
+      } catch (err) {
+        console.log('Team assignments table may not exist yet:', err)
       }
       
       // Fetch client wins for this client
@@ -872,13 +886,24 @@ export default function ClientDetail() {
       if (error) throw error
 
       // Refresh assignments only (avoid long full-page refresh)
+      // Use same approach as fetchClientData - no join, then enrich
       const { data: assignmentsData, error: fetchError } = await supabase
         .from('client_team_assignments')
-        .select('*, user:user_id(id, full_name, avatar_url, email)')
+        .select('*')
         .eq('client_id', resolvedClientId)
       
-      console.log('[ClientDetail] Refreshed assignments:', assignmentsData, 'error:', fetchError)
-      setTeamAssignments(assignmentsData || [])
+      if (fetchError) {
+        console.error('[ClientDetail] Fetch error:', fetchError)
+      }
+      
+      // Enrich with user data from allTeamMembers
+      const enrichedAssignments = (assignmentsData || []).map(a => ({
+        ...a,
+        user: allTeamMembers.find(m => m.id === a.user_id) || null
+      }))
+      
+      console.log('[ClientDetail] Refreshed assignments:', enrichedAssignments)
+      setTeamAssignments(enrichedAssignments)
       
       toast({
         title: '✅ Team member assigned',
