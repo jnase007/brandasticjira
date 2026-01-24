@@ -681,19 +681,19 @@ export default function Admin() {
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-10">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-xl bg-brand-purple/10">
                 <Shield className="h-6 w-6 text-brand-purple" />
               </div>
-              <h1 className="text-4xl font-display font-bold">Admin Dashboard</h1>
+              <h1 className="text-2xl sm:text-4xl font-display font-bold">Admin Dashboard</h1>
             </div>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-sm sm:text-lg text-muted-foreground">
               Manage users, clients, and system settings
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -718,6 +718,7 @@ export default function Admin() {
                 }
               }}
               disabled={seeding}
+              className="hidden sm:inline-flex"
             >
               {seeding ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -732,12 +733,13 @@ export default function Admin() {
               onClick={() => fetchData(true)}
               disabled={refreshing}
             >
-              <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-              Refresh
+              <RefreshCw className={cn("h-4 w-4 sm:mr-2", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
             <Button size="sm" onClick={() => setInviteDialogOpen(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Invite Team Member
+              <UserPlus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Invite Team Member</span>
+              <span className="sm:hidden">Invite</span>
             </Button>
           </div>
         </div>

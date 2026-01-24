@@ -544,36 +544,38 @@ export default function ClientManagement() {
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-xl bg-gradient-to-br from-brand-orange to-brand-coral">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
-              <h1 className="text-4xl font-display font-bold">Client Management</h1>
+              <h1 className="text-2xl sm:text-4xl font-display font-bold">Client Management</h1>
             </div>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-sm sm:text-lg text-muted-foreground">
               Manage client relationships, requests, and portfolios
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => fetchData(true)}
               disabled={refreshing}
+              className="flex-1 sm:flex-none"
             >
-              <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-              Refresh
+              <RefreshCw className={cn("h-4 w-4 sm:mr-2", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
             <Button 
               size="sm" 
-              className="bg-gradient-to-r from-brand-orange to-brand-coral"
+              className="bg-gradient-to-r from-brand-orange to-brand-coral flex-1 sm:flex-none"
               onClick={() => setClientDialogOpen(true)}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Client
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add Client</span>
+              <span className="sm:hidden">Add</span>
             </Button>
           </div>
         </div>

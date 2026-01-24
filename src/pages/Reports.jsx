@@ -1892,22 +1892,37 @@ export default function Reports() {
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue">
-                <BarChart3 className="h-6 w-6 text-white" />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-display font-bold">Reports</h1>
               </div>
-              <h1 className="text-4xl font-display font-bold">Reports</h1>
+              <p className="text-sm sm:text-lg text-muted-foreground">
+                Comprehensive insights into clients, team performance, and profitability
+              </p>
             </div>
-            <p className="text-lg text-muted-foreground">
-              Comprehensive insights into clients, team performance, and profitability
-            </p>
+            
+            {/* Refresh button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+              className="self-start"
+            >
+              <RefreshCw className={cn("h-4 w-4 sm:mr-2", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
           </div>
           
-          <div className="flex items-center gap-3">
+          {/* Controls Row - Date Selector & Export */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* Date Selector */}
-            <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1922,7 +1937,7 @@ export default function Reports() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="px-3 font-medium min-w-[140px] text-center">
+              <span className="px-2 font-medium min-w-[100px] sm:min-w-[140px] text-center text-sm">
                 {FULL_MONTHS[selectedMonth - 1]} {selectedYear}
               </span>
               <Button
@@ -1941,43 +1956,35 @@ export default function Reports() {
               </Button>
             </div>
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData(true)}
-              disabled={refreshing}
-            >
-              <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-              Refresh
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportExcel('entries')}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Excel
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportPDF('entries')}
-              className="gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportCSV('entries')}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              CSV
-            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportExcel('entries')}
+                className="gap-1"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Excel</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportPDF('entries')}
+                className="gap-1"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">PDF</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportCSV('entries')}
+                className="gap-1"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">CSV</span>
+              </Button>
+            </div>
           </div>
         </div>
       </motion.div>

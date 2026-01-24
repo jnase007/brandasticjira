@@ -645,19 +645,21 @@ export default function Dashboard({ onConfetti }) {
         >
           {/* Client Hours Card */}
           <Card className="overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-xl">Client Hours</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Monthly hour allocation by client</p>
-              </div>
-              <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search clients... (⌘K for full search)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 rounded-xl bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-brand-orange/20"
-                />
+            <CardHeader className="pb-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-xl">Client Hours</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Monthly hour allocation by client</p>
+                </div>
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search clients... (⌘K)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-10 rounded-xl bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-brand-orange/20"
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent>

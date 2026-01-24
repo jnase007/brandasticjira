@@ -658,27 +658,27 @@ export default function TeamHub() {
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-xl bg-brand-teal/10">
                 <Users className="h-6 w-6 text-brand-teal" />
               </div>
-              <h1 className="text-4xl font-display font-bold">Team Hub</h1>
+              <h1 className="text-2xl sm:text-4xl font-display font-bold">Team Hub</h1>
             </div>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-sm sm:text-lg text-muted-foreground">
               Client overview, team assignments & ad spend budgets
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => fetchData(true)}
               disabled={refreshing}
             >
-              <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-              Refresh
+              <RefreshCw className={cn("h-4 w-4 sm:mr-2", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
         </div>
