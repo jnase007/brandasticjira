@@ -412,23 +412,39 @@ export default function TeamHub() {
       }
 
       if (existing) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('client_team_assignments')
           .update({ user_id: userId })
           .eq('id', existing.id)
+        
+        if (updateError) {
+          console.error('Update error:', updateError)
+          throw updateError
+        }
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('client_team_assignments')
           .insert({ client_id: clientId, role, user_id: userId })
+        
+        if (insertError) {
+          console.error('Insert error:', insertError)
+          throw insertError
+        }
       }
 
       // Find the team member name for the toast
       const member = teamMembers.find(m => m.id === userId)
 
       // Refresh assignments with user info
-      const { data } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('client_team_assignments')
         .select('*, user:user_id(id, full_name, avatar_url)')
+      
+      if (fetchError) {
+        console.error('Fetch error:', fetchError)
+      }
+      
+      console.log('[TeamHub] Refreshed assignments:', data?.length, 'records')
       setTeamAssignments(data || [])
       
       toast({ 
@@ -1386,6 +1402,12 @@ export default function TeamHub() {
                               const currentUserId = getAssignmentUserId(client.id, role.key)
                               const isEditing = editingCell === cellKey
 
+                              {
+                              // Find the assigned user to show their avatar
+                              const assignedUser = teamAssignments.find(
+                                a => a.client_id === client.id && a.role === role.key
+                              )?.user
+                              
                               return (
                                 <td key={role.key} className="py-2 px-2">
                                   {isEditing ? (
@@ -1396,19 +1418,19 @@ export default function TeamHub() {
                                           updateAssignment(client.id, role.key, value)
                                         }}
                                       >
-                                        <SelectTrigger className="h-8 text-sm min-w-[140px]">
-                                          <SelectValue placeholder="Select..." />
+                                        <SelectTrigger className="h-9 text-sm min-w-[150px] bg-white border-2 border-brand-orange">
+                                          <SelectValue placeholder="Select person..." />
                                         </SelectTrigger>
                                         <SelectContent>
                                           <SelectItem value="none">
-                                            <span className="text-muted-foreground italic">— None —</span>
+                                            <span className="text-muted-foreground italic">— Remove —</span>
                                           </SelectItem>
                                           {teamMembers.map(member => (
                                             <SelectItem key={member.id} value={member.id}>
                                               <div className="flex items-center gap-2">
                                                 <Avatar className="h-5 w-5">
                                                   <AvatarImage src={member.avatar_url} />
-                                                  <AvatarFallback className="text-[10px]">
+                                                  <AvatarFallback className="text-[10px] bg-brand-orange/20">
                                                     {member.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
                                                   </AvatarFallback>
                                                 </Avatar>
@@ -1419,11 +1441,12 @@ export default function TeamHub() {
                                         </SelectContent>
                                       </Select>
                                       <Button
-                                        size="icon-sm"
+                                        size="icon"
                                         variant="ghost"
                                         onClick={() => setEditingCell(null)}
+                                        className="h-8 w-8"
                                       >
-                                        <X className="h-3 w-3 text-muted-foreground" />
+                                        <X className="h-4 w-4 text-muted-foreground" />
                                       </Button>
                                     </div>
                                   ) : (
@@ -1432,16 +1455,36 @@ export default function TeamHub() {
                                         setEditingCell(cellKey)
                                       }}
                                       className={cn(
-                                        "w-full py-1 px-2 rounded text-sm text-center transition-colors",
-                                        "hover:bg-brand-orange/10 cursor-pointer",
-                                        displayValue ? "text-foreground" : "text-muted-foreground/50 italic"
+                                        "w-full py-2 px-3 rounded-lg text-sm text-center transition-all",
+                                        "border-2 border-dashed",
+                                        displayValue 
+                                          ? "bg-brand-teal/10 border-brand-teal/30 hover:border-brand-teal/50 text-foreground font-medium" 
+                                          : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-muted-foreground"
                                       )}
                                     >
-                                      {displayValue || '-'}
+                                      {displayValue ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                          {assignedUser?.avatar_url && (
+                                            <Avatar className="h-5 w-5">
+                                              <AvatarImage src={assignedUser.avatar_url} />
+                                              <AvatarFallback className="text-[10px]">
+                                                {displayValue?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                          )}
+                                          <span>{displayValue}</span>
+                                        </div>
+                                      ) : (
+                                        <span className="flex items-center justify-center gap-1">
+                                          <Plus className="h-3 w-3" />
+                                          Assign
+                                        </span>
+                                      )}
                                     </button>
                                   )}
                                 </td>
                               )
+                            }
                             })}
                           </motion.tr>
                         ))
