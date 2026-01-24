@@ -171,15 +171,49 @@ export default function Dashboard({ onConfetti }) {
       // Fetch personal activity and time stats if available
       if (profile?.id) {
         try {
-          const { data: activityData, error: activityError } = await supabase
-            .from('activity_log')
-            .select('id, activity_type, entity_name, metadata, created_at')
+          // Get clients this user is assigned to manage
+          const { data: assignedClients } = await supabase
+            .from('client_team_assignments')
+            .select('client_id')
             .eq('user_id', profile.id)
-            .order('created_at', { ascending: false })
-            .limit(5)
-          if (!activityError) {
-            setRecentActivity(activityData || [])
+          
+          const assignedClientIds = (assignedClients || []).map(a => a.client_id)
+          
+          // Fetch activity: either by user OR from assigned clients
+          let activityData = []
+          if (assignedClientIds.length > 0) {
+            // Get both user's own activity and activity from assigned clients
+            const { data: userActivity } = await supabase
+              .from('activity_log')
+              .select('id, activity_type, entity_name, metadata, created_at, client_id, user_id')
+              .eq('user_id', profile.id)
+              .order('created_at', { ascending: false })
+              .limit(10)
+            
+            const { data: clientActivity } = await supabase
+              .from('activity_log')
+              .select('id, activity_type, entity_name, metadata, created_at, client_id, user_id')
+              .in('client_id', assignedClientIds)
+              .neq('user_id', profile.id) // Exclude own activity (already fetched)
+              .order('created_at', { ascending: false })
+              .limit(10)
+            
+            // Merge and sort by date, take top 10
+            activityData = [...(userActivity || []), ...(clientActivity || [])]
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, 10)
+          } else {
+            // No assigned clients, just fetch user's own activity
+            const { data } = await supabase
+              .from('activity_log')
+              .select('id, activity_type, entity_name, metadata, created_at')
+              .eq('user_id', profile.id)
+              .order('created_at', { ascending: false })
+              .limit(5)
+            activityData = data || []
           }
+          
+          setRecentActivity(activityData)
         } catch {
           setRecentActivity([])
         }
