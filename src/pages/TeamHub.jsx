@@ -95,7 +95,7 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
-const TEAM_ROLES = [
+const DEFAULT_TEAM_ROLES = [
   { key: 'marketing_manager', label: 'Marketing Manager' },
   { key: 'account_specialist', label: 'Account Specialist' },
   { key: 'marketing_coordinator', label: 'Marketing Coordinator' },
@@ -165,6 +165,18 @@ export default function TeamHub() {
   const [shoutoutCategory, setShoutoutCategory] = useState('appreciation')
   const [sendingShoutout, setSendingShoutout] = useState(false)
   
+  // Custom team roles - stored in localStorage
+  const [teamRoles, setTeamRoles] = useState(() => {
+    const saved = localStorage.getItem('team_roster_roles')
+    return saved ? JSON.parse(saved) : DEFAULT_TEAM_ROLES
+  })
+  const [manageRolesOpen, setManageRolesOpen] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
+  
+  // Renewal date editing
+  const [editingRenewalDate, setEditingRenewalDate] = useState(null)
+  const [renewalDateValue, setRenewalDateValue] = useState('')
+  
   // Overhead settings - stored in localStorage for now, could be in DB
   const [monthlyOverhead, setMonthlyOverhead] = useState(() => {
     const saved = localStorage.getItem('company_monthly_overhead')
@@ -191,6 +203,57 @@ export default function TeamHub() {
       description: `$${overhead.toLocaleString()}/month ÷ ${hours}hrs = $${(overhead/hours).toFixed(2)}/hr overhead`,
       variant: 'success',
     })
+  }
+  
+  // Add a new role
+  const addRole = () => {
+    if (!newRoleName.trim()) return
+    const key = newRoleName.trim().toLowerCase().replace(/\s+/g, '_')
+    if (teamRoles.find(r => r.key === key)) {
+      toast({ title: 'Role already exists', variant: 'destructive' })
+      return
+    }
+    const newRoles = [...teamRoles, { key, label: newRoleName.trim() }]
+    setTeamRoles(newRoles)
+    localStorage.setItem('team_roster_roles', JSON.stringify(newRoles))
+    setNewRoleName('')
+    toast({ title: '✅ Role added', description: `"${newRoleName.trim()}" added to roster`, variant: 'success' })
+  }
+  
+  // Remove a role
+  const removeRole = (roleKey) => {
+    const newRoles = teamRoles.filter(r => r.key !== roleKey)
+    setTeamRoles(newRoles)
+    localStorage.setItem('team_roster_roles', JSON.stringify(newRoles))
+    toast({ title: 'Role removed', variant: 'success' })
+  }
+  
+  // Update client renewal date
+  const updateRenewalDate = async (clientId, newDate) => {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ renewal_date: newDate || null })
+        .eq('id', clientId)
+      
+      if (error) throw error
+      
+      // Update local state
+      setClients(prev => prev.map(c => 
+        c.id === clientId ? { ...c, renewal_date: newDate || null } : c
+      ))
+      
+      toast({ 
+        title: '✅ Renewal date updated', 
+        description: newDate ? `Set to ${formatDate(newDate)}` : 'Date cleared',
+        variant: 'success' 
+      })
+    } catch (error) {
+      console.error('Error updating renewal date:', error)
+      toast({ title: 'Error updating date', description: error.message, variant: 'destructive' })
+    }
+    setEditingRenewalDate(null)
+    setRenewalDateValue('')
   }
   
   // Send a shoutout
@@ -1380,17 +1443,28 @@ export default function TeamHub() {
                         <th className="text-center py-3 px-4 font-medium min-w-[80px]">
                           Monthly Hours
                         </th>
-                        {TEAM_ROLES.map(role => (
+                        {teamRoles.map(role => (
                           <th key={role.key} className="text-center py-3 px-4 font-medium min-w-[130px]">
                             {role.label}
                           </th>
                         ))}
+                        <th className="text-center py-3 px-4 font-medium min-w-[100px]">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setManageRolesOpen(true)}
+                            className="text-white hover:bg-white/20"
+                          >
+                            <Edit2 className="h-3 w-3 mr-1" />
+                            Roles
+                          </Button>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredClients.length === 0 ? (
                         <tr>
-                          <td colSpan={4 + TEAM_ROLES.length} className="text-center py-12 text-muted-foreground">
+                          <td colSpan={5 + teamRoles.length} className="text-center py-12 text-muted-foreground">
                             No clients found
                           </td>
                         </tr>
@@ -1418,13 +1492,67 @@ export default function TeamHub() {
                             <td className="py-3 px-4 text-sm text-muted-foreground">
                               {client.account_services?.join(', ') || '-'}
                             </td>
-                            <td className="py-3 px-4 text-center text-sm">
-                              {client.renewal_date ? formatDate(client.renewal_date) : '-'}
+                            <td className="py-2 px-2">
+                              {editingRenewalDate === client.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="date"
+                                    value={renewalDateValue}
+                                    onChange={(e) => setRenewalDateValue(e.target.value)}
+                                    className="h-8 text-sm w-[130px]"
+                                  />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={() => updateRenewalDate(client.id, renewalDateValue)}
+                                  >
+                                    <Check className="h-3 w-3 text-green-500" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={() => {
+                                      setEditingRenewalDate(null)
+                                      setRenewalDateValue('')
+                                    }}
+                                  >
+                                    <X className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingRenewalDate(client.id)
+                                    setRenewalDateValue(client.renewal_date || '')
+                                  }}
+                                  className={cn(
+                                    "w-full py-2 px-2 rounded-lg text-sm text-center transition-all",
+                                    "border-2 border-dashed",
+                                    client.renewal_date 
+                                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 hover:border-blue-400 text-foreground" 
+                                      : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 text-muted-foreground"
+                                  )}
+                                >
+                                  {client.renewal_date ? (
+                                    <span className="flex items-center justify-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      {formatDate(client.renewal_date)}
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center justify-center gap-1">
+                                      <Plus className="h-3 w-3" />
+                                      Add
+                                    </span>
+                                  )}
+                                </button>
+                              )}
                             </td>
                             <td className="py-3 px-4 text-center font-medium">
                               {client.monthly_hours || '-'}
                             </td>
-                            {TEAM_ROLES.map(role => {
+                            {teamRoles.map(role => {
                               const cellKey = `${client.id}-${role.key}`
                               const displayValue = getAssignment(client.id, role.key)
                               const currentUserId = getAssignmentUserId(client.id, role.key)
@@ -1514,6 +1642,8 @@ export default function TeamHub() {
                               )
                             }
                             })}
+                            {/* Empty cell for Manage Roles column */}
+                            <td className="py-2 px-2"></td>
                           </motion.tr>
                         ))
                       )}
@@ -1933,6 +2063,79 @@ export default function TeamHub() {
               }}
             >
               Add Budget
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Manage Roles Dialog */}
+      <Dialog open={manageRolesOpen} onOpenChange={setManageRolesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="h-5 w-5 text-brand-orange" />
+              Manage Role Columns
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Add new role */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="New role name (e.g., 'Content Writer')"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addRole()}
+              />
+              <Button onClick={addRole} disabled={!newRoleName.trim()}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Existing roles */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Current Roles</Label>
+              {teamRoles.map(role => (
+                <div 
+                  key={role.key} 
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                >
+                  <span className="font-medium">{role.label}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeRole(role.key)}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              {teamRoles.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No roles defined. Add some above!
+                </p>
+              )}
+            </div>
+            
+            {/* Reset to default */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                setTeamRoles(DEFAULT_TEAM_ROLES)
+                localStorage.setItem('team_roster_roles', JSON.stringify(DEFAULT_TEAM_ROLES))
+                toast({ title: 'Roles reset to default', variant: 'success' })
+              }}
+            >
+              Reset to Default Roles
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setManageRolesOpen(false)}>
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>
