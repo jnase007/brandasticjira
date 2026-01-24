@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -8,7 +8,7 @@ import {
   Play, Ticket, Loader2, ChevronRight, Target, Zap,
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
-  Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star
+  Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -92,6 +92,8 @@ export default function ClientDetail() {
   const [teamMembers, setTeamMembers] = useState([])
   const [monthlyStats, setMonthlyStats] = useState([])
   const [refreshing, setRefreshing] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const bannerInputRef = useRef(null)
   const resolvedClientId = client?.id || (isUuid(clientId) ? clientId : null)
   const logoSrc = client?.logo_url
     ? `${client.logo_url}${client.logo_url.includes('?') ? '&' : '?'}v=${client.updated_at || client.id}`
@@ -685,6 +687,73 @@ export default function ClientDetail() {
     }
   }
   
+  // Handle banner upload
+  const handleBannerUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !resolvedClientId) return
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please select an image file', variant: 'destructive' })
+      return
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image must be less than 5MB', variant: 'destructive' })
+      return
+    }
+    
+    setUploadingBanner(true)
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${resolvedClientId}-banner-${Date.now()}.${fileExt}`
+      const filePath = `client-banners/${fileName}`
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+      
+      if (uploadError) throw uploadError
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath)
+      
+      // Update client with new banner URL
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ banner_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', resolvedClientId)
+      
+      if (updateError) throw updateError
+      
+      // Update local state
+      setClient(prev => ({ ...prev, banner_url: publicUrl, updated_at: new Date().toISOString() }))
+      
+      toast({
+        title: '✅ Banner updated!',
+        description: 'Your new banner has been saved.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Banner upload error:', error)
+      toast({ title: 'Error uploading banner', description: error.message, variant: 'destructive' })
+    } finally {
+      setUploadingBanner(false)
+      // Reset input
+      if (bannerInputRef.current) {
+        bannerInputRef.current.value = ''
+      }
+    }
+  }
+  
   // Handle assigning a team member to a role
   const handleAssignTeamMember = async () => {
     if (!selectedRole || !selectedUserId) {
@@ -1106,13 +1175,39 @@ export default function ClientDetail() {
         <Card className="overflow-hidden">
           {/* Banner */}
           <div 
-            className="h-28 md:h-32 relative overflow-hidden"
+            className="h-28 md:h-32 relative overflow-hidden group"
             style={bannerSrc
               ? { backgroundImage: `url(${bannerSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' }
               : { background: `linear-gradient(135deg, ${client.color || '#F7931E'}dd, ${client.color || '#F7931E'}88, ${client.color || '#F7931E'}44)` }
             }
           >
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+            
+            {/* Banner Upload Button - appears on hover */}
+            <input
+              type="file"
+              ref={bannerInputRef}
+              onChange={handleBannerUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            <button
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={uploadingBanner}
+              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 backdrop-blur-sm"
+            >
+              {uploadingBanner ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <ImagePlus className="h-4 w-4" />
+                  {bannerSrc ? 'Change Banner' : 'Add Banner'}
+                </>
+              )}
+            </button>
           </div>
           
           {/* Profile Info - Properly spaced below banner */}
