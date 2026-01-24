@@ -10,7 +10,7 @@ import {
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star
 } from 'lucide-react'
-import { supabase, logActivity, getTimeEntries } from '../lib/supabase'
+import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, isUuid } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -235,6 +235,16 @@ export default function ClientDetail() {
     else setLoading(true)
 
     try {
+      // Validate session before fetching
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[ClientDetail] Session invalid')
+        setLoadError('Session expired. Please refresh the page.')
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      
       // Fetch client
       let clientQuery = supabase
         .from('clients')
@@ -685,11 +695,19 @@ export default function ClientDetail() {
     
     setSavingAssignment(true)
     try {
+      // Validate session first
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        toast({ title: 'Session expired', description: 'Please refresh the page and try again.', variant: 'destructive' })
+        setSavingAssignment(false)
+        return
+      }
+      
       const selectedMember = allTeamMembers.find(m => m.id === selectedUserId)
       
       // Upsert the assignment (update if exists, insert if not)
       const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please try again.')), 10000)
+        setTimeout(() => reject(new Error('Request timed out. Please try again.')), 15000)
       )
 
       const upsertPromise = supabase
