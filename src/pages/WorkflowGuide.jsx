@@ -17,6 +17,12 @@ import {
   Edit,
   Trash2,
   BarChart3,
+  AtSign,
+  Bell,
+  Calendar,
+  DollarSign,
+  Settings,
+  UserPlus,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -301,7 +307,161 @@ export default function WorkflowGuide() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AtSign className="h-5 w-5 text-blue-500" />
+                @Mentions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <p>
+                Type <strong>@</strong> in any comment or message to mention a team member. They'll receive a notification instantly!
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Bell className="h-5 w-5 text-orange-500" />
+                Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <p>
+                Click the bell icon to see mentions, assignments, and kudos. Real-time updates keep you in the loop!
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-5 w-5 text-teal-500" />
+                Renewal Dates
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <p>
+                Track client contract renewals in <strong>Team Hub → Client Roster</strong>. Click any renewal date cell to add or edit.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Settings className="h-5 w-5 text-gray-500" />
+                Custom Roles
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <p>
+                Add or remove role columns in the Client Roster. Click <strong>Roles</strong> button to customize (e.g., add "Content Writer").
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                Profitability Tracking
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <p>
+                See fully loaded costs per employee in <strong>Team Hub → Profitability</strong>. Set labor costs and overhead to calculate margins.
+              </p>
+            </CardContent>
+          </Card>
+
         </div>
+      </motion.div>
+
+      {/* @Mentions Guide */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AtSign className="h-5 w-5 text-blue-500" />
+              Using @Mentions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>Tag team members in comments and messages to notify them directly.</p>
+            <ol className="list-decimal pl-5 space-y-2">
+              <li>In any comment or message box, type <strong>@</strong></li>
+              <li>A dropdown appears with team members</li>
+              <li>Start typing a name to filter the list</li>
+              <li>Click a name or press <strong>Enter/Tab</strong> to insert</li>
+              <li>Send your message - they'll get a notification!</li>
+            </ol>
+            <div className="bg-muted/50 p-3 rounded-lg mt-4">
+              <p className="font-medium text-foreground">💡 Where you can use @mentions:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Task/ticket comments</li>
+                <li>Client page Messages tab</li>
+                <li>Message replies</li>
+                <li>Client Portal comments (for clients)</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Team Hub Details */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-brand-purple" />
+              Team Hub (Complete Guide)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>The Team Hub is your central place for managing team assignments, ad spend, and profitability.</p>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">📋 Client Roster Tab</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Assign team members</strong> to roles (Marketing Manager, Account Specialist, etc.)</li>
+                <li><strong>Renewal dates</strong> - Click to add/edit contract renewal dates</li>
+                <li><strong>Custom roles</strong> - Click "Roles" button to add/remove columns</li>
+                <li>Assignments sync automatically to the client's Team tab</li>
+              </ul>
+            </div>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">📊 Ad Spend Tab</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Track monthly ad budgets by platform (Facebook, Google, etc.)</li>
+                <li>Compare budget vs. actuals</li>
+                <li>Filter by year</li>
+              </ul>
+            </div>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">💰 Profitability Tab</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Set <strong>labor costs</strong> for each team member</li>
+                <li>Configure <strong>monthly overhead</strong> and target billable hours</li>
+                <li>See fully loaded costs (labor + overhead per hour)</li>
+                <li>Compare against $175/hr billing rate</li>
+              </ul>
+            </div>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">🎉 Shoutouts Tab</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Send appreciation to teammates</li>
+                <li>Categories: Appreciation, Teamwork, Above & Beyond, Creativity</li>
+                <li>Recent shoutouts display in a feed</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Edit/Delete Time Entries */}
