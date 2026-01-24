@@ -134,6 +134,8 @@ export default function TimeTracking() {
   })
   const [savingEntry, setSavingEntry] = useState(false)
   const [deletingEntry, setDeletingEntry] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [entryToDelete, setEntryToDelete] = useState(null)
   
   // Time entry form
   const [timeEntry, setTimeEntry] = useState({
@@ -404,24 +406,30 @@ export default function TimeTracking() {
     }
   }
 
-  // Delete a time entry
-  const handleDeleteEntry = async (entryId) => {
-    if (!confirm('Are you sure you want to delete this time entry? This cannot be undone.')) {
-      return
-    }
+  // Open delete confirmation dialog
+  const confirmDeleteEntry = (entryId) => {
+    setEntryToDelete(entryId)
+    setDeleteConfirmOpen(true)
+  }
+  
+  // Delete a time entry (after confirmation)
+  const handleDeleteEntry = async () => {
+    if (!entryToDelete) return
     
     setDeletingEntry(true)
     try {
       const { error } = await supabase
         .from('time_entries')
         .delete()
-        .eq('id', entryId)
+        .eq('id', entryToDelete)
       
       if (error) throw error
       
       toast({ title: '🗑️ Time entry deleted', variant: 'success' })
+      setDeleteConfirmOpen(false)
       setEditTimeDialogOpen(false)
       setEditingEntry(null)
+      setEntryToDelete(null)
       fetchData(true)
     } catch (error) {
       console.error('Error deleting time entry:', error)
@@ -1462,10 +1470,10 @@ export default function TimeTracking() {
           <DialogFooter className="flex justify-between">
             <Button 
               variant="destructive" 
-              onClick={() => editingEntry && handleDeleteEntry(editingEntry.id)}
+              onClick={() => editingEntry && confirmDeleteEntry(editingEntry.id)}
               disabled={deletingEntry}
             >
-              {deletingEntry ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
             <div className="flex gap-2">
@@ -1477,6 +1485,44 @@ export default function TimeTracking() {
                 Save Changes
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Time Entry?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-4">
+            Are you sure you want to delete this time entry? This action cannot be undone.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setDeleteConfirmOpen(false)
+                setEntryToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteEntry}
+              disabled={deletingEntry}
+            >
+              {deletingEntry ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

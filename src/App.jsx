@@ -398,6 +398,11 @@ function App() {
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
 
+  // Scroll to top on page navigation
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [location.pathname])
+
   // Auto-recover from stale chunk caches after deploys
   useEffect(() => {
     const alreadyRetried = () => sessionStorage.getItem('chunk_reload_attempted') === 'true'

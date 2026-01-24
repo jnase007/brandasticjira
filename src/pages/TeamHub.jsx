@@ -856,8 +856,8 @@ export default function TeamHub() {
                             >
                               {/* Header with Avatar */}
                               <div className="flex items-center gap-3 mb-3">
-                                <Avatar className="h-14 w-14 border-2 border-background shadow">
-                                  <AvatarImage src={member.avatar_url} />
+                                <Avatar className="h-14 w-14 border-2 border-background shadow" title={member.full_name}>
+                                  <AvatarImage src={member.avatar_url} alt={member.full_name} />
                                   <AvatarFallback className="bg-brand-orange text-white text-lg">
                                     {member.full_name?.[0] || '?'}
                                   </AvatarFallback>
@@ -1528,12 +1528,13 @@ export default function TeamHub() {
                                     setRenewalDateValue(client.renewal_date || '')
                                   }}
                                   className={cn(
-                                    "w-full py-2 px-2 rounded-lg text-sm text-center transition-all",
-                                    "border-2 border-dashed",
+                                    "w-full py-2 px-2 rounded-lg text-sm text-center transition-all cursor-pointer",
+                                    "border-2 border-dashed hover:shadow-sm",
                                     client.renewal_date 
                                       ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 hover:border-blue-400 text-foreground" 
-                                      : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 text-muted-foreground"
+                                      : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-muted-foreground"
                                   )}
+                                  title={client.renewal_date ? `Edit renewal date: ${formatDate(client.renewal_date)}` : "Click to add renewal date"}
                                 >
                                   {client.renewal_date ? (
                                     <span className="flex items-center justify-center gap-1">
@@ -1611,12 +1612,13 @@ export default function TeamHub() {
                                         setEditingCell(cellKey)
                                       }}
                                       className={cn(
-                                        "w-full py-2 px-3 rounded-lg text-sm text-center transition-all",
-                                        "border-2 border-dashed",
+                                        "w-full py-2 px-3 rounded-lg text-sm text-center transition-all cursor-pointer",
+                                        "border-2 border-dashed hover:shadow-sm",
                                         displayValue 
                                           ? "bg-brand-teal/10 border-brand-teal/30 hover:border-brand-teal/50 text-foreground font-medium" 
                                           : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-muted-foreground"
                                       )}
+                                      title={displayValue ? `Click to change ${role.label}: ${displayValue}` : `Click to assign ${role.label}`}
                                     >
                                       {displayValue ? (
                                         <div className="flex items-center justify-center gap-2">

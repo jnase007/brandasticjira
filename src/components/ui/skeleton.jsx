@@ -85,4 +85,56 @@ function SkeletonTable({ rows = 5, className }) {
   )
 }
 
-export { Skeleton, SkeletonCard, SkeletonBoard, SkeletonStats, SkeletonTable }
+function SkeletonAvatar({ size = 'default', className }) {
+  const sizeClasses = {
+    sm: 'h-6 w-6',
+    default: 'h-10 w-10',
+    lg: 'h-14 w-14',
+  }
+  return (
+    <Skeleton className={cn("rounded-full", sizeClasses[size], className)} />
+  )
+}
+
+function SkeletonList({ items = 3, className }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      {Array.from({ length: items }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+          <SkeletonAvatar />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SkeletonText({ lines = 3, className }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      {Array.from({ length: lines }).map((_, i) => (
+        <Skeleton 
+          key={i} 
+          className={cn(
+            "h-4",
+            i === lines - 1 ? "w-2/3" : "w-full"
+          )} 
+        />
+      ))}
+    </div>
+  )
+}
+
+export { 
+  Skeleton, 
+  SkeletonCard, 
+  SkeletonBoard, 
+  SkeletonStats, 
+  SkeletonTable,
+  SkeletonAvatar,
+  SkeletonList,
+  SkeletonText,
+}

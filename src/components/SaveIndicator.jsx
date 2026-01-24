@@ -80,4 +80,51 @@ export function SaveDot({ isSaving, hasUnsavedChanges, isEnabled = true }) {
   )
 }
 
+/**
+ * Success checkmark animation (for inline success feedback)
+ * Use after form submissions or updates
+ */
+export function SuccessCheck({ show, onComplete, size = 'default' }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+          onAnimationComplete={() => {
+            if (onComplete) {
+              setTimeout(onComplete, 800)
+            }
+          }}
+          className={cn(
+            "inline-flex items-center justify-center rounded-full bg-green-500 text-white",
+            size === 'sm' ? "h-5 w-5" : size === 'lg' ? "h-8 w-8" : "h-6 w-6"
+          )}
+        >
+          <motion.svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            className={cn(
+              size === 'sm' ? "h-3 w-3" : size === 'lg' ? "h-5 w-5" : "h-4 w-4"
+            )}
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <motion.path
+              d="M5 12l5 5L20 7"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            />
+          </motion.svg>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 export default SaveIndicator

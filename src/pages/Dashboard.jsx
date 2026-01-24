@@ -93,6 +93,7 @@ export default function Dashboard({ onConfetti }) {
   const [runningTimer, setRunningTimer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [fetchError, setFetchError] = useState(null)
@@ -262,6 +263,7 @@ export default function Dashboard({ onConfetti }) {
     } finally {
       setLoading(false)
       setRefreshing(false)
+      setLastUpdated(new Date())
     }
   }
 
@@ -472,12 +474,18 @@ export default function Dashboard({ onConfetti }) {
                 Company Overview
               </Button>
             </div>
+            {lastUpdated && (
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             <Button
               variant="outline"
               size="sm"
               onClick={() => fetchData(true)}
               disabled={refreshing}
               className="gap-2"
+              title={lastUpdated ? `Last updated: ${lastUpdated.toLocaleString()}` : 'Refresh data'}
             >
               <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
               Refresh
@@ -645,7 +653,7 @@ export default function Dashboard({ onConfetti }) {
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search clients..."
+                  placeholder="Search clients... (⌘K for full search)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-10 rounded-xl bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-brand-orange/20"
