@@ -6,18 +6,8 @@
 [functions]
   directory = "netlify/functions"
 
-# 301 redirects for legacy URLs
-[[redirects]]
-  from = "/clients/:id"
-  to = "/.netlify/functions/redirect-client?id=:id"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/tickets/:id"
-  to = "/.netlify/functions/redirect-ticket?id=:id"
-  status = 301
-  force = true
+# SPA routing - let React handle all routes
+# (Removed legacy redirect functions that were causing redirect loops)
 
 # Redirect all routes to index.html for SPA routing
 [[redirects]]
