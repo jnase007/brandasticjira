@@ -1398,7 +1398,7 @@ export default function ClientDetail() {
                     )}
 
                     {/* Contact Info */}
-                    {(client.contact_email || client.contact_name) && (
+                    {(client.contact_email || client.contact_name || client.contact_phone) && (
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         {client.contact_name && (
                           <span className="flex items-center gap-1.5">
@@ -1410,6 +1410,12 @@ export default function ClientDetail() {
                           <a href={`mailto:${client.contact_email}`} className="flex items-center gap-1.5 hover:text-brand-orange transition-colors">
                             <Mail className="h-4 w-4" />
                             {client.contact_email}
+                          </a>
+                        )}
+                        {client.contact_phone && (
+                          <a href={`tel:${client.contact_phone}`} className="flex items-center gap-1.5 hover:text-brand-orange transition-colors">
+                            <Phone className="h-4 w-4" />
+                            {client.contact_phone}
                           </a>
                         )}
                       </div>

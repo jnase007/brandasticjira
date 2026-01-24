@@ -88,7 +88,7 @@ export default function ClientDialog({
     slug: '',
     contact_name: '',
     contact_email: '',
-    contact_funder: '',
+    contact_phone: '',
     monthly_hours: 30,
     color: '#F7931E',
     account_services: '',
@@ -118,7 +118,7 @@ export default function ClientDialog({
           slug: client.slug || '',
           contact_name: client.contact_name || '',
           contact_email: client.contact_email || '',
-          contact_funder: client.contact_funder || '',
+          contact_phone: client.contact_phone || '',
           monthly_hours: client.monthly_hours || 30,
           color: client.color || '#F7931E',
           account_services: Array.isArray(client.account_services) 
@@ -135,7 +135,7 @@ export default function ClientDialog({
           slug: '',
           contact_name: '',
           contact_email: '',
-          contact_funder: '',
+          contact_phone: '',
           monthly_hours: 30,
           color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
           account_services: '',
@@ -347,7 +347,7 @@ export default function ClientDialog({
         slug: formData.slug.trim().toLowerCase(),
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
-        contact_phone: formData.contact_funder?.trim() || null,
+        contact_phone: formData.contact_phone?.trim() || null,
         monthly_hours: parseInt(formData.monthly_hours) || 30,
         color: formData.color,
         account_services: formData.account_services 
@@ -527,7 +527,7 @@ export default function ClientDialog({
                         slug: '',
                         contact_name: '',
                         contact_email: '',
-                        contact_funder: '',
+                        contact_phone: '',
                         monthly_hours: 30,
                         color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
                         account_services: '',
@@ -735,8 +735,8 @@ export default function ClientDialog({
                           <Input
                             placeholder="e.g., (555) 123-4567"
                             type="tel"
-                            value={formData.contact_funder}
-                            onChange={(e) => setFormData(prev => ({ ...prev, contact_funder: e.target.value }))}
+                            value={formData.contact_phone}
+                            onChange={(e) => setFormData(prev => ({ ...prev, contact_phone: e.target.value }))}
                             className="mt-1.5 h-11"
                           />
                           <p className="text-xs text-muted-foreground mt-1">
