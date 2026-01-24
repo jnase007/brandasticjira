@@ -615,6 +615,19 @@ html.dark {
   padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* Mobile bottom navigation - ensure it's truly fixed at bottom */
+@media (max-width: 1023px) {
+  /* Prevent iOS Safari elastic scrolling from moving the nav */
+  html, body {
+    overscroll-behavior-y: none;
+  }
+  
+  /* Main content should have bottom padding for nav */
+  main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
 /* Floating timer mobile adjustments */
 @media (max-width: 640px) {
   .floating-timer {

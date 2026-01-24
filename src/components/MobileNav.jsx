@@ -50,7 +50,7 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
   return (
     <>
       {/* Bottom Tab Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-bottom lg:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-center justify-around h-16 px-2">
           {quickItems.map((item) => {
             const Icon = item.icon

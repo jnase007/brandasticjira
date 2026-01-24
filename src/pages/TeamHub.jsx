@@ -756,15 +756,17 @@ export default function TeamHub() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="team" className="space-y-6">
-        <div className="flex items-center justify-between">
-          <TabsList className="bg-muted/50">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <TabsList className="bg-muted/50 flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="team" className="gap-2">
               <User className="h-4 w-4" />
-              Team Members
+              <span className="hidden sm:inline">Team Members</span>
+              <span className="sm:hidden">Team</span>
             </TabsTrigger>
             <TabsTrigger value="shoutouts" className="gap-2">
               <Heart className="h-4 w-4 text-pink-500" />
-              Shoutouts
+              <span className="hidden sm:inline">Shoutouts</span>
+              <span className="sm:hidden">🎉</span>
               {myShoutouts.length > 0 && (
                 <Badge className="ml-1 h-5 px-1.5 bg-pink-500 text-white text-xs">
                   {myShoutouts.length}
@@ -774,21 +776,24 @@ export default function TeamHub() {
             {isActualAdmin && (
               <TabsTrigger value="rates" className="gap-2">
                 <PiggyBank className="h-4 w-4" />
-                Rates & Profitability
+                <span className="hidden sm:inline">Rates & Profitability</span>
+                <span className="sm:hidden">Rates</span>
               </TabsTrigger>
             )}
             <TabsTrigger value="roster" className="gap-2">
               <Building2 className="h-4 w-4" />
-              Client Roster
+              <span className="hidden sm:inline">Client Roster</span>
+              <span className="sm:hidden">Roster</span>
             </TabsTrigger>
             <TabsTrigger value="adspend" className="gap-2">
               <DollarSign className="h-4 w-4" />
-              Ad Spend Budgets
+              <span className="hidden sm:inline">Ad Spend Budgets</span>
+              <span className="sm:hidden">Ad Spend</span>
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex items-center gap-3">
-            <div className="relative w-64">
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search clients..."
