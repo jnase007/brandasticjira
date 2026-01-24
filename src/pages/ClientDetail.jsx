@@ -770,7 +770,17 @@ export default function ClientDetail() {
   // Handle banner upload
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0]
-    if (!file || !resolvedClientId) return
+    if (!file) {
+      console.log('[ClientDetail BannerUpload] No file selected')
+      return
+    }
+    if (!resolvedClientId) {
+      console.error('[ClientDetail BannerUpload] No client ID')
+      toast({ title: 'Error: No client ID', variant: 'destructive' })
+      return
+    }
+    
+    console.log('[ClientDetail BannerUpload] Starting upload:', file.name, file.type, file.size)
     
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -778,9 +788,9 @@ export default function ClientDetail() {
       return
     }
     
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Image must be less than 5MB', variant: 'destructive' })
+    // Validate file size (max 50MB to match dialog)
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'Image must be less than 50MB', variant: 'destructive' })
       return
     }
     
@@ -791,20 +801,29 @@ export default function ClientDetail() {
       const fileName = `${resolvedClientId}-banner-${Date.now()}.${fileExt}`
       const filePath = `client-banners/${fileName}`
       
+      console.log('[ClientDetail BannerUpload] Uploading to path:', filePath)
+      
       // Upload to storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
         })
       
-      if (uploadError) throw uploadError
+      console.log('[ClientDetail BannerUpload] Upload result:', { uploadData, uploadError })
+      
+      if (uploadError) {
+        console.error('[ClientDetail BannerUpload] Storage error:', uploadError)
+        throw uploadError
+      }
       
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(filePath)
+      
+      console.log('[ClientDetail BannerUpload] Public URL:', publicUrl)
       
       // Update client with new banner URL
       const { error: updateError } = await supabase
@@ -812,7 +831,10 @@ export default function ClientDetail() {
         .update({ banner_url: publicUrl, updated_at: new Date().toISOString() })
         .eq('id', resolvedClientId)
       
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('[ClientDetail BannerUpload] DB update error:', updateError)
+        throw updateError
+      }
       
       // Update local state
       setClient(prev => ({ ...prev, banner_url: publicUrl, updated_at: new Date().toISOString() }))
@@ -823,8 +845,12 @@ export default function ClientDetail() {
         variant: 'success',
       })
     } catch (error) {
-      console.error('Banner upload error:', error)
-      toast({ title: 'Error uploading banner', description: error.message, variant: 'destructive' })
+      console.error('[ClientDetail BannerUpload] Error:', error)
+      toast({ 
+        title: 'Error uploading banner', 
+        description: error.message || 'Check storage permissions', 
+        variant: 'destructive' 
+      })
     } finally {
       setUploadingBanner(false)
       // Reset input

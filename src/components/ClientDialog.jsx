@@ -203,7 +203,12 @@ export default function ClientDialog({
 
   // Logo upload with drag & drop
   const handleLogoUpload = async (file) => {
-    if (!file) return
+    if (!file) {
+      console.log('[LogoUpload] No file provided')
+      return
+    }
+
+    console.log('[LogoUpload] Starting upload:', file.name, file.type, file.size)
 
     if (!file.type.startsWith('image/')) {
       toast({ title: 'Please upload an image file', variant: 'destructive' })
@@ -221,20 +226,37 @@ export default function ClientDialog({
       const fileExt = file.name.split('.').pop()
       const fileName = `client-logos/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
-      const { error } = await supabase.storage
-        .from('images')
-        .upload(fileName, file, { upsert: true })
+      console.log('[LogoUpload] Uploading to:', fileName)
 
-      if (error) throw error
+      const { data, error } = await supabase.storage
+        .from('images')
+        .upload(fileName, file, { 
+          cacheControl: '3600',
+          upsert: true 
+        })
+
+      console.log('[LogoUpload] Upload result:', { data, error })
+
+      if (error) {
+        console.error('[LogoUpload] Upload error:', error)
+        throw error
+      }
 
       const { data: urlData } = supabase.storage
         .from('images')
         .getPublicUrl(fileName)
 
+      console.log('[LogoUpload] Public URL:', urlData.publicUrl)
+
       setFormData(prev => ({ ...prev, logo_url: urlData.publicUrl }))
       toast({ title: 'Logo uploaded!', variant: 'success' })
     } catch (error) {
-      toast({ title: 'Upload failed', variant: 'destructive' })
+      console.error('[LogoUpload] Error:', error)
+      toast({ 
+        title: 'Upload failed', 
+        description: error.message || 'Please check storage permissions',
+        variant: 'destructive' 
+      })
     } finally {
       setUploadingLogo(false)
     }
@@ -248,7 +270,12 @@ export default function ClientDialog({
 
   // Banner upload with drag & drop
   const handleBannerUpload = async (file) => {
-    if (!file) return
+    if (!file) {
+      console.log('[BannerUpload] No file provided')
+      return
+    }
+
+    console.log('[BannerUpload] Starting upload:', file.name, file.type, file.size)
 
     if (!file.type.startsWith('image/')) {
       toast({ title: 'Please upload an image file', variant: 'destructive' })
@@ -266,20 +293,37 @@ export default function ClientDialog({
       const fileExt = file.name.split('.').pop()
       const fileName = `client-banners/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
-      const { error } = await supabase.storage
-        .from('images')
-        .upload(fileName, file, { upsert: true })
+      console.log('[BannerUpload] Uploading to:', fileName)
 
-      if (error) throw error
+      const { data, error } = await supabase.storage
+        .from('images')
+        .upload(fileName, file, { 
+          cacheControl: '3600',
+          upsert: true 
+        })
+
+      console.log('[BannerUpload] Upload result:', { data, error })
+
+      if (error) {
+        console.error('[BannerUpload] Upload error:', error)
+        throw error
+      }
 
       const { data: urlData } = supabase.storage
         .from('images')
         .getPublicUrl(fileName)
 
+      console.log('[BannerUpload] Public URL:', urlData.publicUrl)
+
       setFormData(prev => ({ ...prev, banner_url: urlData.publicUrl }))
       toast({ title: 'Banner uploaded!', variant: 'success' })
     } catch (error) {
-      toast({ title: 'Upload failed', variant: 'destructive' })
+      console.error('[BannerUpload] Error:', error)
+      toast({ 
+        title: 'Upload failed', 
+        description: error.message || 'Please check storage permissions',
+        variant: 'destructive' 
+      })
     } finally {
       setUploadingBanner(false)
     }
