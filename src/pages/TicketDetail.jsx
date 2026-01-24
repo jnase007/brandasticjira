@@ -50,6 +50,7 @@ import {
   isUuid,
 } from '../lib/utils'
 import TimeTracker from '../components/TimeTracker'
+import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -98,6 +99,7 @@ export default function TicketDetail() {
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [newComment, setNewComment] = useState('')
+  const [mentionedUserIds, setMentionedUserIds] = useState([])
   const [sendingComment, setSendingComment] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
@@ -290,7 +292,23 @@ export default function TicketDetail() {
       if (error) throw error
 
       setComments((prev) => [...prev, { ...data, user: profile }])
+      
+      // Send mention notifications
+      if (mentionedUserIds.length > 0) {
+        await sendMentionNotifications({
+          mentionedUserIds,
+          fromUserId: user.id,
+          fromUserName: profile?.full_name || 'Someone',
+          entityType: 'ticket',
+          entityId: activeTicketId,
+          entityName: ticket?.ticket_id || ticket?.title,
+          messagePreview: newComment,
+          clientId: ticket?.client_id || ticket?.client?.id,
+        })
+      }
+      
       setNewComment('')
+      setMentionedUserIds([])
       logActivity({
         activity_type: 'comment_added',
         user_id: user?.id,
@@ -729,7 +747,7 @@ export default function TicketDetail() {
                               {formatRelativeDate(comment.created_at)}
                             </span>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
+                          <MentionText text={comment.content} className="text-sm whitespace-pre-wrap" />
                         </div>
                       </div>
                     ))
@@ -744,19 +762,35 @@ export default function TicketDetail() {
                       {getInitials(profile?.full_name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 flex gap-2">
-                    <Input
-                      placeholder="Add a comment..."
+                  <div className="flex-1 flex flex-col gap-2">
+                    <MentionInput
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                      onChange={setNewComment}
+                      onMentionsChange={setMentionedUserIds}
+                      placeholder="Add a comment... Type @ to mention someone"
+                      multiline={false}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          handleAddComment()
+                        }
+                      }}
                     />
-                    <Button
-                      onClick={handleAddComment}
-                      disabled={!newComment.trim() || sendingComment}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim() || sendingComment}
+                        size="sm"
+                      >
+                        {sendingComment ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-1" />
+                            Send
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </TabsContent>

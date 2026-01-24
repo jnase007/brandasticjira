@@ -39,6 +39,7 @@ import {
 } from '../components/ui/dialog'
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
+import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplates'
 import ClientDialog from '../components/ClientDialog'
 
@@ -81,7 +82,7 @@ const itemVariants = {
 export default function ClientDetail() {
   const { clientId } = useParams()
   const navigate = useNavigate()
-  const { user, isTeam, startClientPreview, loading: authLoading } = useAuth()
+  const { user, profile, isTeam, startClientPreview, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -110,8 +111,10 @@ export default function ClientDetail() {
     content: '',
     note_type: 'note',
   })
+  const [noteMentionedUserIds, setNoteMentionedUserIds] = useState([])
   const [savingNote, setSavingNote] = useState(false)
   const [replyDrafts, setReplyDrafts] = useState({})
+  const [replyMentions, setReplyMentions] = useState({})
   
   // Pipeline stage editing
   const [editingStage, setEditingStage] = useState(false)
@@ -528,13 +531,30 @@ export default function ClientDetail() {
       
       if (error) throw error
       
+      // Send mention notifications
+      if (noteMentionedUserIds.length > 0) {
+        await sendMentionNotifications({
+          mentionedUserIds: noteMentionedUserIds,
+          fromUserId: user.id,
+          fromUserName: profile?.full_name || 'Someone',
+          entityType: 'client_note',
+          entityId: data.id,
+          entityName: client?.name,
+          messagePreview: newNote.content,
+          clientId: resolvedClientId,
+        })
+      }
+      
       setNotes(prev => [data, ...prev])
       setNewNote({ title: '', content: '', note_type: 'note' })
+      setNoteMentionedUserIds([])
       setAddNoteOpen(false)
       
       toast({
-        title: '✅ Note added',
-        description: 'Your note has been saved.',
+        title: '✅ Message sent',
+        description: noteMentionedUserIds.length > 0 
+          ? `Notified ${noteMentionedUserIds.length} team member(s)`
+          : 'Your message has been saved.',
         variant: 'success',
       })
     } catch (error) {
@@ -616,7 +636,7 @@ export default function ClientDetail() {
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('client_notes')
         .insert({
           client_id: resolvedClientId,
@@ -625,10 +645,28 @@ export default function ClientDetail() {
           note_type: 'note',
           parent_id: parentId,
         })
+        .select()
+        .single()
 
       if (error) throw error
 
+      // Send mention notifications for reply
+      const mentions = replyMentions[parentId] || []
+      if (mentions.length > 0) {
+        await sendMentionNotifications({
+          mentionedUserIds: mentions,
+          fromUserId: user.id,
+          fromUserName: profile?.full_name || 'Someone',
+          entityType: 'client_note_reply',
+          entityId: data?.id,
+          entityName: client?.name,
+          messagePreview: replyText,
+          clientId: resolvedClientId,
+        })
+      }
+
       setReplyDrafts((prev) => ({ ...prev, [parentId]: '' }))
+      setReplyMentions((prev) => ({ ...prev, [parentId]: [] }))
       fetchClientData(true)
     } catch (error) {
       toast({
@@ -1632,7 +1670,7 @@ export default function ClientDetail() {
                               {note.title && (
                                 <p className="text-sm font-medium mt-1">{note.title}</p>
                               )}
-                              <p className="text-sm whitespace-pre-wrap mt-2">{note.content}</p>
+                              <MentionText text={note.content} className="text-sm whitespace-pre-wrap mt-2 block" />
 
                               {replies.length > 0 && (
                                 <div className="mt-4 space-y-3 border-l pl-4">
@@ -1653,9 +1691,10 @@ export default function ClientDetail() {
                                             {formatDate(reply.created_at, 'MMM d, h:mm a')}
                                           </span>
                                         </div>
-                                        <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1">
-                                          {reply.content}
-                                        </p>
+                                        <MentionText 
+                                          text={reply.content} 
+                                          className="text-xs text-muted-foreground whitespace-pre-wrap mt-1 block" 
+                                        />
                                       </div>
                                     </div>
                                   ))}
@@ -1663,16 +1702,22 @@ export default function ClientDetail() {
                               )}
 
                               <div className="mt-4 space-y-2">
-                                <Textarea
-                                  placeholder="Reply to this message..."
+                                <MentionInput
+                                  placeholder="Reply to this message... Type @ to mention"
                                   value={replyDrafts[note.id] || ''}
-                                  onChange={(e) =>
+                                  onChange={(value) =>
                                     setReplyDrafts((prev) => ({
                                       ...prev,
-                                      [note.id]: e.target.value,
+                                      [note.id]: value,
                                     }))
                                   }
-                                  className="min-h-[60px]"
+                                  onMentionsChange={(mentions) =>
+                                    setReplyMentions((prev) => ({
+                                      ...prev,
+                                      [note.id]: mentions,
+                                    }))
+                                  }
+                                  rows={2}
                                 />
                                 <div className="flex justify-end">
                                   <Button
@@ -2204,12 +2249,16 @@ export default function ClientDetail() {
             
             <div className="space-y-2">
               <Label>Message *</Label>
-              <Textarea
-                placeholder="Write your message here..."
+              <MentionInput
+                placeholder="Write your message here... Type @ to mention someone"
                 value={newNote.content}
-                onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))}
+                onChange={(value) => setNewNote(prev => ({ ...prev, content: value }))}
+                onMentionsChange={setNoteMentionedUserIds}
                 rows={6}
               />
+              <p className="text-xs text-muted-foreground">
+                💡 Type @ to mention a team member and notify them
+              </p>
             </div>
           </div>
           

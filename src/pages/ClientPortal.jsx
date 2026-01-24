@@ -54,6 +54,7 @@ import {
   Wand2,
 } from 'lucide-react'
 import { supabase, getClient, getBoards, getTickets, getClientHoursSummary, getComments, createComment } from '../lib/supabase'
+import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDuration, calculateProgress, getProgressColor, getStatusInfo, formatDate, formatRelativeDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -474,10 +475,11 @@ function NewRequestDialog({ open, onOpenChange, clientId, userId, onSuccess }) {
 }
 
 // Ticket Detail Dialog with Comments
-function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId }) {
+function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clientName }) {
   const { toast } = useToast()
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
+  const [mentionedUserIds, setMentionedUserIds] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [sendingComment, setSendingComment] = useState(false)
 
@@ -514,12 +516,29 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId }) {
 
       if (error) throw error
 
+      // Send mention notifications
+      if (mentionedUserIds.length > 0) {
+        await sendMentionNotifications({
+          mentionedUserIds,
+          fromUserId: userId,
+          fromUserName: clientName || 'A client',
+          entityType: 'ticket',
+          entityId: ticket.id,
+          entityName: ticket.title,
+          messagePreview: newComment,
+          clientId,
+        })
+      }
+
       toast({
         title: '💬 Comment posted!',
-        description: 'The team will be notified.',
+        description: mentionedUserIds.length > 0 
+          ? `Notified ${mentionedUserIds.length} team member(s)`
+          : 'The team will be notified.',
       })
 
       setNewComment('')
+      setMentionedUserIds([])
       fetchComments()
     } catch (error) {
       console.error('Error posting comment:', error)
@@ -632,7 +651,7 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId }) {
                           {formatRelativeDate(new Date(comment.created_at))}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">{comment.content}</p>
+                      <MentionText text={comment.content} className="text-sm text-muted-foreground" />
                     </div>
                   </motion.div>
                 ))
@@ -643,22 +662,21 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId }) {
 
         {/* Comment Input */}
         <div className="pt-4 border-t">
-          <div className="flex gap-2">
-            <Textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="min-h-[80px] resize-none"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  handleSendComment()
-                }
-              }}
-            />
-          </div>
+          <MentionInput
+            value={newComment}
+            onChange={setNewComment}
+            onMentionsChange={setMentionedUserIds}
+            placeholder="Add a comment... Type @ to mention someone"
+            rows={3}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                handleSendComment()
+              }
+            }}
+          />
           <div className="flex items-center justify-between mt-3">
             <p className="text-xs text-muted-foreground">
-              Press ⌘+Enter to send
+              Press ⌘+Enter to send • Type @ to mention
             </p>
             <Button 
               onClick={handleSendComment}
@@ -1585,6 +1603,7 @@ export default function ClientPortal() {
           onOpenChange={setTicketDetailOpen}
           userId={user?.id}
           clientId={profile?.client_id}
+          clientName={client?.name || profile?.full_name}
         />
     </motion.div>
     </div>
