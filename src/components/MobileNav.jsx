@@ -50,7 +50,15 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
   return (
     <>
       {/* Bottom Tab Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <nav 
+        className="fixed left-0 right-0 z-50 bg-background border-t lg:hidden"
+        style={{ 
+          bottom: 0,
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          WebkitTransform: 'translateZ(0)', // Force GPU acceleration for iOS
+          transform: 'translateZ(0)',
+        }}
+      >
         <div className="flex items-center justify-around h-16 px-2">
           {quickItems.map((item) => {
             const Icon = item.icon
@@ -104,7 +112,7 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
             )
           })}
         </div>
-      </div>
+      </nav>
 
       {/* More Menu Drawer */}
       <AnimatePresence>
