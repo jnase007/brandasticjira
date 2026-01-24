@@ -445,14 +445,14 @@ export function AuthProvider({ children }) {
 
       // If we have a session, proactively refresh the token to prevent staleness
       if (data?.session) {
-        // Check if token is expiring soon (within 10 minutes for more safety margin)
+        // Check if token is expiring soon (within 30 minutes for maximum safety)
         const expiresAt = data.session.expires_at
         const now = Math.floor(Date.now() / 1000)
         const expiresIn = expiresAt - now
         
         console.log(`[Auth] Token expires in ${Math.round(expiresIn / 60)} minutes`)
         
-        if (expiresIn < 600) { // Less than 10 minutes until expiry
+        if (expiresIn < 1800) { // Less than 30 minutes until expiry - refresh early
           console.log(`[Auth] Token expiring in ${expiresIn}s, refreshing proactively...`)
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
           
@@ -511,12 +511,22 @@ export function AuthProvider({ children }) {
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Periodic background refresh every 3 minutes to prevent token expiry
-    // Supabase tokens expire in 1 hour, so refreshing every 3 minutes ensures we catch it
+    // Periodic background refresh every 5 minutes to prevent token expiry
+    // This keeps the session alive even during long periods of inactivity
     const backgroundRefreshInterval = setInterval(() => {
       console.log('[Auth] Periodic background session check...')
       refreshSessionAndProfile('periodic')
-    }, 3 * 60 * 1000) // Every 3 minutes
+    }, 5 * 60 * 1000) // Every 5 minutes
+    
+    // Also refresh immediately on page load if we have a session
+    // This helps recover from browser sleep/hibernate states
+    if (typeof window !== 'undefined') {
+      const storedSession = localStorage.getItem('brandastic-auth')
+      if (storedSession) {
+        console.log('[Auth] Found stored session, refreshing on load...')
+        refreshSessionAndProfile('pageload')
+      }
+    }
 
     return () => {
       window.removeEventListener('focus', handleFocus)

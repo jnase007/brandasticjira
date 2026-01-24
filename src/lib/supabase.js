@@ -12,10 +12,18 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    storage: localStorage, // Explicitly use localStorage for persistence
+    storageKey: 'brandastic-auth', // Custom storage key
+    flowType: 'pkce', // More secure flow
   },
   realtime: {
     params: {
       eventsPerSecond: 10,
+    },
+  },
+  global: {
+    headers: {
+      'x-client-info': 'brandastic-pm',
     },
   },
 })
