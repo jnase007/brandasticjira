@@ -267,15 +267,21 @@ export default function TeamHub() {
       
       const [clientsRes, assignmentsRes, adSpendRes, teamRes] = await Promise.all([
         supabase.from('clients').select('*').neq('is_active', false).order('name'),
-        supabase.from('client_team_assignments').select('*, user:user_id(id, full_name, avatar_url)'),
+        supabase.from('client_team_assignments').select('*'),
         supabase.from('ad_spend').select('*').order('month'),
         supabase.from('profiles').select('*').in('role', ['team', 'admin']).order('full_name'),
       ])
 
       setClients(clientsRes.data || [])
-      setTeamAssignments(assignmentsRes.data || [])
       setAdSpend(adSpendRes.data || [])
       setTeamMembers(teamRes.data || [])
+      
+      // Enrich assignments with user data
+      const enrichedAssignments = (assignmentsRes.data || []).map(a => ({
+        ...a,
+        user: (teamRes.data || []).find(m => m.id === a.user_id) || null
+      }))
+      setTeamAssignments(enrichedAssignments)
       
       // Try to fetch profitability view (may not exist yet)
       try {
@@ -402,11 +408,16 @@ export default function TeamHub() {
           console.error('Delete error:', deleteError)
         }
         
-        // Refresh and show success
-        const { data } = await supabase
+        // Refresh - fetch without join, then enrich
+        const { data: assignmentsData } = await supabase
           .from('client_team_assignments')
-          .select('*, user:user_id(id, full_name, avatar_url)')
-        setTeamAssignments(data || [])
+          .select('*')
+        
+        const enrichedData = (assignmentsData || []).map(a => ({
+          ...a,
+          user: teamMembers.find(m => m.id === a.user_id) || null
+        }))
+        setTeamAssignments(enrichedData)
         toast({ title: 'Assignment removed', variant: 'success' })
         setEditingCell(null)
         return
@@ -427,38 +438,42 @@ export default function TeamHub() {
         console.warn('[TeamHub] Delete warning (non-fatal):', deleteError)
       }
       
-      // Then insert the new assignment
-      const { data: insertData, error: insertError } = await supabase
+      // Then insert the new assignment (without join to avoid schema cache issue)
+      const { error: insertError } = await supabase
         .from('client_team_assignments')
         .insert({ 
           client_id: clientId, 
           role: role, 
           user_id: userId 
         })
-        .select('*, user:user_id(id, full_name, avatar_url)')
-        .single()
       
       if (insertError) {
         console.error('[TeamHub] Insert error:', insertError)
         throw insertError
       }
       
-      console.log('[TeamHub] Inserted assignment:', insertData)
+      console.log('[TeamHub] Inserted assignment successfully')
 
       // Find the team member name for the toast
       const member = teamMembers.find(m => m.id === userId)
 
-      // Refresh all assignments with user info
-      const { data, error: fetchError } = await supabase
+      // Refresh all assignments - fetch without join first, then enrich with user data
+      const { data: assignmentsData, error: fetchError } = await supabase
         .from('client_team_assignments')
-        .select('*, user:user_id(id, full_name, avatar_url)')
+        .select('*')
       
       if (fetchError) {
         console.error('[TeamHub] Fetch error:', fetchError)
       }
       
-      console.log('[TeamHub] Refreshed assignments:', data?.length, 'records')
-      setTeamAssignments(data || [])
+      // Enrich with user data from teamMembers state
+      const enrichedData = (assignmentsData || []).map(a => ({
+        ...a,
+        user: teamMembers.find(m => m.id === a.user_id) || null
+      }))
+      
+      console.log('[TeamHub] Refreshed assignments:', enrichedData?.length, 'records')
+      setTeamAssignments(enrichedData)
       
       toast({ 
         title: '✅ Team member assigned', 
