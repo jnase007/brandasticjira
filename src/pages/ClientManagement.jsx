@@ -228,29 +228,30 @@ export default function ClientManagement() {
       
       setClients(clientsRes.data || [])
 
-      // Try to fetch other data, but don't fail if tables don't exist
+      // Fetch additional data for client cards
       try {
-        const optionalDataPromise = Promise.all([
+        const additionalDataPromise = Promise.all([
+          // Tickets (for task/request count)
           supabase
-            .from('client_requests')
-            .select('*, client:clients(name, color), creator:profiles!client_requests_created_by_fkey(full_name)')
-            .order('created_at', { ascending: false })
-            .limit(50),
-          supabase
-            .from('client_projects')
-            .select('*, client:clients(name, color)')
+            .from('tickets')
+            .select('id, client_id, status')
             .order('created_at', { ascending: false }),
+          // Boards (for project count)
           supabase
-            .from('profiles')
-            .select('*, client:clients(name)')
-            .eq('role', 'client'),
+            .from('boards')
+            .select('id, client_id')
+            .order('created_at', { ascending: false }),
+          // Team assignments (for team member count per client)
+          supabase
+            .from('client_team_assignments')
+            .select('id, client_id, user_id'),
         ])
 
-        const [requestsRes, projectsRes, usersRes] = await Promise.race([optionalDataPromise, timeout])
+        const [ticketsRes, boardsRes, teamAssignmentsRes] = await Promise.race([additionalDataPromise, timeout])
 
-        setRequests(requestsRes.data || [])
-        setProjects(projectsRes.data || [])
-        setClientUsers(usersRes.data || [])
+        setRequests(ticketsRes.data || []) // Use tickets as "Requests"
+        setProjects(boardsRes.data || []) // Use boards as "Projects"
+        setClientUsers(teamAssignmentsRes.data || []) // Use team assignments as "Users"
       } catch (err) {
         console.log('Optional tables not ready:', err)
       }
@@ -793,8 +794,11 @@ export default function ClientManagement() {
               <>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredClients.map((client) => {
-                  const clientUserCount = clientUsers.filter(u => u.client_id === client.id).length
-                  const clientRequestCount = requests.filter(r => r.client_id === client.id).length
+                  // Count unique team members assigned to this client
+                  const clientTeamCount = clientUsers.filter(u => u.client_id === client.id).length
+                  // Count tickets/tasks for this client
+                  const clientTicketCount = requests.filter(r => r.client_id === client.id).length
+                  // Count boards/projects for this client
                   const clientProjectCount = projects.filter(p => p.client_id === client.id).length
                   const monthlyRevenue = (client.monthly_hours || 0) * 175
                   
@@ -880,16 +884,16 @@ export default function ClientManagement() {
 
                       <div className="grid grid-cols-3 gap-2 text-center text-sm">
                         <div className="p-1.5 rounded-lg bg-muted/50">
-                          <p className="font-semibold">{clientUserCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Users</p>
+                          <p className="font-semibold">{clientTeamCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Team</p>
                         </div>
                         <div className="p-1.5 rounded-lg bg-muted/50">
-                          <p className="font-semibold">{clientRequestCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Requests</p>
+                          <p className="font-semibold">{clientTicketCount}</p>
+                          <p className="text-[10px] text-muted-foreground">Tasks</p>
                         </div>
                         <div className="p-1.5 rounded-lg bg-muted/50">
                           <p className="font-semibold">{clientProjectCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Projects</p>
+                          <p className="text-[10px] text-muted-foreground">Boards</p>
                         </div>
                       </div>
                       
