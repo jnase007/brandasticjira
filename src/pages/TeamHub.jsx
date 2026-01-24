@@ -389,18 +389,19 @@ export default function TeamHub() {
   // Update team assignment
   const updateAssignment = async (clientId, role, userId) => {
     try {
-      const existing = teamAssignments.find(
-        a => a.client_id === clientId && a.role === role
-      )
-
       // If userId is empty/null, delete the assignment
       if (!userId || userId === 'none') {
-        if (existing) {
-          await supabase
-            .from('client_team_assignments')
-            .delete()
-            .eq('id', existing.id)
+        // Delete any existing assignment for this client/role
+        const { error: deleteError } = await supabase
+          .from('client_team_assignments')
+          .delete()
+          .eq('client_id', clientId)
+          .eq('role', role)
+        
+        if (deleteError) {
+          console.error('Delete error:', deleteError)
         }
+        
         // Refresh and show success
         const { data } = await supabase
           .from('client_team_assignments')
@@ -411,37 +412,49 @@ export default function TeamHub() {
         return
       }
 
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('client_team_assignments')
-          .update({ user_id: userId })
-          .eq('id', existing.id)
-        
-        if (updateError) {
-          console.error('Update error:', updateError)
-          throw updateError
-        }
-      } else {
-        const { error: insertError } = await supabase
-          .from('client_team_assignments')
-          .insert({ client_id: clientId, role, user_id: userId })
-        
-        if (insertError) {
-          console.error('Insert error:', insertError)
-          throw insertError
-        }
+      // Use upsert approach: delete existing then insert new
+      // This avoids the unique constraint issue
+      console.log('[TeamHub] Assigning:', { clientId, role, userId })
+      
+      // First, delete any existing assignment for this client+role
+      const { error: deleteError } = await supabase
+        .from('client_team_assignments')
+        .delete()
+        .eq('client_id', clientId)
+        .eq('role', role)
+      
+      if (deleteError) {
+        console.warn('[TeamHub] Delete warning (non-fatal):', deleteError)
       }
+      
+      // Then insert the new assignment
+      const { data: insertData, error: insertError } = await supabase
+        .from('client_team_assignments')
+        .insert({ 
+          client_id: clientId, 
+          role: role, 
+          user_id: userId 
+        })
+        .select('*, user:user_id(id, full_name, avatar_url)')
+        .single()
+      
+      if (insertError) {
+        console.error('[TeamHub] Insert error:', insertError)
+        throw insertError
+      }
+      
+      console.log('[TeamHub] Inserted assignment:', insertData)
 
       // Find the team member name for the toast
       const member = teamMembers.find(m => m.id === userId)
 
-      // Refresh assignments with user info
+      // Refresh all assignments with user info
       const { data, error: fetchError } = await supabase
         .from('client_team_assignments')
         .select('*, user:user_id(id, full_name, avatar_url)')
       
       if (fetchError) {
-        console.error('Fetch error:', fetchError)
+        console.error('[TeamHub] Fetch error:', fetchError)
       }
       
       console.log('[TeamHub] Refreshed assignments:', data?.length, 'records')
@@ -453,7 +466,7 @@ export default function TeamHub() {
         variant: 'success' 
       })
     } catch (error) {
-      console.error('Assignment error:', error)
+      console.error('[TeamHub] Assignment error:', error)
       toast({ title: 'Error updating', description: error.message, variant: 'destructive' })
     }
     setEditingCell(null)
