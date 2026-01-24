@@ -445,20 +445,29 @@ export function AuthProvider({ children }) {
 
       // If we have a session, proactively refresh the token to prevent staleness
       if (data?.session) {
-        // Check if token is expiring soon (within 5 minutes)
+        // Check if token is expiring soon (within 10 minutes for more safety margin)
         const expiresAt = data.session.expires_at
         const now = Math.floor(Date.now() / 1000)
         const expiresIn = expiresAt - now
         
-        if (expiresIn < 300) { // Less than 5 minutes until expiry
+        console.log(`[Auth] Token expires in ${Math.round(expiresIn / 60)} minutes`)
+        
+        if (expiresIn < 600) { // Less than 10 minutes until expiry
           console.log(`[Auth] Token expiring in ${expiresIn}s, refreshing proactively...`)
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
           
           if (refreshError) {
             console.warn('[Auth] Proactive token refresh failed:', refreshError.message)
-            // If refresh fails but we still have a session, continue
+            // If refresh token is also expired, force re-login
+            if (refreshError.message?.includes('refresh_token') || refreshError.message?.includes('expired')) {
+              console.warn('[Auth] Refresh token expired, clearing session')
+              setUser(null)
+              setProfile(null)
+              setAuthError('Session expired. Please log in again.')
+              return
+            }
           } else if (refreshData?.session) {
-            console.log('[Auth] Token refreshed successfully')
+            console.log('[Auth] Token refreshed successfully, new expiry:', new Date(refreshData.session.expires_at * 1000).toLocaleTimeString())
             setUser(refreshData.session.user)
           }
         }
@@ -484,7 +493,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const maybeRefresh = (source) => {
       const now = Date.now()
-      if (now - lastRefreshRef.current < 15000) return
+      // Reduce debounce to 10 seconds for more responsive auth
+      if (now - lastRefreshRef.current < 10000) return
       lastRefreshRef.current = now
       refreshSessionAndProfile(source)
     }
@@ -501,11 +511,12 @@ export function AuthProvider({ children }) {
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Periodic background refresh every 10 minutes to prevent token expiry
+    // Periodic background refresh every 3 minutes to prevent token expiry
+    // Supabase tokens expire in 1 hour, so refreshing every 3 minutes ensures we catch it
     const backgroundRefreshInterval = setInterval(() => {
       console.log('[Auth] Periodic background session check...')
       refreshSessionAndProfile('periodic')
-    }, 10 * 60 * 1000) // Every 10 minutes
+    }, 3 * 60 * 1000) // Every 3 minutes
 
     return () => {
       window.removeEventListener('focus', handleFocus)

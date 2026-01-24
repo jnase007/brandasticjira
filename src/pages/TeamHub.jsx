@@ -36,7 +36,7 @@ import {
   PartyPopper,
 } from 'lucide-react'
 import { Textarea } from '../components/ui/textarea'
-import { supabase } from '../lib/supabase'
+import { supabase, ensureValidSession } from '../lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate } from '../lib/utils'
@@ -256,6 +256,15 @@ export default function TeamHub() {
     else setLoading(true)
 
     try {
+      // Validate session before fetching
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[TeamHub] Session invalid, cannot fetch data')
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      
       const [clientsRes, assignmentsRes, adSpendRes, teamRes] = await Promise.all([
         supabase.from('clients').select('*').neq('is_active', false).order('name'),
         supabase.from('client_team_assignments').select('*, user:user_id(id, full_name, avatar_url)'),

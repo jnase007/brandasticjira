@@ -9,7 +9,7 @@ import {
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { supabase } from '../lib/supabase'
+import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, getInitials } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -1643,6 +1643,15 @@ export default function Reports() {
     else setLoading(true)
 
     try {
+      // Validate session before fetching
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[Reports] Session invalid, cannot fetch data')
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      
       // Fetch base data first
       const [employeesRes, clientsRes, clientRatesRes, timeEntriesRes] = await Promise.all([
         supabase

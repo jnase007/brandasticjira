@@ -24,6 +24,92 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 // AUTH HELPERS
 // ============================================
 
+/**
+ * Ensures the session is valid before making a request.
+ * Proactively refreshes if token is expiring soon.
+ * Returns true if session is valid, false if user needs to re-login.
+ */
+export async function ensureValidSession() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    
+    if (error) {
+      console.warn('[Session] Error getting session:', error.message)
+      return false
+    }
+    
+    if (!session) {
+      console.warn('[Session] No active session')
+      return false
+    }
+    
+    // Check if token is expiring soon (within 5 minutes)
+    const expiresAt = session.expires_at
+    const now = Math.floor(Date.now() / 1000)
+    const expiresIn = expiresAt - now
+    
+    if (expiresIn < 300) { // Less than 5 minutes
+      console.log(`[Session] Token expiring in ${expiresIn}s, refreshing...`)
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+      
+      if (refreshError) {
+        console.warn('[Session] Refresh failed:', refreshError.message)
+        // Check if it's a fatal error (refresh token expired)
+        if (refreshError.message?.includes('refresh_token') || 
+            refreshError.message?.includes('expired') ||
+            refreshError.message?.includes('invalid')) {
+          return false
+        }
+        // For other errors, session might still work
+        return true
+      }
+      
+      console.log('[Session] Token refreshed successfully')
+      return !!refreshData?.session
+    }
+    
+    return true
+  } catch (e) {
+    console.error('[Session] Error validating session:', e)
+    return false
+  }
+}
+
+/**
+ * Wrapper for Supabase queries that handles auth errors gracefully.
+ * If a query fails due to auth issues, it attempts to refresh and retry.
+ */
+export async function safeQuery(queryFn) {
+  try {
+    const result = await queryFn()
+    
+    // Check for auth-related errors
+    if (result.error) {
+      const errorMsg = result.error.message?.toLowerCase() || ''
+      if (errorMsg.includes('jwt') || 
+          errorMsg.includes('expired') || 
+          errorMsg.includes('invalid') ||
+          errorMsg.includes('not authenticated') ||
+          result.error.code === 'PGRST301') {
+        
+        console.warn('[SafeQuery] Auth error detected, refreshing session...')
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        
+        if (!refreshError && refreshData?.session) {
+          console.log('[SafeQuery] Session refreshed, retrying query...')
+          // Retry the query
+          return await queryFn()
+        }
+      }
+    }
+    
+    return result
+  } catch (e) {
+    console.error('[SafeQuery] Query error:', e)
+    return { data: null, error: e }
+  }
+}
+
 export async function signInWithEmail(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,

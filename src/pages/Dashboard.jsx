@@ -19,7 +19,7 @@ import {
   RefreshCw,
   Building2,
 } from 'lucide-react'
-import { supabase, getClients, getBoards, getClientHoursSummary, getTickets } from '../lib/supabase'
+import { supabase, getClients, getBoards, getClientHoursSummary, getTickets, ensureValidSession } from '../lib/supabase'
 import ClientDialog from '../components/ClientDialog'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDuration, calculateProgress, getProgressColor, formatRelativeDate } from '../lib/utils'
@@ -106,6 +106,16 @@ export default function Dashboard({ onConfetti }) {
     
     try {
       console.log('[Dashboard] Starting data fetch...')
+      
+      // Validate session before fetching - this refreshes token if expiring
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[Dashboard] Session invalid, cannot fetch data')
+        setFetchError('Session expired. Please refresh the page or log in again.')
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
       
       // Timeout for slower mobile networks (15 seconds)
       const FETCH_TIMEOUT = 15000

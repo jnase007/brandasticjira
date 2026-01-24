@@ -8,7 +8,7 @@ import {
   ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
   Trophy, TrendingUp, PartyPopper
 } from 'lucide-react'
-import { supabase, seedSampleClients } from '../lib/supabase'
+import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, formatRelativeDate, getInitials } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -185,6 +185,17 @@ export default function ClientManagement() {
     else setLoading(true)
     setFetchError(null)
     setSessionStale(false)
+
+    // Validate session before fetching - this refreshes token if expiring
+    const sessionValid = await ensureValidSession()
+    if (!sessionValid) {
+      console.warn('[ClientManagement] Session invalid, cannot fetch data')
+      setFetchError('Session expired. Please refresh the page or log in again.')
+      setSessionStale(true)
+      setLoading(false)
+      setRefreshing(false)
+      return
+    }
 
     // Add timeout to prevent hanging forever
     const timeout = new Promise((_, reject) => 
