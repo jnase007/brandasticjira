@@ -9,7 +9,7 @@ import {
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus,
-  Kanban, Circle
+  Kanban, Circle, Upload, X
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -131,7 +131,9 @@ export default function ClientDetail() {
     title: '',
     description: '',
     category: 'general',
+    image_url: '',
   })
+  const [winImageUploading, setWinImageUploading] = useState(false)
   const [savingWin, setSavingWin] = useState(false)
   const [assignTeamOpen, setAssignTeamOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState('')
@@ -633,6 +635,7 @@ export default function ClientDetail() {
           title: newWin.title,
           description: newWin.description || null,
           category: newWin.category,
+          image_url: newWin.image_url || null,
         })
         .select('*, user:user_id(id, full_name, avatar_url)')
         .single()
@@ -640,7 +643,7 @@ export default function ClientDetail() {
       if (error) throw error
       
       setClientWins(prev => [data, ...prev])
-      setNewWin({ title: '', description: '', category: 'general' })
+      setNewWin({ title: '', description: '', category: 'general', image_url: '' })
       setAddWinOpen(false)
       
       // Log activity
@@ -2661,15 +2664,128 @@ export default function ClientDetail() {
                 placeholder="Tell us more about this win..."
                 value={newWin.description}
                 onChange={(e) => setNewWin(prev => ({ ...prev, description: e.target.value }))}
-                rows={4}
+                rows={3}
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Screenshot / Image (optional)</Label>
+              {newWin.image_url ? (
+                <div className="relative rounded-lg border overflow-hidden">
+                  <img 
+                    src={newWin.image_url} 
+                    alt="Win screenshot" 
+                    className="w-full h-32 object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    onClick={() => setNewWin(prev => ({ ...prev, image_url: '' }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
+                    "hover:border-brand-orange/50 hover:bg-brand-orange/5",
+                    winImageUploading && "opacity-50 pointer-events-none"
+                  )}
+                  onClick={() => document.getElementById('win-detail-image-upload')?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const file = e.dataTransfer.files?.[0]
+                    if (!file) return
+                    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+                      toast({ title: 'Please upload an image or PDF', variant: 'destructive' })
+                      return
+                    }
+                    if (file.size > 10 * 1024 * 1024) {
+                      toast({ title: 'File too large (max 10MB)', variant: 'destructive' })
+                      return
+                    }
+                    setWinImageUploading(true)
+                    try {
+                      const fileName = `wins/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+                      const { error: uploadError } = await supabase.storage
+                        .from('images')
+                        .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                      if (uploadError) throw uploadError
+                      const { data: { publicUrl } } = supabase.storage
+                        .from('images')
+                        .getPublicUrl(fileName)
+                      setNewWin(prev => ({ ...prev, image_url: publicUrl }))
+                      toast({ title: '📸 Image uploaded!', variant: 'success' })
+                    } catch (err) {
+                      console.error('Upload error:', err)
+                      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+                    } finally {
+                      setWinImageUploading(false)
+                    }
+                  }}
+                >
+                  <input
+                    id="win-detail-image-upload"
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+                        toast({ title: 'Please upload an image or PDF', variant: 'destructive' })
+                        return
+                      }
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast({ title: 'File too large (max 10MB)', variant: 'destructive' })
+                        return
+                      }
+                      setWinImageUploading(true)
+                      try {
+                        const fileName = `wins/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+                        const { error: uploadError } = await supabase.storage
+                          .from('images')
+                          .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                        if (uploadError) throw uploadError
+                        const { data: { publicUrl } } = supabase.storage
+                          .from('images')
+                          .getPublicUrl(fileName)
+                        setNewWin(prev => ({ ...prev, image_url: publicUrl }))
+                        toast({ title: '📸 Image uploaded!', variant: 'success' })
+                      } catch (err) {
+                        console.error('Upload error:', err)
+                        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+                      } finally {
+                        setWinImageUploading(false)
+                        e.target.value = ''
+                      }
+                    }}
+                  />
+                  {winImageUploading ? (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-brand-orange" />
+                      <p className="text-sm text-muted-foreground">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Drag & drop or click to upload</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setAddWinOpen(false)
-              setNewWin({ title: '', description: '', category: 'general' })
+              setNewWin({ title: '', description: '', category: 'general', image_url: '' })
             }}>
               Cancel
             </Button>

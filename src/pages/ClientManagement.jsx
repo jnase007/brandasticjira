@@ -6,7 +6,7 @@ import {
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
   ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
-  Trophy, TrendingUp, PartyPopper
+  Trophy, TrendingUp, PartyPopper, Upload, X
 } from 'lucide-react'
 import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -178,6 +178,8 @@ export default function ClientManagement() {
   const [projectCategory, setProjectCategory] = useState('')
   const [projectUrl, setProjectUrl] = useState('')
   const [projectImageUrl, setProjectImageUrl] = useState('')
+  const [projectImageFile, setProjectImageFile] = useState(null)
+  const [projectImageUploading, setProjectImageUploading] = useState(false)
   const [projectFeatured, setProjectFeatured] = useState(false)
   const [projectSaving, setProjectSaving] = useState(false)
 
@@ -429,6 +431,7 @@ export default function ClientManagement() {
     setProjectCategory('')
     setProjectUrl('')
     setProjectImageUrl('')
+    setProjectImageFile(null)
     setProjectFeatured(false)
   }
 
@@ -1399,12 +1402,126 @@ export default function ClientManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label>Screenshot / Image URL (optional)</Label>
-              <Input
-                placeholder="https://..."
-                value={projectImageUrl}
-                onChange={(e) => setProjectImageUrl(e.target.value)}
-              />
+              <Label>Screenshot / Image (optional)</Label>
+              {projectImageUrl ? (
+                <div className="relative rounded-lg border overflow-hidden">
+                  <img 
+                    src={projectImageUrl} 
+                    alt="Win screenshot" 
+                    className="w-full h-32 object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    onClick={() => {
+                      setProjectImageUrl('')
+                      setProjectImageFile(null)
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all",
+                    "hover:border-brand-orange/50 hover:bg-brand-orange/5",
+                    projectImageUploading && "opacity-50 pointer-events-none"
+                  )}
+                  onClick={() => document.getElementById('win-image-upload')?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const file = e.dataTransfer.files?.[0]
+                    if (!file) return
+                    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+                      toast({ title: 'Please upload an image or PDF', variant: 'destructive' })
+                      return
+                    }
+                    if (file.size > 10 * 1024 * 1024) {
+                      toast({ title: 'File too large (max 10MB)', variant: 'destructive' })
+                      return
+                    }
+                    setProjectImageUploading(true)
+                    try {
+                      const fileName = `wins/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+                      const { error: uploadError } = await supabase.storage
+                        .from('images')
+                        .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                      if (uploadError) throw uploadError
+                      const { data: { publicUrl } } = supabase.storage
+                        .from('images')
+                        .getPublicUrl(fileName)
+                      setProjectImageUrl(publicUrl)
+                      setProjectImageFile(file)
+                      toast({ title: '📸 Image uploaded!', variant: 'success' })
+                    } catch (err) {
+                      console.error('Upload error:', err)
+                      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+                    } finally {
+                      setProjectImageUploading(false)
+                    }
+                  }}
+                >
+                  <input
+                    id="win-image-upload"
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+                        toast({ title: 'Please upload an image or PDF', variant: 'destructive' })
+                        return
+                      }
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast({ title: 'File too large (max 10MB)', variant: 'destructive' })
+                        return
+                      }
+                      setProjectImageUploading(true)
+                      try {
+                        const fileName = `wins/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+                        const { error: uploadError } = await supabase.storage
+                          .from('images')
+                          .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                        if (uploadError) throw uploadError
+                        const { data: { publicUrl } } = supabase.storage
+                          .from('images')
+                          .getPublicUrl(fileName)
+                        setProjectImageUrl(publicUrl)
+                        setProjectImageFile(file)
+                        toast({ title: '📸 Image uploaded!', variant: 'success' })
+                      } catch (err) {
+                        console.error('Upload error:', err)
+                        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+                      } finally {
+                        setProjectImageUploading(false)
+                        e.target.value = ''
+                      }
+                    }}
+                  />
+                  {projectImageUploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
+                      <p className="text-sm text-muted-foreground">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="p-3 rounded-full bg-muted/50">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Drag & drop or click to upload</p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG, GIF, or PDF (max 10MB)</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
