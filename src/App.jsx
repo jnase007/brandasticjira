@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense, useTransition, useRef } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from './contexts/AuthContext'
 import { GamificationProvider } from './contexts/GamificationContext'
+import PageLoadingBar from './components/PageLoadingBar'
 
 // Pages - Lazy loaded for better performance
 const Login = lazy(() => import('./pages/Login'))
@@ -53,22 +54,41 @@ function PageLoader() {
   }, [])
 
   return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-orange mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground mb-3">Loading...</p>
-        {showRetry && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.reload()}
-            className="text-xs"
-          >
-            Taking too long? Refresh
-          </Button>
-        )}
+    <>
+      {/* Top-of-page laser loading bar - always visible */}
+      <PageLoadingBar isLoading={true} />
+      
+      {/* Center content loading indicator */}
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          {/* Inline loading bar with laser effect */}
+          <div className="w-48 h-1.5 mx-auto mb-6 bg-slate-200/50 dark:bg-slate-700/50 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.4) 20%, #3b82f6 50%, rgba(59, 130, 246, 0.4) 80%, transparent 100%)',
+                boxShadow: '0 0 10px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3)',
+              }}
+              animate={{ x: ['-100%', '100%'] }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </div>
+          
+          <Loader2 className="h-8 w-8 animate-spin text-brand-orange mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-3">Loading...</p>
+          {showRetry && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="text-xs"
+            >
+              Taking too long? Refresh
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 import {
@@ -399,6 +419,20 @@ function App() {
   const location = useLocation()
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
+  const prevPathRef = useRef(location.pathname)
+
+  // Track navigation state for loading bar
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname) {
+      setIsNavigating(true)
+      prevPathRef.current = location.pathname
+      
+      // Hide the loading bar after a short delay to allow content to render
+      const timer = setTimeout(() => setIsNavigating(false), 800)
+      return () => clearTimeout(timer)
+    }
+  }, [location.pathname])
 
   // Scroll to top on page navigation
   useEffect(() => {
@@ -519,6 +553,7 @@ function App() {
   if (!user && (location.pathname === '/login' || location.pathname === '/demo')) {
     return (
       <div className="min-h-screen bg-background">
+        <PageLoadingBar isLoading={isNavigating} />
         {confetti}
         <Suspense fallback={<PageLoader />}>
           <AnimatePresence mode="wait">
@@ -538,6 +573,7 @@ function App() {
   if (location.pathname === '/demo') {
     return (
       <div className="min-h-screen bg-background">
+        <PageLoadingBar isLoading={isNavigating} />
         {confetti}
         <Suspense fallback={<PageLoader />}>
           <Demo />
@@ -548,6 +584,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Global navigation loading bar */}
+      <PageLoadingBar isLoading={isNavigating} />
+      
       {confetti}
       <EasterEggs />
       {user ? (
