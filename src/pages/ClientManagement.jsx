@@ -149,17 +149,9 @@ export default function ClientManagement() {
   const isPinned = (clientId) => pinnedClients.includes(clientId)
   
   // Dialogs
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [requestDialogOpen, setRequestDialogOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
-  
-  // Invite form
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteName, setInviteName] = useState('')
-  const [inviteClient, setInviteClient] = useState('')
-  const [inviteLink, setInviteLink] = useState('')
-  const [inviteSending, setInviteSending] = useState(false)
   
   // Request form
   const [requestClient, setRequestClient] = useState('')
@@ -289,48 +281,6 @@ export default function ClientManagement() {
     console.log('[ClientManagement] Auth ready, fetching data for:', user.email)
     fetchData()
   }, [authLoading, user?.id])
-
-  // Generate client invite link
-  const handleInvite = async () => {
-    if (!inviteEmail || !inviteClient) {
-      toast({ title: 'Please fill all required fields', variant: 'destructive' })
-      return
-    }
-
-    setInviteSending(true)
-    
-    try {
-      // Generate signup URL with client info
-      const signupUrl = `${window.location.origin}/login?invite=client&email=${encodeURIComponent(inviteEmail)}&client=${inviteClient}`
-      setInviteLink(signupUrl)
-      
-      // Log this invite for email sending
-      await supabase.from('email_notifications').insert({
-        recipient_email: inviteEmail,
-        recipient_name: inviteName,
-        subject: `You've been invited to Brandastic's Client Portal`,
-        body: `Welcome! Click here to access your client portal: ${signupUrl}`,
-        type: 'welcome',
-        status: 'pending',
-      })
-      
-      toast({
-        title: '✉️ Client invite ready!',
-        description: 'Copy the link and send it to your client.',
-        variant: 'success',
-      })
-    } catch (error) {
-      console.error('Invite error:', error)
-      toast({ title: 'Error generating invite', variant: 'destructive' })
-    } finally {
-      setInviteSending(false)
-    }
-  }
-
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(inviteLink)
-    toast({ title: 'Link copied!' })
-  }
 
   // Create request
   const handleCreateRequest = async () => {
@@ -770,10 +720,7 @@ export default function ClientManagement() {
                       className="pl-9"
                     />
                   </div>
-                  <Button onClick={() => setInviteDialogOpen(true)}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    Invite
-                  </Button>
+                  {/* Client invite button removed - using shareable link for now */}
                 </div>
               </div>
             </CardHeader>
@@ -1118,92 +1065,7 @@ export default function ClientManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Invite Client Dialog */}
-      <Dialog open={inviteDialogOpen} onOpenChange={(open) => {
-        setInviteDialogOpen(open)
-        if (!open) {
-          setInviteEmail('')
-          setInviteName('')
-          setInviteClient('')
-          setInviteLink('')
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-brand-orange" />
-              Invite Client to Portal
-            </DialogTitle>
-            <DialogDescription>
-              Send an invite link for client portal access
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Select Client</Label>
-              <Select value={inviteClient} onValueChange={setInviteClient}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeClients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Contact Email</Label>
-              <Input
-                type="email"
-                placeholder="client@company.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Contact Name (optional)</Label>
-              <Input
-                placeholder="John Smith"
-                value={inviteName}
-                onChange={(e) => setInviteName(e.target.value)}
-              />
-            </div>
-
-            {inviteLink && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 space-y-3"
-              >
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-5 w-5" />
-                  <span className="font-medium">Invite Link Ready!</span>
-                </div>
-                <div className="flex gap-2">
-                  <Input value={inviteLink} readOnly className="text-xs font-mono" />
-                  <Button variant="outline" size="icon" onClick={copyInviteLink}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleInvite} disabled={inviteSending || !inviteEmail || !inviteClient}>
-              {inviteSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Generate Invite
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Client invite dialog removed - using shareable link for now */}
 
       {/* New Request Dialog */}
       <Dialog open={requestDialogOpen} onOpenChange={(open) => {
