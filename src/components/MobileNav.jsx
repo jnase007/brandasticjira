@@ -54,9 +54,16 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
         className="fixed left-0 right-0 z-50 bg-background border-t lg:hidden"
         style={{ 
           bottom: 0,
+          top: 'auto',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          WebkitTransform: 'translateZ(0)', // Force GPU acceleration for iOS
-          transform: 'translateZ(0)',
+          // Multiple GPU acceleration hints for iOS Safari
+          WebkitTransform: 'translate3d(0, 0, 0)',
+          transform: 'translate3d(0, 0, 0)',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          willChange: 'transform',
+          // Prevent any movement
+          position: 'fixed',
         }}
       >
         <div className="flex items-center justify-around h-16 px-2">
