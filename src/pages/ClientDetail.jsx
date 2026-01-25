@@ -8,7 +8,8 @@ import {
   Play, Ticket, Loader2, ChevronRight, Target, Zap,
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
-  Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus
+  Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus,
+  Kanban, Circle
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -1919,104 +1920,259 @@ export default function ClientDetail() {
             </Card>
           </TabsContent>
 
-          {/* Tickets Tab */}
+          {/* Tickets Tab - Enhanced with status grouping and quick actions */}
           <TabsContent value="tickets">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <CardTitle>Tasks</CardTitle>
-                    <CardDescription>All work items for this client</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <Ticket className="h-5 w-5" />
+                      Tasks
+                    </CardTitle>
+                    <CardDescription>All work items for this client • Drag tasks on boards to change status</CardDescription>
                   </div>
-                  <Button 
-                    size="sm"
-                    onClick={() => setCreateTaskOpen(true)}
-                    className="bg-brand-orange hover:bg-brand-orange/90"
-                  >
-                    <Ticket className="h-4 w-4 mr-2" />
-                    New Task
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreateBoardOpen(true)}
+                    >
+                      <Kanban className="h-4 w-4 mr-2" />
+                      New Board
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={() => setCreateTaskOpen(true)}
+                      className="bg-brand-orange hover:bg-brand-orange/90"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Task
+                    </Button>
+                  </div>
                 </div>
+                
+                {/* Status Summary Bar */}
+                {tickets.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-4 mt-4 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-gray-400" />
+                      <span className="text-sm font-medium">{tickets.filter(t => t.status === 'todo').length} To Do</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+                      <span className="text-sm font-medium">{tickets.filter(t => t.status === 'inprogress').length} In Progress</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <span className="text-sm font-medium">{tickets.filter(t => t.status === 'done').length} Done</span>
+                    </div>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {tickets.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Ticket className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tickets yet</p>
+                    <p className="mb-2">No tasks yet</p>
+                    <p className="text-sm">Create a task or board to get started</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-        {tickets.map((ticket) => (
-          <Link
-            key={ticket.id}
-            to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`}
-                        className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm hover:border-brand-orange/30 transition-all"
-                      >
-                        <div className={cn(
-                          "p-2 rounded-full",
-                          ticket.status === 'done' && "bg-green-500/10",
-                          ticket.status === 'inprogress' && "bg-blue-500/10",
-                          ticket.status === 'todo' && "bg-gray-500/10"
-                        )}>
-                          {ticket.status === 'done' ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : ticket.status === 'inprogress' ? (
-                            <Loader2 className="h-4 w-4 text-blue-500" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-gray-500" />
+                  <div className="space-y-6">
+                    {/* In Progress Section */}
+                    {tickets.filter(t => t.status === 'inprogress').length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                          <h4 className="font-semibold text-blue-600">In Progress</h4>
+                          <Badge variant="outline" className="text-blue-600 border-blue-300">{tickets.filter(t => t.status === 'inprogress').length}</Badge>
+                        </div>
+                        <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                          {tickets.filter(t => t.status === 'inprogress').map((ticket) => (
+                            <div key={ticket.id} className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 hover:shadow-sm transition-all group">
+                              <div className="flex-1 min-w-0">
+                                <Link to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`} className="hover:underline">
+                                  <div className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                                    <p className="font-medium truncate">{ticket.title}</p>
+                                    {ticket.due_date && new Date(ticket.due_date) < new Date() && (
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">OVERDUE</Badge>
+                                    )}
+                                  </div>
+                                </Link>
+                                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                  {ticket.assigned_user && (
+                                    <div className="flex items-center gap-1">
+                                      <Avatar className="h-4 w-4">
+                                        <AvatarImage src={ticket.assigned_user.avatar_url} />
+                                        <AvatarFallback className="text-[8px]">{ticket.assigned_user.full_name?.[0]}</AvatarFallback>
+                                      </Avatar>
+                                      <span>{ticket.assigned_user.full_name?.split(' ')[0]}</span>
+                                    </div>
+                                  )}
+                                  <span>•</span>
+                                  <span>{ticket.boards?.name || 'General Tasks'}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {ticket.board_id && (
+                                  <Link to={`/boards/${ticket.board_id}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                    <Kanban className="h-3 w-3" />
+                                    Board
+                                  </Link>
+                                )}
+                              </div>
+                              <Badge variant={ticket.priority === 'high' || ticket.priority === 'urgent' ? 'destructive' : 'secondary'} className="text-xs">
+                                {ticket.priority}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* To Do Section */}
+                    {tickets.filter(t => t.status === 'todo').length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-gray-400" />
+                          <h4 className="font-semibold text-gray-600">To Do</h4>
+                          <Badge variant="outline" className="text-gray-600 border-gray-300">{tickets.filter(t => t.status === 'todo').length}</Badge>
+                        </div>
+                        <div className="space-y-2 pl-4 border-l-2 border-gray-200">
+                          {tickets.filter(t => t.status === 'todo').map((ticket) => (
+                            <div key={ticket.id} className="flex items-center gap-3 p-3 rounded-lg border hover:shadow-sm transition-all group">
+                              <div className="flex-1 min-w-0">
+                                <Link to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`} className="hover:underline">
+                                  <div className="flex items-center gap-2">
+                                    <Circle className="h-4 w-4 text-gray-400" />
+                                    <p className="font-medium truncate">{ticket.title}</p>
+                                    {ticket.due_date && new Date(ticket.due_date) < new Date() && (
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">OVERDUE</Badge>
+                                    )}
+                                  </div>
+                                </Link>
+                                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                  {ticket.assigned_user ? (
+                                    <div className="flex items-center gap-1">
+                                      <Avatar className="h-4 w-4">
+                                        <AvatarImage src={ticket.assigned_user.avatar_url} />
+                                        <AvatarFallback className="text-[8px]">{ticket.assigned_user.full_name?.[0]}</AvatarFallback>
+                                      </Avatar>
+                                      <span>{ticket.assigned_user.full_name?.split(' ')[0]}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-orange-500">Unassigned</span>
+                                  )}
+                                  <span>•</span>
+                                  <span>{ticket.boards?.name || 'General Tasks'}</span>
+                                  {ticket.estimated_hours && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Est: {ticket.estimated_hours}h</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {ticket.board_id && (
+                                  <Link to={`/boards/${ticket.board_id}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                    <Kanban className="h-3 w-3" />
+                                    Board
+                                  </Link>
+                                )}
+                              </div>
+                              <Badge variant={ticket.priority === 'high' || ticket.priority === 'urgent' ? 'destructive' : 'secondary'} className="text-xs">
+                                {ticket.priority}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Done Section (Collapsed by default) */}
+                    {tickets.filter(t => t.status === 'done').length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <h4 className="font-semibold text-green-600">Done</h4>
+                          <Badge variant="outline" className="text-green-600 border-green-300">{tickets.filter(t => t.status === 'done').length}</Badge>
+                        </div>
+                        <div className="space-y-2 pl-4 border-l-2 border-green-200">
+                          {tickets.filter(t => t.status === 'done').slice(0, 5).map((ticket) => (
+                            <div key={ticket.id} className="flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50/50 dark:bg-green-900/10 opacity-75 hover:opacity-100 transition-all group">
+                              <div className="flex-1 min-w-0">
+                                <Link to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`} className="hover:underline">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                    <p className="font-medium truncate line-through text-muted-foreground">{ticket.title}</p>
+                                  </div>
+                                </Link>
+                                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                  {ticket.assigned_user && (
+                                    <div className="flex items-center gap-1">
+                                      <Avatar className="h-4 w-4">
+                                        <AvatarImage src={ticket.assigned_user.avatar_url} />
+                                        <AvatarFallback className="text-[8px]">{ticket.assigned_user.full_name?.[0]}</AvatarFallback>
+                                      </Avatar>
+                                      <span>{ticket.assigned_user.full_name?.split(' ')[0]}</span>
+                                    </div>
+                                  )}
+                                  <span>•</span>
+                                  <span>{ticket.boards?.name || 'General Tasks'}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {ticket.board_id && (
+                                  <Link to={`/boards/${ticket.board_id}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                    <Kanban className="h-3 w-3" />
+                                    Board
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {tickets.filter(t => t.status === 'done').length > 5 && (
+                            <p className="text-xs text-muted-foreground text-center py-2">
+                              + {tickets.filter(t => t.status === 'done').length - 5} more completed tasks
+                            </p>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{ticket.title}</p>
-                            {ticket.due_date && new Date(ticket.due_date) < new Date() && ticket.status !== 'done' && (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">OVERDUE</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {ticket.boards?.name || 'General Tasks'} • {ticket.ticket_id || ticket.id?.substring(0, 8)}
-                            {ticket.due_date && (
-                              <span className={ticket.due_date && new Date(ticket.due_date) < new Date() && ticket.status !== 'done' ? ' text-red-500' : ''}>
-                                {' '}• Due {formatDate(ticket.due_date)}
-                              </span>
-                            )}
-                          </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                            {ticket.assigned_user ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-5 w-5">
-                                  <AvatarImage src={ticket.assigned_user.avatar_url} />
-                                  <AvatarFallback className="text-[10px]">
-                                    {ticket.assigned_user.full_name?.[0] || '?'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span>{ticket.assigned_user.full_name}</span>
+                      </div>
+                    )}
+
+                    {/* Boards Quick Access */}
+                    {boards.length > 0 && (
+                      <div className="mt-6 pt-6 border-t">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <Kanban className="h-4 w-4" />
+                          Project Boards
+                          <span className="text-xs text-muted-foreground font-normal">
+                            (drag tasks here to change status)
+                          </span>
+                        </h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {boards.map((board) => (
+                            <Link 
+                              key={board.id} 
+                              to={`/boards/${board.id}`}
+                              className="p-3 rounded-lg border hover:border-brand-orange/50 hover:shadow-sm transition-all group"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <Kanban className="h-4 w-4 text-brand-orange" />
+                                <span className="font-medium text-sm truncate">{board.name}</span>
                               </div>
-                            ) : (
-                              <span>Unassigned</span>
-                            )}
-                            <span>•</span>
-                            <span>
-                              Tracked: {Math.round((ticket.tracked_minutes || 0) / 60)}h{' '}
-                              {(ticket.tracked_minutes || 0) % 60}m
-                            </span>
-                            {ticket.estimated_hours && (
-                              <>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{tickets.filter(t => t.board_id === board.id && t.status !== 'done').length} active</span>
                                 <span>•</span>
-                                <span>Est: {ticket.estimated_hours}h</span>
-                              </>
-                            )}
-                          </div>
+                                <span className="text-green-600">{tickets.filter(t => t.board_id === board.id && t.status === 'done').length} done</span>
+                              </div>
+                            </Link>
+                          ))}
                         </div>
-                        <Badge variant={
-                          ticket.priority === 'high' ? 'destructive' : 
-                          ticket.priority === 'medium' ? 'default' : 'secondary'
-                        }>
-                          {ticket.priority}
-                        </Badge>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </Link>
-                    ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
