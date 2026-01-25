@@ -254,13 +254,13 @@ export default function ClientDetail() {
     }
     // Default roles
     return [
-      { value: 'marketing_manager', label: 'Marketing Manager', color: 'bg-purple-500' },
-      { value: 'account_specialist', label: 'Account Specialist', color: 'bg-blue-500' },
-      { value: 'marketing_coordinator', label: 'Marketing Coordinator', color: 'bg-green-500' },
-      { value: 'paid_media', label: 'Paid Media', color: 'bg-orange-500' },
-      { value: 'seo', label: 'SEO', color: 'bg-teal-500' },
-      { value: 'design', label: 'Design', color: 'bg-pink-500' },
-    ]
+    { value: 'marketing_manager', label: 'Marketing Manager', color: 'bg-purple-500' },
+    { value: 'account_specialist', label: 'Account Specialist', color: 'bg-blue-500' },
+    { value: 'marketing_coordinator', label: 'Marketing Coordinator', color: 'bg-green-500' },
+    { value: 'paid_media', label: 'Paid Media', color: 'bg-orange-500' },
+    { value: 'seo', label: 'SEO', color: 'bg-teal-500' },
+    { value: 'design', label: 'Design', color: 'bg-pink-500' },
+  ]
   }
   
   const TEAM_ROLES = getTeamRoles()
@@ -627,20 +627,48 @@ export default function ClientDetail() {
     
     setSavingWin(true)
     try {
-      const { data, error } = await supabase
-        .from('client_wins')
-        .insert({
+      // Build insert data - only include image_url if it has a value (in case column doesn't exist yet)
+      const insertData = {
           client_id: resolvedClientId,
           user_id: user.id,
           title: newWin.title,
           description: newWin.description || null,
           category: newWin.category,
-          image_url: newWin.image_url || null,
-        })
+      }
+      
+      // Only add image_url if it has a value (column might not exist in older schemas)
+      if (newWin.image_url) {
+        insertData.image_url = newWin.image_url
+      }
+      
+      // First try with user join
+      let { data, error } = await supabase
+        .from('client_wins')
+        .insert(insertData)
         .select('*, user:user_id(id, full_name, avatar_url)')
         .single()
       
-      if (error) throw error
+      // If join fails, try without it
+      if (error && error.message?.includes('user_id')) {
+        console.log('[ClientDetail] Retrying without user join...')
+        const retryResult = await supabase
+          .from('client_wins')
+          .insert(insertData)
+          .select('*')
+          .single()
+        data = retryResult.data
+        error = retryResult.error
+      }
+      
+      if (error) {
+        console.error('[ClientDetail] Win insert error:', error)
+        throw error
+      }
+      
+      // Enrich with user data if missing
+      if (data && !data.user) {
+        data.user = { id: user.id, full_name: profile?.full_name, avatar_url: profile?.avatar_url }
+      }
       
       setClientWins(prev => [data, ...prev])
       setNewWin({ title: '', description: '', category: 'general', image_url: '' })
@@ -910,7 +938,7 @@ export default function ClientDetail() {
           user_id: selectedUserId,
         })
         .select()
-      
+
       console.log('[ClientDetail] Insert result:', insertData, 'error:', error)
       
       if (error) throw error
@@ -1944,15 +1972,15 @@ export default function ClientDetail() {
                       <Kanban className="h-4 w-4 mr-2" />
                       New Board
                     </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => setCreateTaskOpen(true)}
-                      className="bg-brand-orange hover:bg-brand-orange/90"
-                    >
+                  <Button 
+                    size="sm"
+                    onClick={() => setCreateTaskOpen(true)}
+                    className="bg-brand-orange hover:bg-brand-orange/90"
+                  >
                       <Plus className="h-4 w-4 mr-2" />
-                      New Task
-                    </Button>
-                  </div>
+                    New Task
+                  </Button>
+                </div>
                 </div>
                 
                 {/* Status Summary Bar */}
@@ -1993,15 +2021,15 @@ export default function ClientDetail() {
                         <div className="space-y-2 pl-4 border-l-2 border-blue-200">
                           {tickets.filter(t => t.status === 'inprogress').map((ticket) => (
                             <div key={ticket.id} className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 hover:shadow-sm transition-all group">
-                              <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
                                 <Link to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`} className="hover:underline">
-                                  <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                                     <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                                    <p className="font-medium truncate">{ticket.title}</p>
+                            <p className="font-medium truncate">{ticket.title}</p>
                                     {ticket.due_date && new Date(ticket.due_date) < new Date() && (
-                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">OVERDUE</Badge>
-                                    )}
-                                  </div>
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">OVERDUE</Badge>
+                            )}
+                          </div>
                                 </Link>
                                 <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                                   {ticket.assigned_user && (
@@ -2047,7 +2075,7 @@ export default function ClientDetail() {
                             <div key={ticket.id} className="flex items-center gap-3 p-3 rounded-lg border hover:shadow-sm transition-all group">
                               <div className="flex-1 min-w-0">
                                 <Link to={`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`} className="hover:underline">
-                                  <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2">
                                     <Circle className="h-4 w-4 text-gray-400" />
                                     <p className="font-medium truncate">{ticket.title}</p>
                                     {ticket.due_date && new Date(ticket.due_date) < new Date() && (
@@ -2059,24 +2087,24 @@ export default function ClientDetail() {
                                   {ticket.assigned_user ? (
                                     <div className="flex items-center gap-1">
                                       <Avatar className="h-4 w-4">
-                                        <AvatarImage src={ticket.assigned_user.avatar_url} />
+                                  <AvatarImage src={ticket.assigned_user.avatar_url} />
                                         <AvatarFallback className="text-[8px]">{ticket.assigned_user.full_name?.[0]}</AvatarFallback>
-                                      </Avatar>
+                                </Avatar>
                                       <span>{ticket.assigned_user.full_name?.split(' ')[0]}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-orange-500">Unassigned</span>
-                                  )}
-                                  <span>•</span>
-                                  <span>{ticket.boards?.name || 'General Tasks'}</span>
-                                  {ticket.estimated_hours && (
-                                    <>
-                                      <span>•</span>
-                                      <span>Est: {ticket.estimated_hours}h</span>
-                                    </>
-                                  )}
-                                </div>
                               </div>
+                            ) : (
+                                    <span className="text-orange-500">Unassigned</span>
+                            )}
+                            <span>•</span>
+                                  <span>{ticket.boards?.name || 'General Tasks'}</span>
+                            {ticket.estimated_hours && (
+                              <>
+                                <span>•</span>
+                                <span>Est: {ticket.estimated_hours}h</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {ticket.board_id && (
                                   <Link to={`/boards/${ticket.board_id}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
@@ -2086,8 +2114,8 @@ export default function ClientDetail() {
                                 )}
                               </div>
                               <Badge variant={ticket.priority === 'high' || ticket.priority === 'urgent' ? 'destructive' : 'secondary'} className="text-xs">
-                                {ticket.priority}
-                              </Badge>
+                          {ticket.priority}
+                        </Badge>
                             </div>
                           ))}
                         </div>
@@ -2111,7 +2139,7 @@ export default function ClientDetail() {
                                     <CheckCircle className="h-4 w-4 text-green-500" />
                                     <p className="font-medium truncate line-through text-muted-foreground">{ticket.title}</p>
                                   </div>
-                                </Link>
+                      </Link>
                                 <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                                   {ticket.assigned_user && (
                                     <div className="flex items-center gap-1">
@@ -2301,66 +2329,66 @@ export default function ClientDetail() {
                       const allRoles = [...TEAM_ROLES, ...additionalRoles]
                       
                       return allRoles.map((role) => {
-                        const assignment = teamAssignments.find(a => a.role === role.value)
-                        return (
-                          <div 
-                            key={role.value}
-                            className={cn(
-                              "p-4 rounded-xl border-2 transition-all",
-                              assignment ? "border-brand-purple/30 bg-brand-purple/5" : "border-dashed border-muted-foreground/30"
-                            )}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <Badge className={cn("text-white", role.color)}>{role.label}</Badge>
-                              {assignment && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon-sm"
-                                  onClick={() => {
-                                    setSelectedRole(role.value)
-                                    setSelectedUserId(assignment.user_id || '')
-                                    setAssignTeamOpen(true)
-                                  }}
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                            {assignment?.user ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={assignment.user.avatar_url} />
-                                  <AvatarFallback>{assignment.user.full_name?.[0] || assignment.user_name?.[0] || '?'}</AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="font-medium text-sm truncate">{assignment.user.full_name || assignment.user_name}</p>
-                                  <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
-                                </div>
-                              </div>
-                            ) : assignment?.user_name ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback>{assignment.user_name?.[0] || '?'}</AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="font-medium text-sm truncate">{assignment.user_name}</p>
-                                  <p className="text-xs text-muted-foreground truncate">Assigned</p>
-                                </div>
-                              </div>
-                            ) : (
-                              <button 
+                      const assignment = teamAssignments.find(a => a.role === role.value)
+                      return (
+                        <div 
+                          key={role.value}
+                          className={cn(
+                            "p-4 rounded-xl border-2 transition-all",
+                            assignment ? "border-brand-purple/30 bg-brand-purple/5" : "border-dashed border-muted-foreground/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge className={cn("text-white", role.color)}>{role.label}</Badge>
+                            {assignment && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon-sm"
                                 onClick={() => {
                                   setSelectedRole(role.value)
+                                  setSelectedUserId(assignment.user_id || '')
                                   setAssignTeamOpen(true)
                                 }}
-                                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
                               >
-                                <Plus className="h-3 w-3" />
-                                Assign someone
-                              </button>
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
                             )}
                           </div>
-                        )
+                          {assignment?.user ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={assignment.user.avatar_url} />
+                                <AvatarFallback>{assignment.user.full_name?.[0] || assignment.user_name?.[0] || '?'}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{assignment.user.full_name || assignment.user_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{assignment.user.email}</p>
+                              </div>
+                            </div>
+                          ) : assignment?.user_name ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>{assignment.user_name?.[0] || '?'}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{assignment.user_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">Assigned</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setSelectedRole(role.value)
+                                setAssignTeamOpen(true)
+                              }}
+                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Assign someone
+                            </button>
+                          )}
+                        </div>
+                      )
                       })
                     })()}
                   </div>
