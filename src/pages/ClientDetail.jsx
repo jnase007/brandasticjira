@@ -3134,7 +3134,7 @@ export default function ClientDetail() {
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                   {category}
                 </h3>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {templates.map(template => {
                     const isSelected = selectedTemplates.includes(template.id)
                     return (
@@ -3142,39 +3142,46 @@ export default function ClientDetail() {
                         key={template.id}
                         onClick={() => toggleTemplate(template.id)}
                         className={cn(
-                          "group relative flex h-full flex-col gap-3 rounded-2xl border-2 p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple/50",
+                          "group relative flex flex-col rounded-xl border-2 p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple/50",
                           isSelected 
-                            ? "border-brand-purple bg-brand-purple/5 shadow-sm" 
-                            : "border-muted bg-white hover:border-muted-foreground/30 hover:shadow-md"
+                            ? "border-brand-purple bg-brand-purple/5 shadow-md" 
+                            : "border-border bg-white hover:border-brand-purple/40 hover:shadow-md dark:bg-slate-900"
                         )}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">{template.icon}</span>
-                            <div>
-                              <p className="font-semibold">{template.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {template.tasks.length} tasks • ~{template.estimatedHours}h
-                              </p>
-                            </div>
+                        {/* Selection indicator - top right */}
+                        <div className={cn(
+                          "absolute top-3 right-3 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
+                          isSelected 
+                            ? "border-brand-purple bg-brand-purple" 
+                            : "border-muted-foreground/30"
+                        )}>
+                          {isSelected && <CheckCircle className="h-3 w-3 text-white" />}
+                        </div>
+
+                        {/* Icon and Title */}
+                        <div className="flex items-center gap-3 mb-3 pr-6">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center text-2xl">
+                            {template.icon}
                           </div>
-                          <div className={cn(
-                            "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
-                            isSelected 
-                              ? "border-brand-purple bg-brand-purple" 
-                              : "border-muted-foreground/30"
-                          )}>
-                            {isSelected && <CheckCircle className="h-3 w-3 text-white" />}
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm leading-tight truncate">{template.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {template.tasks.length} tasks • ~{template.estimatedHours}h
+                            </p>
                           </div>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
+
+                        {/* Description */}
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-4 min-h-[2.5rem]">
                           {template.description}
                         </p>
-                        <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="rounded-full bg-muted px-2 py-1">
+
+                        {/* Footer badges */}
+                        <div className="flex items-center gap-2 mt-auto pt-3 border-t border-border/50">
+                          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                             {template.tasks.length} tasks
                           </span>
-                          <span className="rounded-full bg-muted px-2 py-1">
+                          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                             ~{template.estimatedHours}h
                           </span>
                         </div>
