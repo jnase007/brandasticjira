@@ -20,6 +20,8 @@ import {
   Building2,
   Circle,
   Loader2,
+  CheckCircle,
+  ListTodo,
 } from 'lucide-react'
 import { supabase, getClients, getBoards, getClientHoursSummary, getTickets, ensureValidSession } from '../lib/supabase'
 import ClientDialog from '../components/ClientDialog'
@@ -588,13 +590,13 @@ export default function Dashboard({ onConfetti }) {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">My Tasks</p>
+                  <p className="text-sm font-medium text-muted-foreground">Company Tasks</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
-                    {allTickets.filter(t => t.status !== 'done').length}
+                    {allTickets.filter(t => t.status === 'done').length}
                   </p>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                    <Target className="h-3 w-3" />
-                    <span>{allTickets.filter(t => t.status === 'inprogress').length} in progress</span>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>{allTickets.filter(t => t.status === 'done').length} completed</span>
                   </div>
                 </div>
                 <div className="relative">
@@ -613,7 +615,7 @@ export default function Dashboard({ onConfetti }) {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Hours Used</p>
+                  <p className="text-sm font-medium text-muted-foreground">Company Hours</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-purple transition-colors">
                     {Math.round(totalHoursUsed)}
                     <span className="text-lg text-muted-foreground font-normal ml-1">
@@ -641,18 +643,18 @@ export default function Dashboard({ onConfetti }) {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Utilization</p>
+                  <p className="text-sm font-medium text-muted-foreground">Open Tasks</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-teal transition-colors">
-                    {utilization}%
+                    {allTickets.filter(t => t.status !== 'done').length}
                   </p>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
+                  <div className="flex items-center gap-1 mt-2 text-xs text-brand-orange">
                     <Target className="h-3 w-3" />
-                    <span>On track</span>
+                    <span>{allTickets.filter(t => t.status === 'inprogress').length} in progress</span>
                   </div>
                 </div>
                 <div className="relative">
                   <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-teal/20 to-teal-500/10 group-hover:scale-110 transition-transform duration-300">
-                    <TrendingUp className="h-7 w-7 text-brand-teal" />
+                    <ListTodo className="h-7 w-7 text-brand-teal" />
                   </div>
                 </div>
               </div>
