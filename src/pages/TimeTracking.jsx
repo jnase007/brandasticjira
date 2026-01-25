@@ -140,12 +140,39 @@ export default function TimeTracking() {
   // Time entry form
   const [timeEntry, setTimeEntry] = useState({
     client_id: '',
+    ticket_id: '',
     description: '',
     hours: '',
     minutes: '',
     date: new Date().toISOString().split('T')[0],
     billable: true,
   })
+  const [availableTickets, setAvailableTickets] = useState([])
+  const [loadingTickets, setLoadingTickets] = useState(false)
+
+  // Fetch tickets when client changes
+  const fetchTicketsForClient = async (clientId) => {
+    if (!clientId) {
+      setAvailableTickets([])
+      return
+    }
+    setLoadingTickets(true)
+    try {
+      const { data } = await supabase
+        .from('tickets')
+        .select('id, title, ticket_id, status')
+        .eq('client_id', clientId)
+        .neq('status', 'done')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setAvailableTickets(data || [])
+    } catch (error) {
+      console.error('Error fetching tickets:', error)
+      setAvailableTickets([])
+    } finally {
+      setLoadingTickets(false)
+    }
+  }
 
   // Fetch all data
   const fetchData = async (showRefresh = false) => {
@@ -336,6 +363,7 @@ export default function TimeTracking() {
       await supabase.from('time_entries').insert({
         user_id: user.id,
         client_id: timeEntry.client_id,
+        ticket_id: timeEntry.ticket_id || null,
         description: timeEntry.description,
         minutes: totalMinutes,
         date: timeEntry.date,
@@ -346,7 +374,12 @@ export default function TimeTracking() {
         is_running: false,
       })
 
-      toast({ title: 'Time logged!', variant: 'success' })
+      const taskName = availableTickets.find(t => t.id === timeEntry.ticket_id)?.title
+      toast({ 
+        title: '✅ Time logged!', 
+        description: taskName ? `Logged to: ${taskName}` : undefined,
+        variant: 'success' 
+      })
       
       // Track for gamification (XP, achievements)
       trackTimeLogged(totalMinutes)
@@ -354,12 +387,14 @@ export default function TimeTracking() {
       setAddTimeDialogOpen(false)
       setTimeEntry({
         client_id: '',
+        ticket_id: '',
         description: '',
         hours: '',
         minutes: '',
         date: new Date().toISOString().split('T')[0],
         billable: true,
       })
+      setAvailableTickets([])
       fetchData(true)
     } catch (error) {
       toast({ title: 'Error logging time', variant: 'destructive' })
@@ -1162,7 +1197,10 @@ export default function TimeTracking() {
               <Label>Client *</Label>
               <Select
                 value={timeEntry.client_id}
-                onValueChange={(v) => setTimeEntry(e => ({ ...e, client_id: v }))}
+                onValueChange={(v) => {
+                  setTimeEntry(e => ({ ...e, client_id: v, ticket_id: '' }))
+                  fetchTicketsForClient(v)
+                }}
               >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select client" />
@@ -1182,6 +1220,39 @@ export default function TimeTracking() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Task Selection (Optional) */}
+            {timeEntry.client_id && (
+              <div>
+                <Label>Task (optional)</Label>
+                <Select
+                  value={timeEntry.ticket_id}
+                  onValueChange={(v) => setTimeEntry(e => ({ ...e, ticket_id: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder={loadingTickets ? "Loading tasks..." : "Select task (optional)"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No specific task</SelectItem>
+                    {availableTickets.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{t.ticket_id || t.id.substring(0, 6)}</span>
+                          <span className="truncate max-w-[200px]">{t.title}</span>
+                          {t.status === 'inprogress' && (
+                            <span className="text-xs text-blue-500">• In Progress</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                    {availableTickets.length === 0 && !loadingTickets && (
+                      <div className="text-sm text-muted-foreground px-2 py-1">No active tasks for this client</div>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Link this time entry to a specific task</p>
+              </div>
+            )}
             
             <div>
               <Label>Date</Label>

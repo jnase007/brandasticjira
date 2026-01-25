@@ -18,6 +18,8 @@ import {
   Sparkles,
   RefreshCw,
   Building2,
+  Circle,
+  Loader2,
 } from 'lucide-react'
 import { supabase, getClients, getBoards, getClientHoursSummary, getTickets, ensureValidSession } from '../lib/supabase'
 import ClientDialog from '../components/ClientDialog'
@@ -89,6 +91,7 @@ export default function Dashboard({ onConfetti }) {
   const [hoursSummary, setHoursSummary] = useState([])
   const [recentTickets, setRecentTickets] = useState([])
   const [allTickets, setAllTickets] = useState([])
+  const [myTasks, setMyTasks] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
   const [runningTimer, setRunningTimer] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -250,6 +253,29 @@ export default function Dashboard({ onConfetti }) {
         } catch (err) {
           console.error('[Dashboard] Time entries exception:', err)
           setMyTimeStats({ trackedMinutes: 0, targetHours: profile.target_hours_monthly || 160 })
+        }
+
+        // Fetch my assigned tasks (To Do and In Progress)
+        try {
+          const { data: myTasksData } = await supabase
+            .from('tickets')
+            .select('id, title, ticket_id, status, priority, due_date, client_id, board_id')
+            .eq('assigned_to', profile.id)
+            .in('status', ['todo', 'inprogress'])
+            .order('status', { ascending: false }) // inprogress first
+            .order('priority', { ascending: false })
+            .limit(10)
+          
+          // Enrich with client names
+          const enrichedTasks = (myTasksData || []).map(task => {
+            const client = clientsData.find(c => c.id === task.client_id)
+            return { ...task, client_name: client?.name || 'Unknown Client', client_color: client?.color }
+          })
+          
+          setMyTasks(enrichedTasks)
+        } catch (err) {
+          console.error('[Dashboard] My tasks fetch error:', err)
+          setMyTasks([])
         }
       }
       
@@ -635,6 +661,95 @@ export default function Dashboard({ onConfetti }) {
           </Card>
         </motion.div>
           </motion.div>
+
+          {/* My Tasks Section */}
+          {myTasks.length > 0 && (
+            <motion.div variants={itemVariants} className="mb-6">
+              <Card className="overflow-hidden border-l-4 border-l-brand-orange">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-brand-orange" />
+                      <CardTitle className="text-lg">My Tasks</CardTitle>
+                      <Badge variant="outline" className="ml-2">
+                        {myTasks.filter(t => t.status === 'inprogress').length} in progress
+                      </Badge>
+                    </div>
+                    <Link to="/boards">
+                      <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+                        View All
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-2">
+                    {myTasks.map((task) => (
+                      <Link
+                        key={task.id}
+                        to={task.board_id ? `/boards/${task.board_id}` : '#'}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-sm",
+                          task.status === 'inprogress' 
+                            ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800" 
+                            : "hover:border-brand-orange/30"
+                        )}
+                      >
+                        {/* Status Icon */}
+                        <div className={cn(
+                          "p-1.5 rounded-full flex-shrink-0",
+                          task.status === 'inprogress' ? "bg-blue-100 dark:bg-blue-900/30" : "bg-gray-100 dark:bg-gray-800"
+                        )}>
+                          {task.status === 'inprogress' ? (
+                            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                        
+                        {/* Task Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{task.title}</p>
+                            {task.priority === 'high' || task.priority === 'urgent' ? (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{task.priority}</Badge>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            <div 
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: task.client_color || '#F7931E' }}
+                            />
+                            <span className="truncate">{task.client_name}</span>
+                            {task.due_date && (
+                              <>
+                                <span>•</span>
+                                <span className={new Date(task.due_date) < new Date() ? 'text-red-500 font-medium' : ''}>
+                                  Due {formatRelativeDate(new Date(task.due_date))}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs flex-shrink-0",
+                            task.status === 'inprogress' && "text-blue-600 border-blue-300"
+                          )}
+                        >
+                          {task.status === 'inprogress' ? 'In Progress' : 'To Do'}
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Main Content Grid */}
           <div className="grid gap-6 lg:grid-cols-3">

@@ -143,6 +143,13 @@ export default function WorkflowGuide() {
             <p>
               Each task can be opened for details, comments, attachments, and time tracking.
             </p>
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-blue-700 dark:text-blue-300 font-medium">💡 Tip: Client Page Task View</p>
+              <p className="text-blue-600 dark:text-blue-400 mt-1">
+                On the client page, tasks are now <strong>grouped by status</strong> (In Progress → To Do → Done). 
+                Hover over any task to see a quick <strong>"Board" link</strong> that takes you directly to the Kanban board.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -161,6 +168,13 @@ export default function WorkflowGuide() {
             <p>
               From a task detail page you can update priority, due date, assignee, estimated hours, and add comments.
             </p>
+            <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+              <p className="text-orange-700 dark:text-orange-300 font-medium">📋 My Tasks on Dashboard</p>
+              <p className="text-orange-600 dark:text-orange-400 mt-1">
+                Your Dashboard shows a <strong>"My Tasks"</strong> section with all tasks assigned to you that 
+                are In Progress or To Do. Click any task to jump to its board.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
