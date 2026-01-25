@@ -167,8 +167,13 @@ export default function TeamHub() {
   
   // Custom team roles - stored in localStorage
   const [teamRoles, setTeamRoles] = useState(() => {
-    const saved = localStorage.getItem('team_roster_roles')
-    return saved ? JSON.parse(saved) : DEFAULT_TEAM_ROLES
+    try {
+      const saved = localStorage.getItem('team_roster_roles')
+      return saved ? JSON.parse(saved) : DEFAULT_TEAM_ROLES
+    } catch (e) {
+      console.warn('Invalid team roles data, resetting to defaults...')
+      return DEFAULT_TEAM_ROLES
+    }
   })
   const [manageRolesOpen, setManageRolesOpen] = useState(false)
   const [newRoleName, setNewRoleName] = useState('')

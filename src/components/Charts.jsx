@@ -3,8 +3,12 @@ import { motion } from 'framer-motion'
 import { cn } from '../lib/utils'
 
 // Simple animated bar chart
-export function BarChart({ data, height = 200, className }) {
-  const maxValue = Math.max(...data.map(d => d.value))
+export function BarChart({ data = [], height = 200, className }) {
+  if (!data || data.length === 0) {
+    return <div className={cn("w-full flex items-center justify-center text-muted-foreground", className)} style={{ height }}>No data</div>
+  }
+  
+  const maxValue = Math.max(...data.map(d => d.value)) || 1
   
   return (
     <div className={cn("w-full", className)} style={{ height }}>
@@ -128,10 +132,10 @@ export function AreaChart({ data, height = 150, className }) {
 
   const maxValue = Math.max(...data.map(d => d.value)) * 1.1
   const minValue = 0
-  const range = maxValue - minValue
+  const range = maxValue - minValue || 1 // Prevent division by zero
 
   const points = data.map((d, i) => ({
-    x: (i / (data.length - 1)) * dimensions.width,
+    x: data.length > 1 ? (i / (data.length - 1)) * dimensions.width : dimensions.width / 2,
     y: dimensions.height - ((d.value - minValue) / range) * dimensions.height
   }))
 
@@ -241,13 +245,17 @@ export function ProgressList({ items, className }) {
 }
 
 // Stat sparkline
-export function Sparkline({ data, width = 80, height = 24, color = '#F7931E' }) {
+export function Sparkline({ data = [], width = 80, height = 24, color = '#F7931E' }) {
+  if (!data || data.length === 0) {
+    return <svg width={width} height={height} />
+  }
+  
   const maxValue = Math.max(...data)
   const minValue = Math.min(...data)
   const range = maxValue - minValue || 1
 
   const points = data.map((value, i) => {
-    const x = (i / (data.length - 1)) * width
+    const x = data.length > 1 ? (i / (data.length - 1)) * width : width / 2
     const y = height - ((value - minValue) / range) * height
     return `${x},${y}`
   }).join(' ')

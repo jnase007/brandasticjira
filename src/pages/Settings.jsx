@@ -437,7 +437,8 @@ export default function Settings() {
   const rank = getRank(stats?.level || 1)
   const progress = getLevelProgress(stats?.xp || 0)
   const unlockedAchievements = stats?.achievements?.length || 0
-  const totalAchievements = achievements?.length || 0
+  const totalAchievements = achievements?.length || 1 // Prevent division by zero
+  const achievementProgress = totalAchievements > 0 ? (unlockedAchievements / totalAchievements) * 100 : 0
 
   // Show loading state if auth is still loading
   if (authLoading) {
@@ -849,7 +850,7 @@ export default function Settings() {
                       </Badge>
                     </div>
                     <Progress 
-                      value={(unlockedAchievements / totalAchievements) * 100} 
+                      value={achievementProgress} 
                       className="h-2 mb-4" 
                     />
                     <div className="flex flex-wrap gap-2">

@@ -552,24 +552,29 @@ export default function FloatingTimer({
   useEffect(() => {
     const saved = localStorage.getItem('activeTimer')
     if (saved) {
-      const { startTime, description, clientId, ticketId, isBillable } = JSON.parse(saved)
-      const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
-      setStartTime(startTime)
-      setSeconds(elapsed)
-      setDescription(description || '')
-      setIsBillable(isBillable !== false)
-      setIsRunning(true)
-      
-      // Find and set client
-      if (clientId) {
-        supabase
-          .from('clients')
-          .select('id, name, color')
-          .eq('id', clientId)
-          .single()
-          .then(({ data }) => {
-            if (data) setSelectedClient(data)
-          })
+      try {
+        const { startTime, description, clientId, ticketId, isBillable } = JSON.parse(saved)
+        const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
+        setStartTime(startTime)
+        setSeconds(elapsed)
+        setDescription(description || '')
+        setIsBillable(isBillable !== false)
+        setIsRunning(true)
+        
+        // Find and set client
+        if (clientId) {
+          supabase
+            .from('clients')
+            .select('id, name, color')
+            .eq('id', clientId)
+            .single()
+            .then(({ data }) => {
+              if (data) setSelectedClient(data)
+            })
+        }
+      } catch (e) {
+        console.warn('Invalid timer data in localStorage, clearing...')
+        localStorage.removeItem('activeTimer')
       }
     }
   }, [])

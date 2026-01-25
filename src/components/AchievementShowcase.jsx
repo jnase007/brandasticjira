@@ -103,8 +103,8 @@ function AchievementCard({ achievement, unlocked, showDetails = false }) {
 export function AchievementMini({ className }) {
   const { stats, achievements } = useGamification()
   const unlockedCount = stats.achievements?.length || 0
-  const totalCount = achievements?.length || 0
-  const progress = (unlockedCount / totalCount) * 100
+  const totalCount = achievements?.length || 1 // Prevent division by zero
+  const progress = totalCount > 0 ? (unlockedCount / totalCount) * 100 : 0
 
   // Get 3 most recent unlocked achievements
   const recentUnlocked = achievements
@@ -173,7 +173,8 @@ export default function AchievementShowcase() {
     : achievements.filter(a => a.category === selectedCategory)
 
   const unlockedCount = stats.achievements?.length || 0
-  const totalCount = achievements?.length || 0
+  const totalCount = achievements?.length || 1 // Prevent division by zero
+  const progressPercent = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0
 
   return (
     <div className="space-y-6">
@@ -191,12 +192,12 @@ export default function AchievementShowcase() {
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold text-yellow-500">
-              {Math.round((unlockedCount / totalCount) * 100)}%
+              {progressPercent}%
             </p>
             <p className="text-xs text-muted-foreground">Complete</p>
           </div>
         </div>
-        <Progress value={(unlockedCount / totalCount) * 100} className="h-2" />
+        <Progress value={progressPercent} className="h-2" />
       </div>
 
       {/* Category Tabs */}

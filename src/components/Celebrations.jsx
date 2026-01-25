@@ -52,7 +52,13 @@ export function CelebrationBanner() {
       // Check localStorage for dismissed celebrations today
       const today = new Date().toDateString()
       const dismissedKey = `dismissed_celebrations_${today}`
-      const dismissedList = JSON.parse(localStorage.getItem(dismissedKey) || '[]')
+      let dismissedList = []
+      try {
+        dismissedList = JSON.parse(localStorage.getItem(dismissedKey) || '[]')
+      } catch (e) {
+        console.warn('Invalid dismissed celebrations data, resetting...')
+        localStorage.removeItem(dismissedKey)
+      }
       setDismissed(dismissedList)
 
       const { data, error } = await supabase

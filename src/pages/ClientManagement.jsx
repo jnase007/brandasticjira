@@ -127,8 +127,13 @@ export default function ClientManagement() {
   
   // Pinned clients (stored in localStorage)
   const [pinnedClients, setPinnedClients] = useState(() => {
-    const stored = localStorage.getItem('pinnedClients')
-    return stored ? JSON.parse(stored) : []
+    try {
+      const stored = localStorage.getItem('pinnedClients')
+      return stored ? JSON.parse(stored) : []
+    } catch (e) {
+      console.warn('Invalid pinned clients data, resetting...')
+      return []
+    }
   })
   
   const togglePinClient = (clientId) => {
