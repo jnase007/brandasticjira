@@ -590,13 +590,13 @@ export default function Dashboard({ onConfetti }) {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Company Tasks</p>
+                  <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
                   <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
                     {allTickets.filter(t => t.status === 'done').length}
                   </p>
                   <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
                     <CheckCircle className="h-3 w-3" />
-                    <span>{allTickets.filter(t => t.status === 'done').length} completed</span>
+                    <span>by the team</span>
                   </div>
                 </div>
                 <div className="relative">
