@@ -21,6 +21,9 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['framer-motion', 'lucide-react'],
           'vendor-supabase': ['@supabase/supabase-js'],
+          // Export libraries - only loaded when needed
+          'vendor-export': ['xlsx', 'jspdf', 'jspdf-autotable'],
+          'vendor-dnd': ['@hello-pangea/dnd'],
         },
       },
     },
