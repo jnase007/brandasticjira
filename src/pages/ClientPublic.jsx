@@ -79,35 +79,53 @@ export default function ClientPublic() {
     
     try {
       // First try the Netlify function (uses service role key for full access)
-      console.log('[ClientPublic] Trying Netlify function...')
+      console.log('[ClientPublic] Trying Netlify function with token:', token)
       const res = await fetch(`/.netlify/functions/client-public?token=${encodeURIComponent(token)}`)
       
       if (res.ok) {
         const data = await res.json()
         if (data.client) {
-          console.log('[ClientPublic] Netlify function succeeded')
+          console.log('[ClientPublic] Netlify function succeeded:', data.client.name)
           setPayload(data)
           return
         }
+      } else {
+        console.log('[ClientPublic] Netlify function returned:', res.status)
       }
       
       // If Netlify function fails, try direct Supabase fetch
       console.log('[ClientPublic] Netlify function failed, trying direct Supabase fetch...')
       
-      // Fetch client by public_token
-      const { data: client, error: clientError } = await supabase
+      // First try by public_token
+      let { data: client, error: clientError } = await supabase
         .from('clients')
         .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_enabled, public_token')
         .eq('public_token', token)
         .maybeSingle()
       
+      // If not found by token, try by ID (fallback for older links or direct ID sharing)
+      if (!client && !clientError) {
+        console.log('[ClientPublic] Not found by token, trying by ID...')
+        const { data: clientById, error: idError } = await supabase
+          .from('clients')
+          .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_enabled, public_token')
+          .eq('id', token)
+          .maybeSingle()
+        
+        if (clientById && clientById.public_enabled) {
+          client = clientById
+        } else if (idError) {
+          console.error('[ClientPublic] ID fetch error:', idError)
+        }
+      }
+      
       if (clientError) {
         console.error('[ClientPublic] Client fetch error:', clientError)
-        throw new Error('Unable to load client data')
+        throw new Error('Unable to load client data. Please ensure the public access SQL has been run.')
       }
       
       if (!client) {
-        throw new Error('Client not found')
+        throw new Error('Client not found. The link may be invalid or the public access policies may need to be configured.')
       }
       
       // Check if public access is enabled
@@ -266,7 +284,7 @@ export default function ClientPublic() {
               </div>
               <h2 className="text-2xl font-bold mb-2">Client view unavailable</h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                {error || 'This shareable link is invalid or has been disabled.'}
+                {error || 'Unable to load client data'}
               </p>
               <div className="flex justify-center gap-3">
                 <Button onClick={() => fetchPublicData()} variant="outline" className="gap-2">
@@ -276,6 +294,16 @@ export default function ClientPublic() {
                 <Button asChild className="bg-brand-orange hover:bg-brand-orange/90 gap-2">
                   <Link to="/login">Return to Login</Link>
                 </Button>
+              </div>
+              
+              {/* Admin hint */}
+              <div className="mt-8 p-4 bg-muted/50 rounded-lg text-left text-sm">
+                <p className="font-medium mb-2">Admin troubleshooting:</p>
+                <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                  <li>Ensure the client has "Public Sharing" enabled</li>
+                  <li>Run the <code className="bg-muted px-1 rounded">public-client-access.sql</code> script in Supabase</li>
+                  <li>Check Netlify has <code className="bg-muted px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> set</li>
+                </ul>
               </div>
             </CardContent>
           </Card>

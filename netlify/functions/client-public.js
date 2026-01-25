@@ -18,6 +18,7 @@ export async function handler(event) {
   })
 
   try {
+    // First try to find by public_token
     let clientQuery = supabase
       .from('clients')
       .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_enabled, public_token')
@@ -36,8 +37,21 @@ export async function handler(event) {
       client = fallbackRes.data
     }
 
+    // If not found by token, try by ID (fallback for direct ID links)
     if (!client) {
-      return { statusCode: 404, body: JSON.stringify({ error: 'Not found' }) }
+      const { data: clientById } = await supabase
+        .from('clients')
+        .select('id, name, color, logo_url, banner_url, monthly_hours, account_services, public_enabled, public_token')
+        .eq('id', token)
+        .maybeSingle()
+      
+      if (clientById && (clientById.public_enabled === true || clientById.public_enabled === null)) {
+        client = clientById
+      }
+    }
+
+    if (!client) {
+      return { statusCode: 404, body: JSON.stringify({ error: 'Client not found or public access not enabled' }) }
     }
 
     const [boardsRes, ticketsRes, projectsRes, recapsRes, activityRes] = await Promise.all([
