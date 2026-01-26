@@ -606,17 +606,30 @@ export default function TicketDetail() {
                   <div>
                     <Label>Assignee</Label>
                     <Select
-                      value={editedTicket.assigned_to || ''}
-                      onValueChange={(value) => setEditedTicket((prev) => ({ ...prev, assigned_to: value }))}
+                      value={editedTicket.assigned_to || 'unassigned'}
+                      onValueChange={(value) => setEditedTicket((prev) => ({ 
+                        ...prev, 
+                        assigned_to: value === 'unassigned' ? null : value 
+                      }))}
                     >
                       <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Unassigned" />
+                        <SelectValue placeholder="Select assignee..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
+                        <SelectItem value="unassigned">
+                          <span className="text-muted-foreground">Unassigned</span>
+                        </SelectItem>
                         {teamMembers.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
-                            {member.full_name}
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage src={member.avatar_url} />
+                                <AvatarFallback className="text-[8px]">
+                                  {getInitials(member.full_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {member.full_name}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -668,15 +681,25 @@ export default function TicketDetail() {
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
-                  <div>
+                  <div 
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
+                    onClick={() => setEditMode(true)}
+                    title="Click to edit"
+                  >
                     <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                       <Tag className="h-3 w-3" /> Priority
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                     </p>
                     <Badge variant={ticket.priority}>{priorityInfo.label}</Badge>
                   </div>
-                  <div>
+                  <div 
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
+                    onClick={() => setEditMode(true)}
+                    title="Click to edit assignee"
+                  >
                     <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                       <User className="h-3 w-3" /> Assignee
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                     </p>
                     {ticket.assigned_user ? (
                       <div className="flex items-center gap-2">
@@ -689,24 +712,32 @@ export default function TicketDetail() {
                         <span className="text-sm">{ticket.assigned_user.full_name}</span>
                       </div>
                     ) : (
-                      <span className="text-sm text-muted-foreground">Unassigned</span>
+                      <span className="text-sm text-brand-orange font-medium">Click to assign</span>
                     )}
                   </div>
-                  <div>
+                  <div 
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
+                    onClick={() => setEditMode(true)}
+                    title="Click to set due date"
+                  >
                     <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> Due Date
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                     </p>
-                    <span className="text-sm">
-                      {ticket.due_date ? formatDate(ticket.due_date) : 'Not set'}
+                    <span className={cn("text-sm", !ticket.due_date && "text-brand-orange font-medium")}>
+                      {ticket.due_date ? formatDate(ticket.due_date) : 'Click to set'}
                     </span>
                   </div>
                   <div 
-                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors"
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
                     onClick={() => setEditMode(true)}
                     title="Click to edit"
                   >
-                    <p className="text-xs text-muted-foreground mb-1">Estimated</p>
-                    <span className="text-sm">
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                      Estimated
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                    </p>
+                    <span className={cn("text-sm", !ticket.estimated_hours && "text-brand-orange font-medium")}>
                       {ticket.estimated_hours ? `${ticket.estimated_hours}h` : 'Click to set'}
                     </span>
                   </div>
