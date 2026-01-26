@@ -1,18 +1,20 @@
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, createContext, useContext, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Focus, X, Timer, Volume2, VolumeX, Maximize, Minimize, Music, ChevronDown, Radio } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { useToast } from '../hooks/useToast'
 
-// Music streams - YouTube video IDs for 24/7 streams
-const MUSIC_STREAMS = [
-  { id: 'lofi', name: 'Lo-Fi Beats', emoji: '🎧', videoId: 'jfKfPfyJRdk', color: 'from-purple-500 to-pink-500' },
-  { id: 'chill', name: 'Chill Vibes', emoji: '🌊', videoId: '5qap5aO4i9A', color: 'from-cyan-500 to-blue-500' },
-  { id: 'jazz', name: 'Jazz & Coffee', emoji: '☕', videoId: 'Dx5qFachd3A', color: 'from-amber-500 to-orange-500' },
-  { id: 'nature', name: 'Nature Sounds', emoji: '🌲', videoId: 'eKFTSSKCzWA', color: 'from-green-500 to-emerald-500' },
-  { id: 'classical', name: 'Classical Focus', emoji: '🎻', videoId: 'mIYzp5rcTvU', color: 'from-rose-500 to-red-500' },
-  { id: 'none', name: 'No Music', emoji: '🔇', videoId: null, color: 'from-gray-400 to-gray-500' },
+// Music tracks - Supabase storage URLs (loops until user changes)
+const MUSIC_STORAGE_BASE = 'https://auth.brandastic.co/storage/v1/object/public/Music'
+const MUSIC_TRACKS = [
+  { id: 'lofi', name: 'Lo-Fi Beats', emoji: '🎧', file: 'Lo-Fi%20Beats.wav', color: 'from-purple-500 to-pink-500' },
+  { id: 'chill', name: 'Chill Vibes', emoji: '🌊', file: 'Chill%20Vibes.wav', color: 'from-cyan-500 to-blue-500' },
+  { id: 'jazz', name: 'Jazz & Coffee', emoji: '☕', file: 'Jazz%20Coffee.wav', color: 'from-amber-500 to-orange-500' },
+  { id: 'nature', name: 'Nature Sounds', emoji: '🌲', file: 'Nature%20Sounds.wav', color: 'from-green-500 to-emerald-500' },
+  { id: 'classical', name: 'Classical Focus', emoji: '🎻', file: 'Classical%20Focus.wav', color: 'from-rose-500 to-red-500' },
+  { id: 'country', name: 'Country', emoji: '🤠', file: 'Country.wav', color: 'from-yellow-500 to-amber-500' },
+  { id: 'none', name: 'No Music', emoji: '🔇', file: null, color: 'from-gray-400 to-gray-500' },
 ]
 
 // Focus Mode Context
@@ -88,11 +90,16 @@ function FocusModeOverlay({ onExit, task }) {
   const [selectedMusic, setSelectedMusic] = useState(() => {
     // Restore last selected music from localStorage
     const saved = localStorage.getItem('focusMusic')
-    return saved ? MUSIC_STREAMS.find(m => m.id === saved) || MUSIC_STREAMS[0] : MUSIC_STREAMS[0]
+    return saved ? MUSIC_TRACKS.find(m => m.id === saved) || MUSIC_TRACKS[0] : MUSIC_TRACKS[0]
   })
   const [isMuted, setIsMuted] = useState(false)
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [isPlaying, setIsPlaying] = useState(true)
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('focusVolume')
+    return saved ? parseFloat(saved) : 0.5
+  })
+  const audioRef = useRef(null)
 
   // Timer
   useEffect(() => {
@@ -108,6 +115,25 @@ function FocusModeOverlay({ onExit, task }) {
     localStorage.setItem('focusMusic', selectedMusic.id)
   }, [selectedMusic])
 
+  // Save volume preference
+  useEffect(() => {
+    localStorage.setItem('focusVolume', volume.toString())
+  }, [volume])
+
+  // Handle audio playback
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume
+      if (isMuted) {
+        audioRef.current.pause()
+      } else if (isPlaying && selectedMusic.file) {
+        audioRef.current.play().catch(() => {
+          // Autoplay may be blocked, user needs to interact
+        })
+      }
+    }
+  }, [isMuted, isPlaying, volume, selectedMusic])
+
   const formatTime = (seconds) => {
     const hrs = Math.floor(seconds / 3600)
     const mins = Math.floor((seconds % 3600) / 60)
@@ -119,7 +145,8 @@ function FocusModeOverlay({ onExit, task }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const currentStream = selectedMusic
+  const currentTrack = selectedMusic
+  const audioUrl = currentTrack.file ? `${MUSIC_STORAGE_BASE}/${currentTrack.file}` : null
 
   return (
     <motion.div
@@ -128,13 +155,14 @@ function FocusModeOverlay({ onExit, task }) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-background"
     >
-      {/* Hidden YouTube Player for Audio */}
-      {currentStream.videoId && isPlaying && !isMuted && (
-        <iframe
-          src={`https://www.youtube.com/embed/${currentStream.videoId}?autoplay=1&loop=1&mute=0&controls=0&showinfo=0&rel=0&modestbranding=1`}
-          className="absolute -top-[9999px] -left-[9999px] w-1 h-1 opacity-0 pointer-events-none"
-          allow="autoplay"
-          title="Focus Music"
+      {/* HTML5 Audio Player - Loops until changed */}
+      {audioUrl && !isMuted && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          loop
+          autoPlay
+          className="hidden"
         />
       )}
 
@@ -160,7 +188,7 @@ function FocusModeOverlay({ onExit, task }) {
               className="gap-2"
             >
               <Music className="h-4 w-4" />
-              <span className="hidden sm:inline">{currentStream.emoji} {currentStream.name}</span>
+              <span className="hidden sm:inline">{currentTrack.emoji} {currentTrack.name}</span>
               <ChevronDown className={cn("h-4 w-4 transition-transform", showMusicPicker && "rotate-180")} />
             </Button>
             
@@ -174,24 +202,24 @@ function FocusModeOverlay({ onExit, task }) {
                   className="absolute right-0 top-full mt-2 w-56 rounded-xl border bg-background shadow-xl p-2 z-50"
                 >
                   <p className="text-xs text-muted-foreground px-2 py-1 mb-1">Choose your vibe</p>
-                  {MUSIC_STREAMS.map((stream) => (
+                  {MUSIC_TRACKS.map((track) => (
                     <button
-                      key={stream.id}
+                      key={track.id}
                       onClick={() => {
-                        setSelectedMusic(stream)
+                        setSelectedMusic(track)
                         setShowMusicPicker(false)
-                        setIsPlaying(stream.videoId !== null)
+                        setIsPlaying(track.file !== null)
                       }}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        currentStream.id === stream.id 
+                        currentTrack.id === track.id 
                           ? "bg-brand-orange/10 text-brand-orange" 
                           : "hover:bg-muted"
                       )}
                     >
-                      <span className="text-xl">{stream.emoji}</span>
-                      <span className="font-medium">{stream.name}</span>
-                      {currentStream.id === stream.id && isPlaying && stream.videoId && (
+                      <span className="text-xl">{track.emoji}</span>
+                      <span className="font-medium">{track.name}</span>
+                      {currentTrack.id === track.id && isPlaying && track.file && (
                         <Radio className="h-4 w-4 ml-auto animate-pulse text-green-500" />
                       )}
                     </button>
@@ -222,11 +250,11 @@ function FocusModeOverlay({ onExit, task }) {
       {/* Main Content */}
       <div className="h-full flex flex-col items-center justify-center px-4">
         {/* Now Playing Indicator */}
-        {currentStream.videoId && isPlaying && !isMuted && (
+        {currentTrack.file && isPlaying && !isMuted && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50"
+            className="mb-6 flex items-center gap-3 px-4 py-2 rounded-full bg-muted/50"
           >
             <div className="flex items-center gap-1">
               <span className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
@@ -234,8 +262,18 @@ function FocusModeOverlay({ onExit, task }) {
               <span className="w-1 h-2 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
             </div>
             <span className="text-sm text-muted-foreground">
-              Now playing: {currentStream.emoji} {currentStream.name}
+              {currentTrack.emoji} {currentTrack.name}
             </span>
+            {/* Volume Slider */}
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              className="w-20 h-1 accent-green-500 cursor-pointer"
+            />
           </motion.div>
         )}
 
