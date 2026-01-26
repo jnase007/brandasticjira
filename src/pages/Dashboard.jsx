@@ -211,11 +211,11 @@ export default function Dashboard({ onConfetti }) {
           } else {
             // No assigned clients, just fetch user's own activity
             const { data } = await supabase
-              .from('activity_log')
-              .select('id, activity_type, entity_name, metadata, created_at')
-              .eq('user_id', profile.id)
-              .order('created_at', { ascending: false })
-              .limit(5)
+            .from('activity_log')
+            .select('id, activity_type, entity_name, metadata, created_at')
+            .eq('user_id', profile.id)
+            .order('created_at', { ascending: false })
+            .limit(5)
             activityData = data || []
           }
           
@@ -764,18 +764,18 @@ export default function Dashboard({ onConfetti }) {
           <Card className="overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle className="text-xl">Client Hours</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Monthly hour allocation by client</p>
-                </div>
+              <div>
+                <CardTitle className="text-xl">Client Hours</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Monthly hour allocation by client</p>
+              </div>
                 <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
                     placeholder="Search clients... (⌘K)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 rounded-xl bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-brand-orange/20"
-                  />
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10 rounded-xl bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-brand-orange/20"
+                />
                 </div>
               </div>
             </CardHeader>
@@ -1161,7 +1161,7 @@ export default function Dashboard({ onConfetti }) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">My Active Tasks</p>
+                  <p className="text-sm font-medium text-muted-foreground">My Active Tasks</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-blue transition-colors">
                         {myActiveTickets.length}
                       </p>
@@ -1185,7 +1185,7 @@ export default function Dashboard({ onConfetti }) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">My Clients</p>
+                  <p className="text-sm font-medium text-muted-foreground">My Clients</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-brand-orange transition-colors">
                         {myClients.length}
                       </p>
@@ -1209,10 +1209,10 @@ export default function Dashboard({ onConfetti }) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
+                  <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
                       <p className="text-4xl font-display font-bold mt-2 group-hover:text-green-500 transition-colors">
-                        {myTickets.filter((t) => t.status === 'done').length}
-                      </p>
+                    {myTickets.filter((t) => t.status === 'done').length}
+                  </p>
                       <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
                         <Award className="h-3 w-3" />
                         <span>Great work!</span>

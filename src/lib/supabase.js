@@ -34,21 +34,35 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 
 /**
  * Ensures the session is valid before making a request.
+ * Uses getUser() for secure server-side validation (recommended by Supabase).
  * Proactively refreshes if token is expiring soon.
  * Returns true if session is valid, false if user needs to re-login.
  */
 export async function ensureValidSession() {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    // Use getUser() for secure server-side validation
+    // This validates the JWT with Supabase servers, unlike getSession() which only reads local storage
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     
-    if (error) {
-      console.warn('[Session] Error getting session:', error.message)
+    if (userError) {
+      // AuthSessionMissingError is expected when not logged in
+      if (userError.name !== 'AuthSessionMissingError') {
+        console.warn('[Session] Error validating user:', userError.message)
+      }
       return false
     }
     
-    if (!session) {
-      console.warn('[Session] No active session')
+    if (!user) {
+      console.warn('[Session] No authenticated user')
       return false
+    }
+    
+    // Get session for expiry info (needed for proactive refresh timing)
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      // User is valid but no session - this shouldn't happen, but handle gracefully
+      return true
     }
     
     // Check if token is expiring soon (within 5 minutes)

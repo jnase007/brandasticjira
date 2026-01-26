@@ -39,20 +39,24 @@ export function AuthProvider({ children }) {
     // Get initial session
     const initAuth = async () => {
       try {
-        // Always get fresh session from Supabase
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // Use getUser() for secure server-side validation (recommended by Supabase)
+        // This validates the JWT with Supabase servers, unlike getSession() which only reads local storage
+        const { data: { user: validatedUser }, error } = await supabase.auth.getUser()
         
         if (error) {
-          console.error('Session error:', error)
-          setAuthError(error.message)
+          // AuthSessionMissingError is expected when not logged in, don't treat as error
+          if (error.name !== 'AuthSessionMissingError') {
+            console.error('Auth validation error:', error)
+            setAuthError(error.message)
+          }
           setLoading(false)
           clearTimeout(safetyTimeout)
           return
         }
         
-        if (session?.user) {
-          console.log('Session found for:', session.user.email)
-          setUser(session.user)
+        if (validatedUser) {
+          console.log('User validated for:', validatedUser.email)
+          setUser(validatedUser)
           
           // Fetch user profile - try multiple times if needed
           let profileData = null
@@ -61,7 +65,7 @@ export function AuthProvider({ children }) {
           
           while (!profileData && retries < maxRetries) {
             try {
-              const { data, error: profileError } = await getProfile(session.user.id)
+              const { data, error: profileError } = await getProfile(validatedUser.id)
               if (data) {
                 profileData = data
               } else if (profileError) {
@@ -74,21 +78,21 @@ export function AuthProvider({ children }) {
                 const { error: createError } = await supabase
                   .from('profiles')
                   .upsert({
-                    id: session.user.id,
-                    email: session.user.email,
-                    full_name: session.user.user_metadata?.full_name || 
-                               session.user.user_metadata?.name || 
-                               session.user.email?.split('@')[0] || 'User',
+                    id: validatedUser.id,
+                    email: validatedUser.email,
+                    full_name: validatedUser.user_metadata?.full_name || 
+                               validatedUser.user_metadata?.name || 
+                               validatedUser.email?.split('@')[0] || 'User',
                     role: 'team',
-                    avatar_url: session.user.user_metadata?.avatar_url || 
-                                session.user.user_metadata?.picture || null,
+                    avatar_url: validatedUser.user_metadata?.avatar_url || 
+                                validatedUser.user_metadata?.picture || null,
                   }, { onConflict: 'id' })
                 
                 if (createError) {
                   console.error('Profile creation error:', createError.message)
                 } else {
                   // Fetch the newly created profile
-                  const { data: newProfile } = await getProfile(session.user.id)
+                  const { data: newProfile } = await getProfile(validatedUser.id)
                   if (newProfile) {
                     profileData = newProfile
                   }
@@ -111,9 +115,9 @@ export function AuthProvider({ children }) {
             console.warn('Could not load profile after retries, continuing without profile')
             // Set a minimal profile so the app can still function
             setProfile({
-              id: session.user.id,
-              email: session.user.email,
-              full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              id: validatedUser.id,
+              email: validatedUser.email,
+              full_name: validatedUser.user_metadata?.full_name || validatedUser.email?.split('@')[0] || 'User',
               role: 'team',
             })
           }
@@ -431,22 +435,32 @@ export function AuthProvider({ children }) {
         setTimeout(() => reject(new Error('Session refresh timeout')), 8000)
       )
 
-      // First, try to get the current session
-      const { data, error } = await Promise.race([
-        supabase.auth.getSession(),
+      // Use getUser() for secure server-side validation (recommended by Supabase)
+      const { data: { user: validatedUser }, error: userError } = await Promise.race([
+        supabase.auth.getUser(),
         timeout,
       ])
 
-      if (error) {
-        console.warn('Session refresh error:', error)
-        setAuthError(error.message)
+      if (userError) {
+        // AuthSessionMissingError is expected when not logged in
+        if (userError.name !== 'AuthSessionMissingError') {
+          console.warn('Auth validation error:', userError)
+          setAuthError(userError.message)
+        }
         return
       }
 
+      if (!validatedUser) {
+        return
+      }
+
+      // Get session for expiry info (needed for proactive refresh timing)
+      const { data: sessionData } = await supabase.auth.getSession()
+      
       // If we have a session, proactively refresh the token to prevent staleness
-      if (data?.session) {
+      if (sessionData?.session) {
         // Check if token is expiring soon (within 30 minutes for maximum safety)
-        const expiresAt = data.session.expires_at
+        const expiresAt = sessionData.session.expires_at
         const now = Math.floor(Date.now() / 1000)
         const expiresIn = expiresAt - now
         
@@ -473,15 +487,14 @@ export function AuthProvider({ children }) {
         }
       }
 
-      if (data?.session?.user) {
-        setUser(data.session.user)
-        const profileRes = await Promise.race([
-          getProfile(data.session.user.id),
-          timeout,
-        ])
-        if (profileRes?.data) {
-          setProfile(profileRes.data)
-        }
+      // User is validated - update state
+      setUser(validatedUser)
+      const profileRes = await Promise.race([
+        getProfile(validatedUser.id),
+        timeout,
+      ])
+      if (profileRes?.data) {
+        setProfile(profileRes.data)
       }
     } catch (error) {
       console.warn(`Session refresh failed (${source}):`, error?.message || error)
@@ -541,12 +554,16 @@ export function AuthProvider({ children }) {
     setLoading(true)
     setAuthError(null)
     try {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // Use getUser() for secure server-side validation (recommended by Supabase)
+      const { data: { user: validatedUser }, error } = await supabase.auth.getUser()
       if (error) {
-        setAuthError(error.message)
-      } else if (session?.user) {
-        setUser(session.user)
-        const { data: profileData } = await getProfile(session.user.id)
+        // AuthSessionMissingError is expected when not logged in
+        if (error.name !== 'AuthSessionMissingError') {
+          setAuthError(error.message)
+        }
+      } else if (validatedUser) {
+        setUser(validatedUser)
+        const { data: profileData } = await getProfile(validatedUser.id)
         setProfile(profileData)
       }
     } catch (error) {

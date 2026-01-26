@@ -553,24 +553,24 @@ export default function FloatingTimer({
     const saved = localStorage.getItem('activeTimer')
     if (saved) {
       try {
-        const { startTime, description, clientId, ticketId, isBillable } = JSON.parse(saved)
-        const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
-        setStartTime(startTime)
-        setSeconds(elapsed)
-        setDescription(description || '')
-        setIsBillable(isBillable !== false)
-        setIsRunning(true)
-        
-        // Find and set client
-        if (clientId) {
-          supabase
-            .from('clients')
-            .select('id, name, color')
-            .eq('id', clientId)
-            .single()
-            .then(({ data }) => {
-              if (data) setSelectedClient(data)
-            })
+      const { startTime, description, clientId, ticketId, isBillable } = JSON.parse(saved)
+      const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
+      setStartTime(startTime)
+      setSeconds(elapsed)
+      setDescription(description || '')
+      setIsBillable(isBillable !== false)
+      setIsRunning(true)
+      
+      // Find and set client
+      if (clientId) {
+        supabase
+          .from('clients')
+          .select('id, name, color')
+          .eq('id', clientId)
+          .single()
+          .then(({ data }) => {
+            if (data) setSelectedClient(data)
+          })
         }
       } catch (e) {
         console.warn('Invalid timer data in localStorage, clearing...')

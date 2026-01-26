@@ -54,58 +54,58 @@ export default function LeaderboardPage() {
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
               {/* Level Badge + XP Progress Row on Mobile */}
               <div className="flex items-center gap-4 w-full sm:w-auto">
-                {/* Level Badge */}
+              {/* Level Badge */}
                 <div className="relative flex-shrink-0">
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', delay: 0.2 }}
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', delay: 0.2 }}
                     className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center text-white text-2xl sm:text-3xl font-bold shadow-2xl"
-                    style={{ backgroundColor: rank.color }}
-                  >
-                    {stats.level}
-                  </motion.div>
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.4 }}
+                  style={{ backgroundColor: rank.color }}
+                >
+                  {stats.level}
+                </motion.div>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.4 }}
                     className="absolute -bottom-2 -right-2 bg-yellow-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full"
-                  >
-                    {rank.title}
-                  </motion.div>
-                </div>
+                >
+                  {rank.title}
+                </motion.div>
+              </div>
 
                 {/* XP Progress - shows beside badge on mobile */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <div>
+                  <div>
                       <p className="text-xs sm:text-sm text-muted-foreground">Total XP</p>
                       <p className="text-xl sm:text-3xl font-bold">
                         {stats.xp}
-                      </p>
-                    </div>
-                    <div className="text-right">
+                    </p>
+                  </div>
+                  <div className="text-right">
                       <p className="text-xs sm:text-sm text-muted-foreground">Next Level</p>
                       <p className="text-sm sm:text-lg font-medium">Level {stats.level + 1}</p>
                     </div>
                   </div>
                   <div className="relative h-3 sm:h-4 rounded-full bg-muted overflow-hidden">
-                    <motion.div
-                      className="absolute inset-y-0 left-0 rounded-full"
-                      style={{ 
-                        background: `linear-gradient(90deg, ${rank.color}, #F59E0B)` 
-                      }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progress}%` }}
-                      transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
-                    />
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                      initial={{ x: '-100%' }}
-                      animate={{ x: '200%' }}
-                      transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                    />
-                  </div>
+                  <motion.div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ 
+                      background: `linear-gradient(90deg, ${rank.color}, #F59E0B)` 
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
+                  />
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '200%' }}
+                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+                  />
+                </div>
                   <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">{Math.round(progress)}% to next level</p>
                 </div>
               </div>

@@ -624,7 +624,7 @@ export default function Admin() {
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = userStatusFilter === 'all' || 
       (userStatusFilter === 'active' && user.is_active !== false) ||
       (userStatusFilter === 'inactive' && user.is_active === false)
@@ -1107,7 +1107,7 @@ export default function Admin() {
                                   </>
                                 ) : (
                                   <>
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                <CheckCircle className="h-4 w-4 text-green-500" />
                                     <span className="text-sm text-green-600">Active</span>
                                   </>
                                 )}

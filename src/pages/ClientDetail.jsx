@@ -460,12 +460,23 @@ export default function ClientDetail() {
       
       // Fetch client wins for this client
       try {
-        const { data: winsData } = await supabase
+        const { data: winsData, error: winsError } = await supabase
           .from('client_wins')
-          .select('*, user:user_id(id, full_name, avatar_url)')
+          .select('*')
           .eq('client_id', resolvedClientId)
           .order('created_at', { ascending: false })
-        setClientWins(winsData || [])
+        
+        if (winsError) {
+          console.error('[ClientDetail] Error fetching wins:', winsError)
+        }
+        
+        // Enrich wins with user data from profiles
+        const enrichedWins = (winsData || []).map(win => ({
+          ...win,
+          user: allMembersData.find(m => m.id === win.user_id) || null
+        }))
+        
+        setClientWins(enrichedWins)
       } catch (err) {
         console.log('Client wins table may not exist yet:', err)
       }
@@ -2740,18 +2751,21 @@ export default function ClientDetail() {
                     setWinImageUploading(true)
                     try {
                       const fileName = `wins/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-                      const { error: uploadError } = await supabase.storage
+                      console.log('[WinUpload] Uploading file:', fileName, file.type, file.size)
+                      const { data, error: uploadError } = await supabase.storage
                         .from('images')
-                        .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                        .upload(fileName, file, { cacheControl: '3600', upsert: true })
+                      console.log('[WinUpload] Upload result:', { data, uploadError })
                       if (uploadError) throw uploadError
                       const { data: { publicUrl } } = supabase.storage
                         .from('images')
                         .getPublicUrl(fileName)
+                      console.log('[WinUpload] Public URL:', publicUrl)
                       setNewWin(prev => ({ ...prev, image_url: publicUrl }))
                       toast({ title: '📸 Image uploaded!', variant: 'success' })
                     } catch (err) {
-                      console.error('Upload error:', err)
-                      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+                      console.error('[WinUpload] Error:', err)
+                      toast({ title: 'Upload failed', description: err.message || 'Check storage permissions', variant: 'destructive' })
                     } finally {
                       setWinImageUploading(false)
                     }
@@ -2776,18 +2790,21 @@ export default function ClientDetail() {
                       setWinImageUploading(true)
                       try {
                         const fileName = `wins/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-                        const { error: uploadError } = await supabase.storage
+                        console.log('[WinUpload] Uploading file:', fileName, file.type, file.size)
+                        const { data, error: uploadError } = await supabase.storage
                           .from('images')
-                          .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                          .upload(fileName, file, { cacheControl: '3600', upsert: true })
+                        console.log('[WinUpload] Upload result:', { data, uploadError })
                         if (uploadError) throw uploadError
                         const { data: { publicUrl } } = supabase.storage
                           .from('images')
                           .getPublicUrl(fileName)
+                        console.log('[WinUpload] Public URL:', publicUrl)
                         setNewWin(prev => ({ ...prev, image_url: publicUrl }))
                         toast({ title: '📸 Image uploaded!', variant: 'success' })
                       } catch (err) {
-                        console.error('Upload error:', err)
-                        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+                        console.error('[WinUpload] Error:', err)
+                        toast({ title: 'Upload failed', description: err.message || 'Check storage permissions', variant: 'destructive' })
                       } finally {
                         setWinImageUploading(false)
                         e.target.value = ''
@@ -3149,14 +3166,14 @@ export default function ClientDetail() {
                         )}
                       >
                         {/* Selection checkbox - top right */}
-                        <div className={cn(
+                          <div className={cn(
                           "absolute top-3 right-3 h-5 w-5 rounded-full border-2 flex items-center justify-center",
-                          isSelected 
-                            ? "border-brand-purple bg-brand-purple" 
+                            isSelected 
+                              ? "border-brand-purple bg-brand-purple" 
                             : "border-gray-300"
-                        )}>
-                          {isSelected && <CheckCircle className="h-3 w-3 text-white" />}
-                        </div>
+                          )}>
+                            {isSelected && <CheckCircle className="h-3 w-3 text-white" />}
+                          </div>
 
                         {/* Icon */}
                         <div className="text-3xl mb-2">{template.icon}</div>

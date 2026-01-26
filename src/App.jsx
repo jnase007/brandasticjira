@@ -59,8 +59,8 @@ function PageLoader() {
       <PageLoadingBar isLoading={true} />
       
       {/* Center content loading indicator */}
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center">
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="text-center">
           {/* Inline loading bar with laser effect */}
           <div className="w-48 h-1.5 mx-auto mb-6 bg-slate-200/50 dark:bg-slate-700/50 rounded-full overflow-hidden">
             <motion.div
@@ -74,20 +74,20 @@ function PageLoader() {
             />
           </div>
           
-          <Loader2 className="h-8 w-8 animate-spin text-brand-orange mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground mb-3">Loading...</p>
-          {showRetry && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.reload()}
-              className="text-xs"
-            >
-              Taking too long? Refresh
-            </Button>
-          )}
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-brand-orange mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground mb-3">Loading...</p>
+        {showRetry && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="text-xs"
+          >
+            Taking too long? Refresh
+          </Button>
+        )}
       </div>
+    </div>
     </>
   )
 }

@@ -56,9 +56,9 @@ function ReportHeader({ title, subtitle }) {
   return (
     <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-6 mb-6">
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <Badge variant="secondary" className="hidden sm:inline-flex">Internal</Badge>
       </div>
@@ -1894,18 +1894,18 @@ export default function Reports() {
       <motion.div variants={itemVariants} className="mb-8">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue">
-                  <BarChart3 className="h-6 w-6 text-white" />
-                </div>
-                <h1 className="text-2xl sm:text-4xl font-display font-bold">Reports</h1>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue">
+                <BarChart3 className="h-6 w-6 text-white" />
               </div>
-              <p className="text-sm sm:text-lg text-muted-foreground">
-                Comprehensive insights into clients, team performance, and profitability
-              </p>
+                <h1 className="text-2xl sm:text-4xl font-display font-bold">Reports</h1>
             </div>
-            
+              <p className="text-sm sm:text-lg text-muted-foreground">
+              Comprehensive insights into clients, team performance, and profitability
+            </p>
+          </div>
+          
             {/* Refresh button */}
             <Button
               variant="outline"
@@ -1957,33 +1957,33 @@ export default function Reports() {
             </div>
             
             <div className="flex items-center gap-2 ml-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportExcel('entries')}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportExcel('entries')}
                 className="gap-1"
-              >
-                <Download className="h-4 w-4" />
+            >
+              <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Excel</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportPDF('entries')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportPDF('entries')}
                 className="gap-1"
-              >
-                <FileText className="h-4 w-4" />
+            >
+              <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">PDF</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportCSV('entries')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportCSV('entries')}
                 className="gap-1"
-              >
-                <Download className="h-4 w-4" />
+            >
+              <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">CSV</span>
-              </Button>
+            </Button>
             </div>
           </div>
         </div>

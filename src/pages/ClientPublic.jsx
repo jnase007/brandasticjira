@@ -72,21 +72,21 @@ export default function ClientPublic() {
   const [payload, setPayload] = useState(null)
 
   const fetchPublicData = async (isRefresh = false) => {
-    if (!token) return
+      if (!token) return
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
-    setError(null)
+      setError(null)
     
-    try {
+      try {
       // First try the Netlify function (uses service role key for full access)
       console.log('[ClientPublic] Trying Netlify function with token:', token)
-      const res = await fetch(`/.netlify/functions/client-public?token=${encodeURIComponent(token)}`)
+        const res = await fetch(`/.netlify/functions/client-public?token=${encodeURIComponent(token)}`)
       
       if (res.ok) {
         const data = await res.json()
         if (data.client) {
           console.log('[ClientPublic] Netlify function succeeded:', data.client.name)
-          setPayload(data)
+        setPayload(data)
           return
         }
       } else {
@@ -213,14 +213,14 @@ export default function ClientPublic() {
         hours_summary: hoursSummary,
       })
       
-    } catch (err) {
+      } catch (err) {
       console.error('[ClientPublic] Error:', err)
-      setError(err.message || 'Unable to load client view')
-    } finally {
-      setLoading(false)
+        setError(err.message || 'Unable to load client view')
+      } finally {
+        setLoading(false)
       setRefreshing(false)
+      }
     }
-  }
 
   useEffect(() => {
     fetchPublicData()
@@ -328,7 +328,7 @@ export default function ClientPublic() {
               <div className="absolute top-0 right-0 w-96 h-96 bg-brand-orange/20 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-blue/20 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
               <div className="absolute top-1/2 left-1/2 w-48 h-48 bg-brand-coral/10 rounded-full blur-2xl transform -translate-x-1/2 -translate-y-1/2" />
-            </div>
+          </div>
 
             <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div className="flex items-center gap-5">
@@ -343,8 +343,8 @@ export default function ClientPublic() {
                   <motion.div
                     whileHover={{ scale: 1.05, rotate: 3 }}
                     className="h-20 w-20 rounded-2xl flex items-center justify-center text-white font-display font-bold text-3xl shadow-2xl"
-                    style={{ backgroundColor: client.color || '#F7931E' }}
-                  >
+                  style={{ backgroundColor: client.color || '#F7931E' }}
+                >
                     {client.name[0]}
                   </motion.div>
                 )}
@@ -382,7 +382,7 @@ export default function ClientPublic() {
                 </Link>
               </div>
             </div>
-          </div>
+                      </div>
         </motion.div>
 
         {/* Stats Grid */}
@@ -447,9 +447,9 @@ export default function ClientPublic() {
                   className="absolute top-0 h-3 rounded-full bg-gradient-to-r from-brand-blue via-brand-orange to-brand-coral transition-all duration-500"
                   style={{ width: `${Math.min(hoursProgress, 100)}%` }}
                 />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
         </motion.div>
 
         {/* Main Content Grid */}
@@ -460,14 +460,14 @@ export default function ClientPublic() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-brand-orange" />
-                  <CardTitle className="text-lg">Boards & Tasks</CardTitle>
+                <CardTitle className="text-lg">Boards & Tasks</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {tasksByBoard.length === 0 ? (
                   <div className="text-center py-8">
                     <Kanban className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">No tasks available yet.</p>
+                  <p className="text-sm text-muted-foreground">No tasks available yet.</p>
                   </div>
                 ) : (
                   tasksByBoard.map(([boardName, boardTickets]) => (
@@ -520,14 +520,14 @@ export default function ClientPublic() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-brand-blue" />
-                  <CardTitle className="text-lg">Recent Updates</CardTitle>
+                <CardTitle className="text-lg">Recent Updates</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(payload?.recent_updates || []).length === 0 ? (
                   <div className="text-center py-6">
                     <CheckCircle2 className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No updates yet.</p>
+                  <p className="text-sm text-muted-foreground">No updates yet.</p>
                   </div>
                 ) : (
                   payload.recent_updates.map((update) => (
@@ -550,14 +550,14 @@ export default function ClientPublic() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">Portfolio</CardTitle>
+                <CardTitle className="text-lg">Portfolio</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {projects.length === 0 ? (
                   <div className="text-center py-6">
                     <Star className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No portfolio items yet.</p>
+                  <p className="text-sm text-muted-foreground">No portfolio items yet.</p>
                   </div>
                 ) : (
                   projects.slice(0, 4).map((project) => (

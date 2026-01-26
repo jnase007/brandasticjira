@@ -128,8 +128,8 @@ export default function ClientManagement() {
   // Pinned clients (stored in localStorage)
   const [pinnedClients, setPinnedClients] = useState(() => {
     try {
-      const stored = localStorage.getItem('pinnedClients')
-      return stored ? JSON.parse(stored) : []
+    const stored = localStorage.getItem('pinnedClients')
+    return stored ? JSON.parse(stored) : []
     } catch (e) {
       console.warn('Invalid pinned clients data, resetting...')
       return []
@@ -270,7 +270,7 @@ export default function ClientManagement() {
       console.log('[ClientManagement] Auth still loading, waiting...')
       return
     }
-    
+
     // If no user after auth loaded, don't attempt fetch (will redirect to login)
     if (!user) {
       console.log('[ClientManagement] No user after auth loaded')
@@ -1365,7 +1365,7 @@ export default function ClientManagement() {
                         e.target.value = ''
                       }
                     }}
-                  />
+              />
                   {projectImageUploading ? (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
