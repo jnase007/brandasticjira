@@ -1,19 +1,19 @@
-import { memo } from 'react'
-import { Link } from 'react-router-dom'
+import { memo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
   Clock, 
-  MessageSquare, 
   Paperclip, 
   Calendar,
   AlertCircle,
 } from 'lucide-react'
-import { cn, formatRelativeDate, getStatusInfo, getPriorityInfo, getInitials } from '../lib/utils'
+import { cn, formatRelativeDate, getPriorityInfo, getInitials } from '../lib/utils'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
+  const navigate = useNavigate()
   const priorityInfo = getPriorityInfo(ticket.priority)
   const hasAttachments = ticket.attachments?.length > 0
   const hasDueDate = !!ticket.due_date
@@ -21,6 +21,15 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
   const clientSlug = ticket.client?.slug || ticket.client_id
   const ticketKey = ticket.ticket_id || ticket.id
   const ticketLink = clientSlug ? `/clients/${clientSlug}/tickets/${ticketKey}` : `/tickets/${ticketKey}`
+
+  // Handle click to navigate to ticket detail
+  const handleClick = useCallback((e) => {
+    // Don't navigate if we're dragging
+    if (isDragging) return
+    
+    // Navigate to ticket detail
+    navigate(ticketLink)
+  }, [navigate, ticketLink, isDragging])
 
   return (
     <motion.div
@@ -30,8 +39,9 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ y: -4, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
+      onClick={handleClick}
       className={cn(
-        "group relative rounded-xl border bg-card p-4 shadow-sm transition-all duration-300",
+        "group relative rounded-xl border bg-card p-4 shadow-sm transition-all duration-300 cursor-pointer",
         "hover:shadow-xl hover:shadow-brand-orange/10 hover:border-brand-orange/30",
         "before:absolute before:inset-0 before:rounded-xl before:opacity-0 before:transition-opacity before:duration-500",
         "before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
@@ -56,7 +66,7 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
         </div>
       )}
 
-      <Link to={ticketLink} className="block pl-2">
+      <div className="pl-2">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="text-xs font-mono text-muted-foreground">
@@ -164,7 +174,7 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
             </TooltipProvider>
           )}
         </div>
-      </Link>
+      </div>
     </motion.div>
   )
 })
