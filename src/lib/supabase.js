@@ -705,27 +705,67 @@ export async function updateTicketPositions(updates) {
 // ============================================
 
 export async function getComments(ticketId) {
-  const { data, error } = await supabase
+  // Fetch comments first
+  const { data: comments, error } = await supabase
     .from('comments')
-    .select(`
-      *,
-      user:profiles(id, full_name, avatar_url)
-    `)
+    .select('*')
     .eq('ticket_id', ticketId)
     .order('created_at', { ascending: true })
-  return { data, error }
+  
+  if (error || !comments) {
+    return { data: null, error }
+  }
+  
+  // Fetch user profiles separately to avoid relationship issues
+  const userIds = [...new Set(comments.map(c => c.user_id).filter(Boolean))]
+  let users = []
+  
+  if (userIds.length > 0) {
+    const { data: usersData } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', userIds)
+    users = usersData || []
+  }
+  
+  // Map users to comments
+  const userMap = users.reduce((acc, user) => {
+    acc[user.id] = user
+    return acc
+  }, {})
+  
+  const enrichedComments = comments.map(comment => ({
+    ...comment,
+    user: comment.user_id ? userMap[comment.user_id] : null,
+  }))
+  
+  return { data: enrichedComments, error: null }
 }
 
 export async function createComment(commentData) {
-  const { data, error } = await supabase
+  // Insert the comment
+  const { data: comment, error } = await supabase
     .from('comments')
     .insert(commentData)
-    .select(`
-      *,
-      user:profiles(id, full_name, avatar_url)
-    `)
+    .select('*')
     .single()
-  return { data, error }
+  
+  if (error || !comment) {
+    return { data: null, error }
+  }
+  
+  // Fetch the user profile separately
+  let user = null
+  if (comment.user_id) {
+    const { data: userData } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', comment.user_id)
+      .maybeSingle()
+    user = userData
+  }
+  
+  return { data: { ...comment, user }, error: null }
 }
 
 export async function updateComment(commentId, content) {
