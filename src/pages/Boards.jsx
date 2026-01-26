@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus,
@@ -46,6 +46,7 @@ import { Skeleton, SkeletonBoard } from '../components/ui/skeleton'
 export default function Boards() {
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [boards, setBoards] = useState([])
@@ -62,6 +63,10 @@ export default function Boards() {
     type: 'kanban',
   })
   const [saving, setSaving] = useState(false)
+  
+  // Edit board state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingBoard, setEditingBoard] = useState(null)
 
   const [fetchError, setFetchError] = useState(null)
 
@@ -175,6 +180,67 @@ export default function Boards() {
         variant: 'destructive',
       })
     }
+  }
+  
+  // Open edit dialog for a board
+  const handleEditBoard = (board, e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    setEditingBoard({
+      id: board.id,
+      name: board.name,
+      description: board.description || '',
+      client_id: board.client_id || '',
+    })
+    setEditDialogOpen(true)
+  }
+  
+  // Save board edits
+  const handleSaveBoard = async () => {
+    if (!editingBoard?.name?.trim()) {
+      toast({
+        title: 'Missing name',
+        description: 'Please enter a board name.',
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    setSaving(true)
+    try {
+      const { error } = await updateBoard(editingBoard.id, {
+        name: editingBoard.name,
+        description: editingBoard.description,
+      })
+      if (error) throw error
+      
+      setBoards((prev) => prev.map((b) => 
+        b.id === editingBoard.id 
+          ? { ...b, name: editingBoard.name, description: editingBoard.description }
+          : b
+      ))
+      setEditDialogOpen(false)
+      setEditingBoard(null)
+      toast({
+        title: 'Board updated',
+        description: 'Your changes have been saved.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update board.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+  
+  // Navigate to board Kanban view
+  const handleBoardClick = (boardId) => {
+    navigate(`/boards/${boardId}`)
   }
 
   if (loading) {
@@ -318,72 +384,73 @@ export default function Boards() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className="group card-hover overflow-hidden cursor-pointer">
-                  <Link to={`/boards/${board.id}`}>
-                    {/* Color bar with animation */}
-                    <div
-                      className="h-2 transition-all duration-300 group-hover:h-3"
-                      style={{ backgroundColor: board.client?.color || '#F7931E' }}
-                    />
-                    <CardContent className={cn("pt-4", viewMode === 'list' && 'flex items-center gap-4')}>
-                      <div className={cn("flex-1", viewMode === 'list' && 'flex items-center gap-4')}>
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-display font-semibold text-lg group-hover:text-brand-orange transition-colors duration-300">
-                              {board.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {board.client?.name || 'No client'}
-                            </p>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  handleArchiveBoard(board.id)
-                                }}
-                                className="text-destructive"
-                              >
-                                <Archive className="mr-2 h-4 w-4" />
-                                Archive
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {board.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                            {board.description}
+                <Card 
+                  className="group card-hover overflow-hidden cursor-pointer"
+                  onClick={() => handleBoardClick(board.id)}
+                >
+                  {/* Color bar with animation */}
+                  <div
+                    className="h-2 transition-all duration-300 group-hover:h-3"
+                    style={{ backgroundColor: board.client?.color || '#F7931E' }}
+                  />
+                  <CardContent className={cn("pt-4", viewMode === 'list' && 'flex items-center gap-4')}>
+                    <div className={cn("flex-1", viewMode === 'list' && 'flex items-center gap-4')}>
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-display font-semibold text-lg group-hover:text-brand-orange transition-colors duration-300">
+                            {board.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {board.client?.name || 'No client'}
                           </p>
-                        )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => handleEditBoard(board, e)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleArchiveBoard(board.id)
+                              }}
+                              className="text-destructive"
+                            >
+                              <Archive className="mr-2 h-4 w-4" />
+                              Archive
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
 
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Kanban className="h-3.5 w-3.5" />
-                            {board.type}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" />
-                            {formatRelativeDate(board.created_at)}
-                          </div>
+                      {board.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                          {board.description}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Kanban className="h-3.5 w-3.5" />
+                          {board.type}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {formatRelativeDate(board.created_at)}
                         </div>
                       </div>
-                    </CardContent>
-                  </Link>
+                    </div>
+                  </CardContent>
                 </Card>
               </motion.div>
             ))}
@@ -477,6 +544,46 @@ export default function Boards() {
             </Button>
             <Button onClick={handleCreateBoard} disabled={saving}>
               {saving ? 'Creating...' : 'Create Board'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Board Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Board</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editBoardName">Board Name *</Label>
+              <Input
+                id="editBoardName"
+                placeholder="e.g., Q1 Marketing Campaign"
+                value={editingBoard?.name || ''}
+                onChange={(e) => setEditingBoard((prev) => ({ ...prev, name: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editDescription">Description (optional)</Label>
+              <Input
+                id="editDescription"
+                placeholder="Brief description of the board"
+                value={editingBoard?.description || ''}
+                onChange={(e) => setEditingBoard((prev) => ({ ...prev, description: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveBoard} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
