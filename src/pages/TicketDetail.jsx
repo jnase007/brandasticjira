@@ -21,6 +21,10 @@ import {
   Check,
   Loader2,
   Save,
+  Circle,
+  PlayCircle,
+  CheckCircle2,
+  ChevronRight,
 } from 'lucide-react'
 import {
   getTicket,
@@ -82,6 +86,122 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useToast } from '../hooks/useToast'
 import { useAutosave } from '../hooks/useAutosave'
 import { FileUpload, InlineFileUpload } from '../components/FileUpload'
+
+// Status Pipeline Component - Shows ticket's position in the workflow
+const STATUS_STEPS = [
+  { id: 'todo', label: 'To Do', icon: Circle, color: 'bg-slate-400', activeColor: 'bg-blue-500', glowColor: 'shadow-blue-500/50' },
+  { id: 'inprogress', label: 'In Progress', icon: PlayCircle, color: 'bg-slate-400', activeColor: 'bg-amber-500', glowColor: 'shadow-amber-500/50' },
+  { id: 'done', label: 'Done', icon: CheckCircle2, color: 'bg-slate-400', activeColor: 'bg-green-500', glowColor: 'shadow-green-500/50' },
+]
+
+function StatusPipeline({ currentStatus, onStatusChange, disabled }) {
+  const currentIndex = STATUS_STEPS.findIndex(s => s.id === currentStatus)
+  
+  return (
+    <div className="relative">
+      {/* Background track */}
+      <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gradient-to-r from-slate-200 via-slate-200 to-slate-200 dark:from-slate-700 dark:via-slate-700 dark:to-slate-700 rounded-full" />
+      
+      {/* Progress fill */}
+      <motion.div 
+        className="absolute top-1/2 left-0 h-1 -translate-y-1/2 rounded-full"
+        initial={false}
+        animate={{ 
+          width: `${(currentIndex / (STATUS_STEPS.length - 1)) * 100}%`,
+          background: currentStatus === 'done' 
+            ? 'linear-gradient(90deg, #3b82f6, #f59e0b, #22c55e)' 
+            : currentStatus === 'inprogress'
+            ? 'linear-gradient(90deg, #3b82f6, #f59e0b)'
+            : 'linear-gradient(90deg, #3b82f6, #3b82f6)'
+        }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+      />
+      
+      {/* Status steps */}
+      <div className="relative flex justify-between items-center">
+        {STATUS_STEPS.map((step, index) => {
+          const Icon = step.icon
+          const isActive = step.id === currentStatus
+          const isPast = index < currentIndex
+          const isFuture = index > currentIndex
+          
+          return (
+            <motion.button
+              key={step.id}
+              onClick={() => !disabled && onStatusChange?.(step.id)}
+              disabled={disabled}
+              className={cn(
+                "relative flex flex-col items-center gap-2 p-2 rounded-xl transition-all duration-300",
+                !disabled && "cursor-pointer hover:bg-white/50 dark:hover:bg-slate-800/50",
+                disabled && "cursor-default"
+              )}
+              whileHover={!disabled ? { scale: 1.05 } : {}}
+              whileTap={!disabled ? { scale: 0.95 } : {}}
+            >
+              {/* Icon circle */}
+              <motion.div
+                className={cn(
+                  "relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300",
+                  isActive && `${step.activeColor} border-transparent shadow-lg ${step.glowColor}`,
+                  isPast && "bg-green-500 border-transparent",
+                  isFuture && "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
+                )}
+                animate={isActive ? { 
+                  boxShadow: [
+                    `0 0 0 0 ${step.id === 'todo' ? 'rgba(59,130,246,0.4)' : step.id === 'inprogress' ? 'rgba(245,158,11,0.4)' : 'rgba(34,197,94,0.4)'}`,
+                    `0 0 0 10px ${step.id === 'todo' ? 'rgba(59,130,246,0)' : step.id === 'inprogress' ? 'rgba(245,158,11,0)' : 'rgba(34,197,94,0)'}`,
+                  ]
+                } : {}}
+                transition={isActive ? { duration: 1.5, repeat: Infinity } : {}}
+              >
+                <Icon className={cn(
+                  "w-6 h-6 transition-colors duration-300",
+                  isActive && "text-white",
+                  isPast && "text-white",
+                  isFuture && "text-slate-400 dark:text-slate-500"
+                )} />
+                
+                {/* Active indicator pulse */}
+                {isActive && (
+                  <motion.div
+                    className={cn("absolute inset-0 rounded-full", step.activeColor)}
+                    initial={{ opacity: 0.5, scale: 1 }}
+                    animate={{ opacity: 0, scale: 1.5 }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                )}
+              </motion.div>
+              
+              {/* Label */}
+              <span className={cn(
+                "text-xs font-medium transition-colors duration-300 whitespace-nowrap",
+                isActive && "text-foreground font-semibold",
+                isPast && "text-green-600 dark:text-green-400",
+                isFuture && "text-muted-foreground"
+              )}>
+                {step.label}
+              </span>
+              
+              {/* Current status badge */}
+              {isActive && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "absolute -bottom-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white",
+                    step.activeColor
+                  )}
+                >
+                  CURRENT
+                </motion.div>
+              )}
+            </motion.button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export default function TicketDetail() {
   const { ticketId } = useParams()
@@ -447,10 +567,46 @@ export default function TicketDetail() {
   const priorityInfo = getPriorityInfo(ticket.priority)
   const boardLink = ticket?.board_id ? `/boards/${ticket.board_id}` : '/boards'
 
+  // Handle status change from pipeline
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === ticket.status) return
+    
+    setSaving(true)
+    try {
+      const { data, error } = await updateTicket(ticket.id, { status: newStatus })
+      if (error) throw error
+      
+      setTicket(data)
+      logActivity({
+        activity_type: 'status_changed',
+        user_id: user?.id,
+        client_id: ticket.client?.id,
+        entity_type: 'ticket',
+        entity_id: ticket.id,
+        entity_name: ticket.ticket_id,
+        metadata: { from_status: ticket.status, to_status: newStatus },
+      })
+      
+      toast({
+        title: 'Status updated',
+        description: `Moved to ${getStatusInfo(newStatus).label}`,
+        variant: 'success',
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update status.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link to={boardLink}>
@@ -458,12 +614,9 @@ export default function TicketDetail() {
             </Link>
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-sm text-muted-foreground">
-                {ticket.ticket_id}
-              </span>
-              <Badge variant={ticket.status}>{getStatusInfo(ticket.status).label}</Badge>
-            </div>
+            <span className="font-mono text-sm text-muted-foreground">
+              {ticket.ticket_id}
+            </span>
             <h1 className="text-2xl font-display font-bold mt-1">{ticket.title}</h1>
           </div>
         </div>
@@ -539,6 +692,28 @@ export default function TicketDetail() {
           )}
         </div>
       </div>
+      
+      {/* Status Pipeline - Visual workflow indicator */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="mb-8 p-6 rounded-xl border bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 shadow-sm"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Workflow Status
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            Click a status to move this task
+          </span>
+        </div>
+        <StatusPipeline 
+          currentStatus={ticket.status} 
+          onStatusChange={handleStatusChange}
+          disabled={saving}
+        />
+      </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
