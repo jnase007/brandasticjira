@@ -6,6 +6,7 @@ import {
   Paperclip, 
   Calendar,
   AlertCircle,
+  UserCircle2,
 } from 'lucide-react'
 import { cn, formatRelativeDate, getPriorityInfo, getInitials } from '../lib/utils'
 import { Badge } from './ui/badge'
@@ -67,14 +68,47 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
       )}
 
       <div className="pl-2">
-        {/* Header */}
+        {/* Header with Assignee */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="text-xs font-mono text-muted-foreground">
-            {ticket.ticket_id}
-          </span>
-          <Badge variant={ticket.priority} className="text-[10px] px-1.5 py-0">
-            {priorityInfo.label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-muted-foreground">
+              {ticket.ticket_id}
+            </span>
+            <Badge variant={ticket.priority} className="text-[10px] px-1.5 py-0">
+              {priorityInfo.label}
+            </Badge>
+          </div>
+          
+          {/* Prominent Assignee Avatar */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {ticket.assigned_user ? (
+                  <div className="relative">
+                    <Avatar className="h-8 w-8 border-2 border-white dark:border-slate-800 shadow-md ring-2 ring-brand-orange/20 transition-all duration-300 group-hover:ring-brand-orange/50 group-hover:scale-110">
+                      <AvatarImage 
+                        src={ticket.assigned_user.avatar_url} 
+                        alt={ticket.assigned_user.full_name}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="text-xs font-semibold bg-gradient-to-br from-brand-orange to-amber-500 text-white">
+                        {getInitials(ticket.assigned_user.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Online indicator dot */}
+                    <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-white dark:border-slate-800" />
+                  </div>
+                ) : (
+                  <div className="h-8 w-8 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50">
+                    <UserCircle2 className="h-4 w-4 text-slate-400" />
+                  </div>
+                )}
+              </TooltipTrigger>
+              <TooltipContent>
+                {ticket.assigned_user ? ticket.assigned_user.full_name : 'Unassigned'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Title */}
@@ -101,77 +135,62 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
           </div>
         )}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/50">
-          {/* Left side - meta icons */}
-          <div className="flex items-center gap-3 text-muted-foreground">
-            {hasDueDate && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className={cn(
-                      "flex items-center gap-1 text-[11px]",
-                      isOverdue && "text-destructive"
-                    )}>
-                      {isOverdue ? (
-                        <AlertCircle className="h-3 w-3" />
-                      ) : (
-                        <Calendar className="h-3 w-3" />
-                      )}
-                      <span>{formatRelativeDate(ticket.due_date)}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Due: {new Date(ticket.due_date).toLocaleDateString()}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-
-            {ticket.estimated_hours && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 text-[11px]">
-                      <Clock className="h-3 w-3" />
-                      <span>{ticket.estimated_hours}h</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Estimated: {ticket.estimated_hours} hours
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-
-            {hasAttachments && (
-              <div className="flex items-center gap-1 text-[11px]">
-                <Paperclip className="h-3 w-3" />
-                <span>{ticket.attachments.length}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Right side - assignee */}
-          {ticket.assigned_user && (
+        {/* Footer - Meta info */}
+        <div className="flex items-center gap-3 pt-2 border-t border-border/50 text-muted-foreground">
+          {hasDueDate && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Avatar className="h-6 w-6 border-2 border-background">
-                    <AvatarImage 
-                      src={ticket.assigned_user.avatar_url} 
-                      alt={ticket.assigned_user.full_name} 
-                    />
-                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                      {getInitials(ticket.assigned_user.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className={cn(
+                    "flex items-center gap-1 text-[11px]",
+                    isOverdue && "text-destructive"
+                  )}>
+                    {isOverdue ? (
+                      <AlertCircle className="h-3 w-3" />
+                    ) : (
+                      <Calendar className="h-3 w-3" />
+                    )}
+                    <span>{formatRelativeDate(ticket.due_date)}</span>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {ticket.assigned_user.full_name}
+                  Due: {new Date(ticket.due_date).toLocaleDateString()}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          )}
+
+          {ticket.estimated_hours && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <Clock className="h-3 w-3" />
+                    <span>{ticket.estimated_hours}h</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Estimated: {ticket.estimated_hours} hours
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {hasAttachments && (
+            <div className="flex items-center gap-1 text-[11px]">
+              <Paperclip className="h-3 w-3" />
+              <span>{ticket.attachments.length}</span>
+            </div>
+          )}
+          
+          {/* Show assignee name in footer for clarity */}
+          {ticket.assigned_user && (
+            <div className="flex items-center gap-1 text-[11px] ml-auto">
+              <span className="text-muted-foreground/70">→</span>
+              <span className="font-medium text-foreground/80 truncate max-w-[80px]">
+                {ticket.assigned_user.full_name?.split(' ')[0]}
+              </span>
+            </div>
           )}
         </div>
       </div>
