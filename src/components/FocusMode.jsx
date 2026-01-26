@@ -1,9 +1,19 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Focus, X, Timer, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react'
+import { Focus, X, Timer, Volume2, VolumeX, Maximize, Minimize, Music, ChevronDown, Radio } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { useToast } from '../hooks/useToast'
+
+// Music streams - YouTube video IDs for 24/7 streams
+const MUSIC_STREAMS = [
+  { id: 'lofi', name: 'Lo-Fi Beats', emoji: '🎧', videoId: 'jfKfPfyJRdk', color: 'from-purple-500 to-pink-500' },
+  { id: 'chill', name: 'Chill Vibes', emoji: '🌊', videoId: '5qap5aO4i9A', color: 'from-cyan-500 to-blue-500' },
+  { id: 'jazz', name: 'Jazz & Coffee', emoji: '☕', videoId: 'Dx5qFachd3A', color: 'from-amber-500 to-orange-500' },
+  { id: 'nature', name: 'Nature Sounds', emoji: '🌲', videoId: 'eKFTSSKCzWA', color: 'from-green-500 to-emerald-500' },
+  { id: 'classical', name: 'Classical Focus', emoji: '🎻', videoId: 'mIYzp5rcTvU', color: 'from-rose-500 to-red-500' },
+  { id: 'none', name: 'No Music', emoji: '🔇', videoId: null, color: 'from-gray-400 to-gray-500' },
+]
 
 // Focus Mode Context
 const FocusModeContext = createContext({
@@ -75,7 +85,14 @@ export function FocusModeProvider({ children }) {
 
 function FocusModeOverlay({ onExit, task }) {
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [selectedMusic, setSelectedMusic] = useState(() => {
+    // Restore last selected music from localStorage
+    const saved = localStorage.getItem('focusMusic')
+    return saved ? MUSIC_STREAMS.find(m => m.id === saved) || MUSIC_STREAMS[0] : MUSIC_STREAMS[0]
+  })
   const [isMuted, setIsMuted] = useState(false)
+  const [showMusicPicker, setShowMusicPicker] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true)
 
   // Timer
   useEffect(() => {
@@ -85,6 +102,11 @@ function FocusModeOverlay({ onExit, task }) {
     
     return () => clearInterval(interval)
   }, [])
+
+  // Save music preference
+  useEffect(() => {
+    localStorage.setItem('focusMusic', selectedMusic.id)
+  }, [selectedMusic])
 
   const formatTime = (seconds) => {
     const hrs = Math.floor(seconds / 3600)
@@ -97,6 +119,8 @@ function FocusModeOverlay({ onExit, task }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  const currentStream = selectedMusic
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -104,6 +128,16 @@ function FocusModeOverlay({ onExit, task }) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-background"
     >
+      {/* Hidden YouTube Player for Audio */}
+      {currentStream.videoId && isPlaying && !isMuted && (
+        <iframe
+          src={`https://www.youtube.com/embed/${currentStream.videoId}?autoplay=1&loop=1&mute=0&controls=0&showinfo=0&rel=0&modestbranding=1`}
+          className="absolute -top-[9999px] -left-[9999px] w-1 h-1 opacity-0 pointer-events-none"
+          allow="autoplay"
+          title="Focus Music"
+        />
+      )}
+
       {/* Minimal Header */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -117,11 +151,61 @@ function FocusModeOverlay({ onExit, task }) {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Music Selector */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMusicPicker(!showMusicPicker)}
+              className="gap-2"
+            >
+              <Music className="h-4 w-4" />
+              <span className="hidden sm:inline">{currentStream.emoji} {currentStream.name}</span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showMusicPicker && "rotate-180")} />
+            </Button>
+            
+            {/* Music Picker Dropdown */}
+            <AnimatePresence>
+              {showMusicPicker && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 top-full mt-2 w-56 rounded-xl border bg-background shadow-xl p-2 z-50"
+                >
+                  <p className="text-xs text-muted-foreground px-2 py-1 mb-1">Choose your vibe</p>
+                  {MUSIC_STREAMS.map((stream) => (
+                    <button
+                      key={stream.id}
+                      onClick={() => {
+                        setSelectedMusic(stream)
+                        setShowMusicPicker(false)
+                        setIsPlaying(stream.videoId !== null)
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
+                        currentStream.id === stream.id 
+                          ? "bg-brand-orange/10 text-brand-orange" 
+                          : "hover:bg-muted"
+                      )}
+                    >
+                      <span className="text-xl">{stream.emoji}</span>
+                      <span className="font-medium">{stream.name}</span>
+                      {currentStream.id === stream.id && isPlaying && stream.videoId && (
+                        <Radio className="h-4 w-4 ml-auto animate-pulse text-green-500" />
+                      )}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsMuted(!isMuted)}
-            className="opacity-50 hover:opacity-100"
+            className={cn("opacity-50 hover:opacity-100", isMuted && "text-red-500 opacity-100")}
           >
             {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </Button>
@@ -137,6 +221,24 @@ function FocusModeOverlay({ onExit, task }) {
 
       {/* Main Content */}
       <div className="h-full flex flex-col items-center justify-center px-4">
+        {/* Now Playing Indicator */}
+        {currentStream.videoId && isPlaying && !isMuted && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50"
+          >
+            <div className="flex items-center gap-1">
+              <span className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+              <span className="w-1 h-4 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+              <span className="w-1 h-2 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-sm text-muted-foreground">
+              Now playing: {currentStream.emoji} {currentStream.name}
+            </span>
+          </motion.div>
+        )}
+
         {/* Timer */}
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
