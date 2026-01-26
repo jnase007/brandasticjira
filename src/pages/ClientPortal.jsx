@@ -53,7 +53,7 @@ import {
   Lightbulb,
   Wand2,
 } from 'lucide-react'
-import { supabase, getClient, getBoards, getTickets, getClientHoursSummary, getComments, createComment } from '../lib/supabase'
+import { supabase, getClient, getBoards, getTickets, getClientHoursSummary, getComments, createComment, ensureValidSession } from '../lib/supabase'
 import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDuration, calculateProgress, getProgressColor, getStatusInfo, formatDate, formatRelativeDate } from '../lib/utils'
@@ -663,17 +663,17 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clie
         {/* Comment Input */}
         <div className="pt-4 border-t">
           <MentionInput
-            value={newComment}
+              value={newComment}
             onChange={setNewComment}
             onMentionsChange={setMentionedUserIds}
             placeholder="Add a comment... Type @ to mention someone"
             rows={3}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                handleSendComment()
-              }
-            }}
-          />
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  handleSendComment()
+                }
+              }}
+            />
           <div className="flex items-center justify-between mt-3">
             <p className="text-xs text-muted-foreground">
               Press ⌘+Enter to send • Type @ to mention
@@ -746,14 +746,27 @@ export default function ClientPortal() {
     fetchPreviewClient()
   }, [clientPreviewMode, previewClientId, isActualAdmin])
 
+  const [fetchError, setFetchError] = useState(null)
+
   const fetchData = useCallback(async (showRefresh = false) => {
     const clientIdToUse = clientPreviewMode ? (previewClientId || previewClient?.id) : profile?.client_id
     if (!clientIdToUse) return
 
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
+    setFetchError(null)
     
       try {
+        // Validate session before fetching - this refreshes token if expiring
+        const sessionValid = await ensureValidSession()
+        if (!sessionValid) {
+          console.warn('[ClientPortal] Session invalid, cannot fetch data')
+          setFetchError('Session expired. Please refresh the page or log in again.')
+          setLoading(false)
+          setRefreshing(false)
+          return
+        }
+        
         const [clientRes, boardsRes, ticketsRes, hoursRes] = await Promise.all([
         getClient(clientIdToUse),
         getBoards(clientIdToUse),

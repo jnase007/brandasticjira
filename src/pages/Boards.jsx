@@ -13,7 +13,7 @@ import {
   Trash2,
   Clock,
 } from 'lucide-react'
-import { getBoards, getClients, createBoard, updateBoard } from '../lib/supabase'
+import { getBoards, getClients, createBoard, updateBoard, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatRelativeDate, slugify } from '../lib/utils'
 import { Card, CardContent } from '../components/ui/card'
@@ -63,10 +63,23 @@ export default function Boards() {
   })
   const [saving, setSaving] = useState(false)
 
+  const [fetchError, setFetchError] = useState(null)
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
+      setFetchError(null)
+      
       try {
+        // Validate session before fetching - this refreshes token if expiring
+        const sessionValid = await ensureValidSession()
+        if (!sessionValid) {
+          console.warn('[Boards] Session invalid, cannot fetch data')
+          setFetchError('Session expired. Please refresh the page or log in again.')
+          setLoading(false)
+          return
+        }
+        
         console.log('[Boards] Fetching data...')
         const [boardsRes, clientsRes] = await Promise.all([
           getBoards(),
@@ -76,6 +89,7 @@ export default function Boards() {
         setClients(clientsRes.data || [])
       } catch (error) {
         console.error('Error fetching boards:', error)
+        setFetchError(error.message || 'Failed to load boards')
       } finally {
         setLoading(false)
       }

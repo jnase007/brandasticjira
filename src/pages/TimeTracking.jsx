@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu'
-import { supabase } from '../lib/supabase'
+import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
 import { cn, formatDate, formatDuration, getInitials } from '../lib/utils'
@@ -174,12 +174,25 @@ export default function TimeTracking() {
     }
   }
 
+  const [fetchError, setFetchError] = useState(null)
+
   // Fetch all data
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
+    setFetchError(null)
 
     try {
+      // Validate session before fetching - this refreshes token if expiring
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[TimeTracking] Session invalid, cannot fetch data')
+        setFetchError('Session expired. Please refresh the page or log in again.')
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      
       const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
       const endDate = selectedMonth === 12
         ? `${selectedYear + 1}-01-01`

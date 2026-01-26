@@ -19,6 +19,7 @@ import {
   updateTicketPositions,
   getTeamMembers,
   logActivity,
+  ensureValidSession,
 } from '../lib/supabase'
 import { useBoardRealtime } from '../hooks/useRealtime'
 import { useAuth } from '../contexts/AuthContext'
@@ -71,12 +72,25 @@ export default function BoardDetail() {
   })
   const [saving, setSaving] = useState(false)
 
+  const [fetchError, setFetchError] = useState(null)
+
   // Fetch board and tickets
   const fetchData = useCallback(async () => {
     if (!boardId) return
 
     setLoading(true)
+    setFetchError(null)
+    
     try {
+      // Validate session before fetching - this refreshes token if expiring
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[BoardDetail] Session invalid, cannot fetch data')
+        setFetchError('Session expired. Please refresh the page or log in again.')
+        setLoading(false)
+        return
+      }
+      
       const [boardRes, ticketsRes, teamRes] = await Promise.all([
         getBoard(boardId),
         getTickets(boardId),
@@ -88,6 +102,7 @@ export default function BoardDetail() {
       if (teamRes.data) setTeamMembers(teamRes.data)
     } catch (error) {
       console.error('Error fetching board data:', error)
+      setFetchError(error.message || 'Failed to load board data')
     } finally {
       setLoading(false)
     }

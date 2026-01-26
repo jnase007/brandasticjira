@@ -34,6 +34,7 @@ import {
   getTimeEntries,
   uploadAttachment,
   deleteAttachment,
+  ensureValidSession,
 } from '../lib/supabase'
 import { useCommentsRealtime } from '../hooks/useRealtime'
 import { useAuth } from '../contexts/AuthContext'
@@ -136,12 +137,25 @@ export default function TicketDetail() {
     showToast: true,
   })
 
+  const [fetchError, setFetchError] = useState(null)
+
   // Fetch data
   const fetchData = useCallback(async () => {
     if (!ticketId) return
 
     setLoading(true)
+    setFetchError(null)
+    
     try {
+      // Validate session before fetching - this refreshes token if expiring
+      const sessionValid = await ensureValidSession()
+      if (!sessionValid) {
+        console.warn('[TicketDetail] Session invalid, cannot fetch data')
+        setFetchError('Session expired. Please refresh the page or log in again.')
+        setLoading(false)
+        return
+      }
+      
       const ticketRes = isUuid(ticketId)
         ? await getTicket(ticketId)
         : await getTicketByTicketId(ticketId)
@@ -172,6 +186,7 @@ export default function TicketDetail() {
       }
     } catch (error) {
       console.error('Error fetching ticket:', error)
+      setFetchError(error.message || 'Failed to load ticket')
     } finally {
       setLoading(false)
     }
@@ -776,9 +791,9 @@ export default function TicketDetail() {
                       }}
                     />
                     <div className="flex justify-end">
-                      <Button
-                        onClick={handleAddComment}
-                        disabled={!newComment.trim() || sendingComment}
+                    <Button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim() || sendingComment}
                         size="sm"
                       >
                         {sendingComment ? (
@@ -789,7 +804,7 @@ export default function TicketDetail() {
                             Send
                           </>
                         )}
-                      </Button>
+                    </Button>
                     </div>
                   </div>
                 </div>
