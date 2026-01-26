@@ -471,7 +471,7 @@ export default function TeamHub() {
           .delete()
           .eq('client_id', clientId)
           .eq('role', role)
-        
+
         if (deleteError) {
           console.error('Delete error:', deleteError)
         }
@@ -497,7 +497,7 @@ export default function TeamHub() {
       
       // First, delete any existing assignment for this client+role
       const { error: deleteError } = await supabase
-        .from('client_team_assignments')
+          .from('client_team_assignments')
         .delete()
         .eq('client_id', clientId)
         .eq('role', role)
@@ -505,7 +505,7 @@ export default function TeamHub() {
       if (deleteError) {
         console.warn('[TeamHub] Delete warning (non-fatal):', deleteError)
       }
-      
+
       // Then insert the new assignment (without join to avoid schema cache issue)
       const { error: insertError } = await supabase
         .from('client_team_assignments')
@@ -575,12 +575,19 @@ export default function TeamHub() {
       const numValue = parseFloat(value) || 0
 
       if (existing) {
-        await supabase
+        const { error } = await supabase
           .from('ad_spend')
           .update({ [field]: numValue })
           .eq('id', existing.id)
+        
+        if (error) {
+          console.error('[TeamHub] Error updating ad spend:', error)
+          toast({ title: 'Error updating', description: error.message, variant: 'destructive' })
+          setEditingCell(null)
+          return
+        }
       } else {
-        await supabase
+        const { error } = await supabase
           .from('ad_spend')
           .insert({ 
             client_id: clientId, 
@@ -589,15 +596,26 @@ export default function TeamHub() {
             month,
             [field]: numValue 
           })
+        
+        if (error) {
+          console.error('[TeamHub] Error inserting ad spend:', error)
+          toast({ title: 'Error adding', description: error.message, variant: 'destructive' })
+          setEditingCell(null)
+          return
+        }
       }
 
       // Refresh
-      const { data } = await supabase.from('ad_spend').select('*').order('month')
+      const { data, error: fetchError } = await supabase.from('ad_spend').select('*').order('month')
+      if (fetchError) {
+        console.error('[TeamHub] Error fetching ad spend:', fetchError)
+      }
       setAdSpend(data || [])
       
-      toast({ title: 'Updated', variant: 'success' })
+      toast({ title: '✅ Updated', variant: 'success' })
     } catch (error) {
-      toast({ title: 'Error updating', variant: 'destructive' })
+      console.error('[TeamHub] Exception updating ad spend:', error)
+      toast({ title: 'Error updating', description: error.message, variant: 'destructive' })
     }
     setEditingCell(null)
   }
@@ -1574,7 +1592,7 @@ export default function TeamHub() {
                               const assignedUser = teamAssignments.find(
                                 a => a.client_id === client.id && a.role === role.key
                               )?.user
-                              
+
                               return (
                                 <td key={role.key} className="py-2 px-2">
                                   {isEditing ? (
@@ -2058,19 +2076,39 @@ export default function TeamHub() {
                   return
                 }
                 try {
-                  await supabase.from('ad_spend').insert({
+                  const { data, error } = await supabase.from('ad_spend').insert({
                     client_id: newSpend.client_id,
                     platform: newSpend.platform,
                     year: newSpend.year,
                     month: newSpend.month,
                     budget: parseFloat(newSpend.budget) || 0,
                     actuals: 0,
-                  })
-                  toast({ title: 'Budget added', variant: 'success' })
+                  }).select()
+                  
+                  if (error) {
+                    console.error('[TeamHub] Error adding budget:', error)
+                    toast({ 
+                      title: 'Error adding budget', 
+                      description: error.message || 'Check if the ad_spend table exists',
+                      variant: 'destructive' 
+                    })
+                    return
+                  }
+                  
+                  console.log('[TeamHub] Budget added successfully:', data)
+                  toast({ title: '✅ Budget added', variant: 'success' })
                   setAddSpendDialogOpen(false)
+                  setNewSpend({
+                    client_id: '',
+                    platform: 'facebook',
+                    year: new Date().getFullYear(),
+                    month: new Date().getMonth() + 1,
+                    budget: '',
+                  })
                   fetchData(true)
                 } catch (error) {
-                  toast({ title: 'Error adding budget', variant: 'destructive' })
+                  console.error('[TeamHub] Exception adding budget:', error)
+                  toast({ title: 'Error adding budget', description: error.message, variant: 'destructive' })
                 }
               }}
             >
