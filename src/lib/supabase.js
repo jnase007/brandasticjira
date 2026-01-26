@@ -29,6 +29,173 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 })
 
 // ============================================
+// SESSION HEALTH MONITOR
+// ============================================
+
+// Track session health state
+let sessionHealthy = true
+let lastHealthCheck = 0
+let healthCheckInProgress = false
+let consecutiveFailures = 0
+const MAX_CONSECUTIVE_FAILURES = 3
+
+// Event system for session state changes
+const sessionListeners = new Set()
+
+export function onSessionHealthChange(callback) {
+  sessionListeners.add(callback)
+  return () => sessionListeners.delete(callback)
+}
+
+function notifySessionHealthChange(healthy, reason) {
+  sessionHealthy = healthy
+  sessionListeners.forEach(cb => {
+    try {
+      cb(healthy, reason)
+    } catch (e) {
+      console.error('[SessionHealth] Listener error:', e)
+    }
+  })
+}
+
+/**
+ * Performs a health check on the current session.
+ * Returns true if session is valid, false if recovery is needed.
+ */
+export async function checkSessionHealth() {
+  const now = Date.now()
+  
+  // Debounce health checks (max once per 5 seconds)
+  if (now - lastHealthCheck < 5000) {
+    return sessionHealthy
+  }
+  
+  if (healthCheckInProgress) {
+    return sessionHealthy
+  }
+  
+  healthCheckInProgress = true
+  lastHealthCheck = now
+  
+  try {
+    // Use getUser() for authoritative server-side validation
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error) {
+      if (error.name === 'AuthSessionMissingError') {
+        // No session - this is expected when logged out
+        consecutiveFailures = 0
+        healthCheckInProgress = false
+        return true
+      }
+      
+      console.warn('[SessionHealth] Check failed:', error.message)
+      consecutiveFailures++
+      
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.error('[SessionHealth] Multiple failures, attempting recovery...')
+        const recovered = await attemptSessionRecovery()
+        if (!recovered) {
+          notifySessionHealthChange(false, 'Session recovery failed')
+        }
+        consecutiveFailures = 0
+        healthCheckInProgress = false
+        return recovered
+      }
+      
+      healthCheckInProgress = false
+      return false
+    }
+    
+    if (!user) {
+      healthCheckInProgress = false
+      return true // No user = logged out state, which is valid
+    }
+    
+    // Session is healthy
+    consecutiveFailures = 0
+    if (!sessionHealthy) {
+      notifySessionHealthChange(true, 'Session recovered')
+    }
+    
+    healthCheckInProgress = false
+    return true
+  } catch (e) {
+    console.error('[SessionHealth] Exception:', e)
+    consecutiveFailures++
+    healthCheckInProgress = false
+    return false
+  }
+}
+
+/**
+ * Attempts to recover a stale or invalid session.
+ */
+async function attemptSessionRecovery() {
+  console.log('[SessionHealth] Attempting session recovery...')
+  
+  try {
+    // First, try to refresh the session
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+    
+    if (refreshError) {
+      console.warn('[SessionHealth] Refresh failed:', refreshError.message)
+      
+      // Check if this is a fatal error (refresh token expired/invalid)
+      if (refreshError.message?.includes('refresh_token') ||
+          refreshError.message?.includes('Invalid Refresh Token') ||
+          refreshError.message?.includes('Already Used')) {
+        console.error('[SessionHealth] Refresh token invalid - user needs to re-login')
+        notifySessionHealthChange(false, 'Refresh token expired')
+        return false
+      }
+      
+      // For network errors, the session might still be valid
+      return true
+    }
+    
+    if (refreshData?.session) {
+      console.log('[SessionHealth] Session refreshed successfully')
+      notifySessionHealthChange(true, 'Session refreshed')
+      return true
+    }
+    
+    return false
+  } catch (e) {
+    console.error('[SessionHealth] Recovery exception:', e)
+    return false
+  }
+}
+
+/**
+ * Force a session refresh. Call this when you suspect the session is stale.
+ */
+export async function forceSessionRefresh() {
+  console.log('[Session] Force refresh requested...')
+  
+  try {
+    const { data, error } = await supabase.auth.refreshSession()
+    
+    if (error) {
+      console.error('[Session] Force refresh failed:', error.message)
+      notifySessionHealthChange(false, error.message)
+      return false
+    }
+    
+    if (data?.session) {
+      console.log('[Session] Force refresh successful')
+      notifySessionHealthChange(true, 'Force refreshed')
+      return true
+    }
+    
+    return false
+  } catch (e) {
+    console.error('[Session] Force refresh exception:', e)
+    return false
+  }
+}
+
+// ============================================
 // AUTH HELPERS
 // ============================================
 
@@ -100,36 +267,71 @@ export async function ensureValidSession() {
 /**
  * Wrapper for Supabase queries that handles auth errors gracefully.
  * If a query fails due to auth issues, it attempts to refresh and retry.
+ * Includes exponential backoff for retries.
  */
-export async function safeQuery(queryFn) {
-  try {
-    const result = await queryFn()
-    
-    // Check for auth-related errors
-    if (result.error) {
-      const errorMsg = result.error.message?.toLowerCase() || ''
-      if (errorMsg.includes('jwt') || 
+export async function safeQuery(queryFn, options = {}) {
+  const { maxRetries = 2, retryDelay = 500 } = options
+  let lastError = null
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await queryFn()
+      
+      // Check for auth-related errors
+      if (result.error) {
+        const errorMsg = result.error.message?.toLowerCase() || ''
+        const errorCode = result.error.code || ''
+        
+        const isAuthError = 
+          errorMsg.includes('jwt') || 
           errorMsg.includes('expired') || 
           errorMsg.includes('invalid') ||
           errorMsg.includes('not authenticated') ||
-          result.error.code === 'PGRST301') {
+          errorMsg.includes('permission denied') ||
+          errorCode === 'PGRST301' ||
+          errorCode === '401' ||
+          errorCode === '403'
         
-        console.warn('[SafeQuery] Auth error detected, refreshing session...')
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-        
-        if (!refreshError && refreshData?.session) {
-          console.log('[SafeQuery] Session refreshed, retrying query...')
-          // Retry the query
-          return await queryFn()
+        if (isAuthError && attempt < maxRetries) {
+          console.warn(`[SafeQuery] Auth error on attempt ${attempt + 1}, refreshing session...`)
+          
+          // Wait before retry (exponential backoff)
+          if (attempt > 0) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
+          }
+          
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (!refreshError && refreshData?.session) {
+            console.log('[SafeQuery] Session refreshed, retrying query...')
+            notifySessionHealthChange(true, 'Session refreshed after query error')
+            continue // Retry the query
+          } else {
+            // Refresh failed, notify listeners
+            notifySessionHealthChange(false, 'Failed to refresh session')
+            lastError = result.error
+            break
+          }
         }
+        
+        // Non-auth error or max retries reached
+        lastError = result.error
+      }
+      
+      // Success or non-retryable error
+      return result
+    } catch (e) {
+      console.error(`[SafeQuery] Exception on attempt ${attempt + 1}:`, e)
+      lastError = e
+      
+      // Don't retry on network errors immediately
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
       }
     }
-    
-    return result
-  } catch (e) {
-    console.error('[SafeQuery] Query error:', e)
-    return { data: null, error: e }
   }
+  
+  return { data: null, error: lastError }
 }
 
 export async function signInWithEmail(email, password) {

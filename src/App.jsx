@@ -38,6 +38,7 @@ import FloatingTimer from './components/FloatingTimer'
 import ActivityFeed from './components/ActivityFeed'
 import Confetti, { useConfetti } from './components/Confetti'
 import EasterEggs from './components/EasterEggs'
+import SessionStatus from './components/SessionStatus'
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
 import { Badge } from './components/ui/badge'
@@ -589,6 +590,7 @@ function App() {
       
       {confetti}
       <EasterEggs />
+      <SessionStatus />
       {user ? (
         <FocusModeProvider>
         <GamificationProvider>

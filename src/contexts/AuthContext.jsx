@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { supabase, getProfile } from '../lib/supabase'
+import { supabase, getProfile, onSessionHealthChange, forceSessionRefresh, checkSessionHealth } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -21,6 +21,8 @@ export function AuthProvider({ children }) {
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [profileSynced, setProfileSynced] = useState(false)
   const [authError, setAuthError] = useState(null)
+  const [sessionRefreshing, setSessionRefreshing] = useState(false)
+  const [sessionHealthy, setSessionHealthy] = useState(true)
   const refreshInFlightRef = useRef(false)
   const lastRefreshRef = useRef(0)
   
@@ -28,6 +30,22 @@ export function AuthProvider({ children }) {
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('viewMode') || 'default'
   })
+  
+  // Listen for session health changes from the Supabase module
+  useEffect(() => {
+    const unsubscribe = onSessionHealthChange((healthy, reason) => {
+      console.log(`[Auth] Session health changed: ${healthy ? 'healthy' : 'unhealthy'} - ${reason}`)
+      setSessionHealthy(healthy)
+      
+      if (!healthy && reason?.includes('expired')) {
+        setAuthError('Your session has expired. Please sign in again.')
+      } else if (healthy && authError?.includes('expired')) {
+        setAuthError(null)
+      }
+    })
+    
+    return unsubscribe
+  }, [authError])
 
   useEffect(() => {
     // Safety timeout - if loading takes too long, show retry option
@@ -524,20 +542,36 @@ export function AuthProvider({ children }) {
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Periodic background refresh every 5 minutes to prevent token expiry
-    // This keeps the session alive even during long periods of inactivity
-    const backgroundRefreshInterval = setInterval(() => {
+    // Periodic background refresh every 3 minutes to prevent token expiry
+    // More frequent checks help catch stale sessions earlier
+    const backgroundRefreshInterval = setInterval(async () => {
       console.log('[Auth] Periodic background session check...')
-      refreshSessionAndProfile('periodic')
-    }, 5 * 60 * 1000) // Every 5 minutes
+      
+      // First do a health check
+      const healthy = await checkSessionHealth()
+      if (!healthy) {
+        console.warn('[Auth] Session health check failed, attempting refresh...')
+        setSessionRefreshing(true)
+        await refreshSessionAndProfile('periodic-health')
+        setSessionRefreshing(false)
+      } else {
+        // Even if healthy, refresh the profile to keep data fresh
+        refreshSessionAndProfile('periodic')
+      }
+    }, 3 * 60 * 1000) // Every 3 minutes
     
     // Also refresh immediately on page load if we have a session
     // This helps recover from browser sleep/hibernate states
     if (typeof window !== 'undefined') {
       const storedSession = localStorage.getItem('brandastic-auth')
       if (storedSession) {
-        console.log('[Auth] Found stored session, refreshing on load...')
-        refreshSessionAndProfile('pageload')
+        console.log('[Auth] Found stored session, checking health on load...')
+        checkSessionHealth().then(healthy => {
+          if (!healthy) {
+            console.warn('[Auth] Session unhealthy on load, refreshing...')
+          }
+          refreshSessionAndProfile('pageload')
+        })
       }
     }
 
@@ -636,6 +670,42 @@ export function AuthProvider({ children }) {
   // Effective role (considering view mode toggle)
   const effectiveIsAdmin = isActualAdmin && viewMode !== 'team'
   
+  // Force refresh the session - call this when data isn't loading
+  const forceRefresh = useCallback(async () => {
+    if (sessionRefreshing) return false
+    
+    setSessionRefreshing(true)
+    setAuthError(null)
+    
+    try {
+      const success = await forceSessionRefresh()
+      
+      if (success) {
+        // Re-fetch user and profile after refresh
+        const { data: { user: refreshedUser } } = await supabase.auth.getUser()
+        if (refreshedUser) {
+          setUser(refreshedUser)
+          const { data: profileData } = await getProfile(refreshedUser.id)
+          if (profileData) {
+            setProfile(profileData)
+          }
+        }
+        setSessionHealthy(true)
+        return true
+      } else {
+        setSessionHealthy(false)
+        setAuthError('Unable to refresh session. Please sign in again.')
+        return false
+      }
+    } catch (error) {
+      console.error('[Auth] Force refresh error:', error)
+      setAuthError('Session refresh failed. Please sign in again.')
+      return false
+    } finally {
+      setSessionRefreshing(false)
+    }
+  }, [sessionRefreshing])
+  
   const value = {
     user,
     profile,
@@ -664,6 +734,10 @@ export function AuthProvider({ children }) {
     startClientPreview,
     toggleClientPreview,
     exitClientPreview,
+    // Session health
+    sessionRefreshing,
+    sessionHealthy,
+    forceRefresh,
   }
 
   return (
