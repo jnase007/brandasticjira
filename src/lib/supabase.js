@@ -41,6 +41,8 @@ const MAX_CONSECUTIVE_FAILURES = 3
 
 // Event system for session state changes
 const sessionListeners = new Set()
+let lastNotification = 0
+let lastNotifiedState = true
 
 export function onSessionHealthChange(callback) {
   sessionListeners.add(callback)
@@ -48,7 +50,21 @@ export function onSessionHealthChange(callback) {
 }
 
 function notifySessionHealthChange(healthy, reason) {
+  // Debounce notifications (max once per 2 seconds) and only if state actually changed
+  const now = Date.now()
+  if (now - lastNotification < 2000 && healthy === lastNotifiedState) {
+    return
+  }
+  
+  // Only notify if state actually changed
+  if (healthy === lastNotifiedState && sessionHealthy === healthy) {
+    return
+  }
+  
+  lastNotification = now
+  lastNotifiedState = healthy
   sessionHealthy = healthy
+  
   sessionListeners.forEach(cb => {
     try {
       cb(healthy, reason)
@@ -304,11 +320,12 @@ export async function safeQuery(queryFn, options = {}) {
           
           if (!refreshError && refreshData?.session) {
             console.log('[SafeQuery] Session refreshed, retrying query...')
-            notifySessionHealthChange(true, 'Session refreshed after query error')
             continue // Retry the query
           } else {
-            // Refresh failed, notify listeners
-            notifySessionHealthChange(false, 'Failed to refresh session')
+            // Refresh failed - only notify on final failure, not transient errors
+            if (refreshError?.message?.includes('expired') || refreshError?.message?.includes('refresh_token')) {
+              notifySessionHealthChange(false, 'Session expired')
+            }
             lastError = result.error
             break
           }

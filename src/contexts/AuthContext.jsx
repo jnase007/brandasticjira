@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { supabase, getProfile, onSessionHealthChange, forceSessionRefresh, checkSessionHealth } from '../lib/supabase'
+import { supabase, getProfile, onSessionHealthChange, forceSessionRefresh } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -35,17 +35,21 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onSessionHealthChange((healthy, reason) => {
       console.log(`[Auth] Session health changed: ${healthy ? 'healthy' : 'unhealthy'} - ${reason}`)
-      setSessionHealthy(healthy)
       
+      // Only update state if it actually changed to avoid re-renders
+      setSessionHealthy(prev => {
+        if (prev === healthy) return prev
+        return healthy
+      })
+      
+      // Only show error for actual session expiry, not transient issues
       if (!healthy && reason?.includes('expired')) {
         setAuthError('Your session has expired. Please sign in again.')
-      } else if (healthy && authError?.includes('expired')) {
-        setAuthError(null)
       }
     })
     
     return unsubscribe
-  }, [authError])
+  }, [])
 
   useEffect(() => {
     // Safety timeout - if loading takes too long, show retry option
@@ -542,36 +546,22 @@ export function AuthProvider({ children }) {
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Periodic background refresh every 3 minutes to prevent token expiry
-    // More frequent checks help catch stale sessions earlier
-    const backgroundRefreshInterval = setInterval(async () => {
+    // Periodic background refresh every 5 minutes to prevent token expiry
+    // Less aggressive to avoid performance issues
+    const backgroundRefreshInterval = setInterval(() => {
       console.log('[Auth] Periodic background session check...')
-      
-      // First do a health check
-      const healthy = await checkSessionHealth()
-      if (!healthy) {
-        console.warn('[Auth] Session health check failed, attempting refresh...')
-        setSessionRefreshing(true)
-        await refreshSessionAndProfile('periodic-health')
-        setSessionRefreshing(false)
-      } else {
-        // Even if healthy, refresh the profile to keep data fresh
-        refreshSessionAndProfile('periodic')
-      }
-    }, 3 * 60 * 1000) // Every 3 minutes
+      refreshSessionAndProfile('periodic')
+    }, 5 * 60 * 1000) // Every 5 minutes
     
-    // Also refresh immediately on page load if we have a session
-    // This helps recover from browser sleep/hibernate states
+    // Refresh on page load if we have a session (simple check, no health API call)
     if (typeof window !== 'undefined') {
       const storedSession = localStorage.getItem('brandastic-auth')
       if (storedSession) {
-        console.log('[Auth] Found stored session, checking health on load...')
-        checkSessionHealth().then(healthy => {
-          if (!healthy) {
-            console.warn('[Auth] Session unhealthy on load, refreshing...')
-          }
+        console.log('[Auth] Found stored session, refreshing on load...')
+        // Small delay to let the app initialize first
+        setTimeout(() => {
           refreshSessionAndProfile('pageload')
-        })
+        }, 1000)
       }
     }
 
