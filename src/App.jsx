@@ -482,66 +482,21 @@ function App() {
     // Check for updates periodically (every 2 minutes)
     const versionCheckInterval = setInterval(checkForUpdates, 2 * 60 * 1000)
     
-    // Track when page was last active (for detecting long sleeps on mobile)
-    let lastActiveTime = Date.now()
-    
-    // Handle when tab/app becomes visible again (critical for iOS Safari)
-    const handleVisibilityChange = async () => {
+    // Handle when tab/app becomes visible again - check for version updates
+    // Note: Session handling is done in AuthContext, not here
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        const now = Date.now()
-        const timeSinceActive = now - lastActiveTime
-        
-        // If phone was locked/backgrounded for more than 30 seconds
-        if (timeSinceActive > 30000) {
-          console.log(`[App] Resuming after ${Math.round(timeSinceActive / 1000)}s of inactivity`)
-          
-          // On iOS, JavaScript context may be stale - verify session is still readable
-          try {
-            const storedSession = localStorage.getItem('brandastic-auth')
-            
-            if (!storedSession) {
-              // No session in storage - user was logged out or storage was cleared
-              console.log('[App] No session found after resume, reloading...')
-              window.location.reload()
-              return
-            }
-            
-            // Session exists - check if it's still valid JSON
-            try {
-              JSON.parse(storedSession)
-            } catch (e) {
-              console.warn('[App] Corrupted session data, reloading...')
-              window.location.reload()
-              return
-            }
-            
-            // If inactive for more than 5 minutes on mobile, refresh to ensure fresh state
-            if (timeSinceActive > 5 * 60 * 1000) {
-              console.log('[App] Long inactivity on mobile, refreshing for fresh state...')
-              window.location.reload()
-              return
-            }
-            
-          } catch (e) {
-            console.warn('[App] Error checking session on resume:', e)
-          }
-        }
-        
-        lastActiveTime = now
         checkForUpdates()
-      } else {
-        // Page is being hidden - record the time
-        lastActiveTime = Date.now()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
     
-    // Also handle iOS-specific page show event (works better than visibilitychange on iOS)
+    // Handle iOS bfcache (back-forward cache) page restoration
     const handlePageShow = (event) => {
-      // persisted = true means the page was restored from bfcache (back-forward cache)
+      // persisted = true means the page was restored from bfcache
       if (event.persisted) {
-        console.log('[App] Page restored from bfcache, reloading for fresh state...')
-        window.location.reload()
+        console.log('[App] Page restored from bfcache')
+        checkForUpdates()
       }
     }
     window.addEventListener('pageshow', handlePageShow)

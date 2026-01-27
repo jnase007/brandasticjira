@@ -495,7 +495,8 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle network and mobile resume events
+  // Handle network and mobile resume events - iOS Safari specific fix
+  // See: https://github.com/supabase/supabase-js/issues - iOS WebKit suspends JS on sleep
   useEffect(() => {
     // Refresh profile when user comes back online after being offline
     const handleOnline = () => {
@@ -503,58 +504,73 @@ export function AuthProvider({ children }) {
       refreshSessionAndProfile('online')
     }
 
-    // Handle mobile resume - iOS Safari suspends JS, need to restore session
-    let lastVisibleTime = Date.now()
-    
+    // iOS Safari fix: Force session refresh on visibility/focus change
+    // This is the recommended workaround for iOS WebKit suspending JS and
+    // causing getSession() to return null temporarily after wake
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        const timeSinceVisible = Date.now() - lastVisibleTime
+        console.log('[Auth] Page visible - forcing session check/refresh (iOS fix)')
         
-        // If backgrounded for more than 30 seconds on mobile, restore session from storage
-        if (timeSinceVisible > 30000) {
-          console.log(`[Auth] Resuming after ${Math.round(timeSinceVisible / 1000)}s`)
+        try {
+          // Step 1: Try getSession() - this often triggers internal refresh
+          const { data, error } = await supabase.auth.getSession()
           
-          try {
-            // Re-read session from localStorage (iOS may have cleared our React state)
-            const { data: { session } } = await supabase.auth.getSession()
+          if (error || !data.session) {
+            // Step 2: If still null, explicitly call refreshSession()
+            // This is the KEY fix for iOS - poke the Supabase client to wake up
+            console.log('[Auth] Session null on resume - forcing refreshSession()')
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
             
-            if (session?.user) {
-              // Session still valid - update React state if needed
-              if (!user || user.id !== session.user.id) {
-                console.log('[Auth] Restoring user state after mobile resume')
-                setUser(session.user)
+            if (refreshError) {
+              console.warn('[Auth] RefreshSession failed:', refreshError.message)
+              // Only clear state if refresh token is actually expired
+              if (refreshError.message?.includes('refresh_token') || 
+                  refreshError.message?.includes('Invalid') ||
+                  refreshError.message?.includes('expired')) {
+                setUser(null)
+                setProfile(null)
+                setAuthError('Session expired. Please log in again.')
               }
-              
-              // Refresh profile if we don't have it
-              if (!profile) {
-                const { data: profileData } = await getProfile(session.user.id)
-                if (profileData) {
-                  setProfile(profileData)
-                }
-              }
-            } else if (user) {
-              // We had a user but session is gone - clear state
-              console.log('[Auth] Session lost after mobile resume, clearing state')
-              setUser(null)
-              setProfile(null)
+            } else if (refreshData?.session?.user) {
+              console.log('[Auth] Session recovered after iOS resume!')
+              setUser(refreshData.session.user)
+              const { data: profileData } = await getProfile(refreshData.session.user.id)
+              if (profileData) setProfile(profileData)
+              setSessionHealthy(true)
+              setAuthError(null)
             }
-          } catch (e) {
-            console.warn('[Auth] Error restoring session on mobile resume:', e)
+          } else if (data.session?.user) {
+            // Session was available - update React state if needed
+            if (!user || user.id !== data.session.user.id) {
+              console.log('[Auth] Restoring user state after resume')
+              setUser(data.session.user)
+            }
+            if (!profile) {
+              const { data: profileData } = await getProfile(data.session.user.id)
+              if (profileData) setProfile(profileData)
+            }
+            setSessionHealthy(true)
           }
+        } catch (e) {
+          console.warn('[Auth] Error during iOS resume fix:', e)
         }
-        
-        lastVisibleTime = Date.now()
-      } else {
-        lastVisibleTime = Date.now()
       }
+    }
+    
+    // Also catch window focus for extra reliability (helps on iOS)
+    const handleFocus = () => {
+      console.log('[Auth] Window focus - triggering visibility check')
+      handleVisibilityChange()
     }
 
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
 
     return () => {
       window.removeEventListener('online', handleOnline)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [refreshSessionAndProfile, user, profile])
 
