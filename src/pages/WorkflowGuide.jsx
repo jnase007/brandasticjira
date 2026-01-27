@@ -622,6 +622,101 @@ export default function WorkflowGuide() {
         </Card>
       </motion.div>
 
+      {/* Keyboard Shortcuts & Power Features */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              <span className="bg-gradient-to-r from-purple-500 to-brand-blue bg-clip-text text-transparent">
+                Power User Features
+              </span>
+              <Badge className="ml-2 bg-purple-500 text-white">Pro Tips!</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            
+            {/* Command Palette */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Settings className="h-5 w-5 text-orange-500" />
+                <h4 className="font-semibold">Command Palette</h4>
+                <Badge variant="outline" className="ml-auto font-mono">⌘K</Badge>
+              </div>
+              <p className="text-muted-foreground">
+                Press <strong>⌘K</strong> (or Ctrl+K on Windows) anywhere to open the Command Palette. 
+                Quickly navigate to any page, start timers, create tasks, or toggle dark mode - all without using your mouse!
+              </p>
+            </div>
+
+            {/* Keyboard Shortcuts */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Edit className="h-5 w-5 text-blue-500" />
+                <h4 className="font-semibold">Keyboard Shortcuts</h4>
+                <Badge variant="outline" className="ml-auto font-mono">?</Badge>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Press <strong>?</strong> anytime to see all available keyboard shortcuts. Here are some favorites:
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex justify-between p-2 bg-background rounded">
+                  <span>Dashboard</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">G D</kbd>
+                </div>
+                <div className="flex justify-between p-2 bg-background rounded">
+                  <span>Time Tracking</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">G T</kbd>
+                </div>
+                <div className="flex justify-between p-2 bg-background rounded">
+                  <span>Reports</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">G R</kbd>
+                </div>
+                <div className="flex justify-between p-2 bg-background rounded">
+                  <span>Start Timer</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">T S</kbd>
+                </div>
+                <div className="flex justify-between p-2 bg-background rounded">
+                  <span>New Task</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">C T</kbd>
+                </div>
+                <div className="flex justify-between p-2 bg-background rounded">
+                  <span>Dark Mode</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">T D</kbd>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Button */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Play className="h-5 w-5 text-brand-coral" />
+                <h4 className="font-semibold">Quick Actions Button</h4>
+              </div>
+              <p className="text-muted-foreground">
+                Look for the <strong>orange + button</strong> in the bottom-right corner of your screen. 
+                Click it to quickly access: Start Timer, New Task, Command Palette, and Keyboard Shortcuts. 
+                It's always there when you need it!
+              </p>
+            </div>
+
+            {/* Payroll Report */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                <h4 className="font-semibold">Payroll Report</h4>
+              </div>
+              <p className="text-muted-foreground">
+                Go to <strong>Reports → Payroll</strong> to pull contractor hours for any date range. 
+                Select specific team members, set your pay period (like bi-weekly), and export to 
+                <strong> Excel, PDF, or CSV</strong> for payroll processing.
+              </p>
+            </div>
+
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Edit/Delete Time Entries */}
       <motion.div initial="hidden" animate="visible" variants={SECTION}>
         <Card>
