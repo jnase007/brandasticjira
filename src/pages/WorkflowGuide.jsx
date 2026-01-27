@@ -23,6 +23,16 @@ import {
   DollarSign,
   Settings,
   UserPlus,
+  Sparkles,
+  FolderKanban,
+  Hourglass,
+  ClipboardCheck,
+  Target,
+  Eye,
+  UserCheck,
+  Receipt,
+  Circle,
+  PlayCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -83,7 +93,7 @@ export default function WorkflowGuide() {
               <div>
                 <p className="font-medium">3. Manage Work on Boards</p>
                 <p className="text-muted-foreground">
-                  Go to <strong>Boards</strong> to drag tasks between <em>To Do</em>, <em>In Progress</em>, and <em>Done</em>.
+                  Go to <strong>Boards</strong> to drag tasks through the 7-stage workflow: New → In Progress → Internal Review → Client Review → Approved → Ready for Billing → Closed.
                 </p>
               </div>
             </div>
@@ -138,8 +148,8 @@ export default function WorkflowGuide() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              Boards are Kanban-style with three columns: <strong>To Do</strong>, <strong>In Progress</strong>,
-              and <strong>Done</strong>.
+              Boards now feature a <strong>7-column workflow</strong>: New → In Progress → Internal Review → 
+              Client Review → Approved → Ready for Billing → Closed.
             </p>
             <p>
               Drag tasks between columns to update their status. This is the primary way to track progress.
@@ -150,7 +160,7 @@ export default function WorkflowGuide() {
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-blue-700 dark:text-blue-300 font-medium">💡 Tip: Client Page Task View</p>
               <p className="text-blue-600 dark:text-blue-400 mt-1">
-                On the client page, tasks are now <strong>grouped by status</strong> (In Progress → To Do → Done). 
+                On the client page, tasks are <strong>grouped by status</strong>. 
                 Hover over any task to see a quick <strong>"Board" link</strong> that takes you directly to the Kanban board.
               </p>
             </div>
@@ -201,6 +211,134 @@ export default function WorkflowGuide() {
             <p>
               <strong>Edit or delete</strong> time entries by hovering over them and clicking the action menu.
             </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* NEW: 10x Workflow Enhancements */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card className="border-2 border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-brand-orange" />
+              <span className="bg-gradient-to-r from-brand-orange to-brand-coral bg-clip-text text-transparent">
+                NEW: 10x Workflow Enhancements
+              </span>
+              <Badge className="ml-2 bg-brand-orange text-white">Just Added!</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+            
+            {/* 7-Status Workflow */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Kanban className="h-5 w-5 text-brand-purple" />
+                <h4 className="font-semibold">7-Status Workflow</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Tasks now flow through a comprehensive 7-stage pipeline for better tracking:
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800">
+                  <Circle className="h-3 w-3 mr-1 text-slate-500" /> New
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30">
+                  <PlayCircle className="h-3 w-3 mr-1 text-amber-500" /> In Progress
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30">
+                  <Eye className="h-3 w-3 mr-1 text-purple-500" /> Internal Review
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30">
+                  <UserCheck className="h-3 w-3 mr-1 text-blue-500" /> Client Review
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-emerald-100 dark:bg-emerald-900/30">
+                  <ThumbsUp className="h-3 w-3 mr-1 text-emerald-500" /> Approved
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30">
+                  <Receipt className="h-3 w-3 mr-1 text-orange-500" /> Ready for Billing
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30">
+                  <CheckCircle2 className="h-3 w-3 mr-1 text-green-500" /> Closed
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                💡 Drag tasks between columns on the board, or use the status pipeline on the task detail page.
+              </p>
+            </div>
+
+            {/* Categories/Folders */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <FolderKanban className="h-5 w-5 text-indigo-500" />
+                <h4 className="font-semibold">Categories / Folders</h4>
+              </div>
+              <p className="text-muted-foreground">
+                Organize tasks into categories (folders) for better grouping. Filter the board by category 
+                to focus on specific types of work. Categories are per-client, so each client can have 
+                their own organization structure.
+              </p>
+            </div>
+
+            {/* Estimated Hours */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Hourglass className="h-5 w-5 text-teal-500" />
+                <h4 className="font-semibold">Estimated Hours + Progress Tracking</h4>
+              </div>
+              <p className="text-muted-foreground mb-2">
+                Set estimated hours on any task. The ticket card shows a visual progress bar comparing 
+                logged time vs. estimated time:
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li><span className="text-green-500 font-medium">Green</span> = On track (under 80% of budget)</li>
+                <li><span className="text-amber-500 font-medium">Yellow</span> = Approaching budget (80-100%)</li>
+                <li><span className="text-red-500 font-medium">Red</span> = Over budget (exceeded estimate)</li>
+              </ul>
+            </div>
+
+            {/* Client Homework */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <ClipboardCheck className="h-5 w-5 text-blue-500" />
+                <h4 className="font-semibold">Client Homework</h4>
+              </div>
+              <p className="text-muted-foreground mb-2">
+                Mark tasks as <strong>"Client Homework"</strong> when the client needs to complete them. 
+                These tasks have a simplified workflow:
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800">New</Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30">In Progress</Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30">Closed</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                💡 Clients can only move their homework tasks to "Closed" - they can't change internal statuses.
+              </p>
+            </div>
+
+            {/* Resolution Field */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-5 w-5 text-green-500" />
+                <h4 className="font-semibold">Automatic Resolution Tracking</h4>
+              </div>
+              <p className="text-muted-foreground">
+                Tasks now have a <strong>Resolution</strong> field that automatically updates:
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground mt-2 space-y-1">
+                <li>When status changes to <strong>"Closed"</strong> → Resolution = <Badge variant="outline" className="text-green-600 bg-green-50">Resolved</Badge></li>
+                <li>When reopened → Resolution = <Badge variant="outline" className="text-slate-600 bg-slate-50">Unresolved</Badge></li>
+              </ul>
+            </div>
+
           </CardContent>
         </Card>
       </motion.div>
