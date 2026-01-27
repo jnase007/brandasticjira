@@ -165,39 +165,47 @@ export default function Sidebar({
           <XPBar collapsed={collapsed} />
         ) : (
           <div className="space-y-2">
-            {/* Compact Gamification Summary - Always Visible */}
-            <button
-              onClick={() => setGamificationExpanded(!gamificationExpanded)}
-              className="w-full p-2 rounded-lg bg-gradient-to-r from-brand-orange/10 to-brand-purple/5 border border-brand-orange/20 hover:border-brand-orange/40 transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <XPBar collapsed={true} />
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Target className="h-3 w-3 text-brand-purple" />
-                    <Trophy className="h-3 w-3 text-yellow-500" />
-                  </div>
-                </div>
-                <ChevronDown 
-                  className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    gamificationExpanded && "rotate-180"
-                  )} 
-                />
-              </div>
-            </button>
-            
-            {/* Expanded Gamification Cards */}
-            <AnimatePresence>
-              {gamificationExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-2 overflow-hidden"
+            <AnimatePresence mode="wait">
+              {!gamificationExpanded ? (
+                /* Compact Gamification Summary */
+                <motion.button
+                  key="compact"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setGamificationExpanded(true)}
+                  className="w-full p-2 rounded-lg bg-gradient-to-r from-brand-orange/10 to-brand-purple/5 border border-brand-orange/20 hover:border-brand-orange/40 transition-all"
                 >
-                  <XPBar collapsed={false} />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <XPBar collapsed={true} />
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Target className="h-3 w-3 text-brand-purple" />
+                        <Trophy className="h-3 w-3 text-yellow-500" />
+                      </div>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </motion.button>
+              ) : (
+                /* Expanded Gamification Cards */
+                <motion.div
+                  key="expanded"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-2"
+                >
+                  {/* XP Bar with collapse button */}
+                  <div className="relative">
+                    <XPBar collapsed={false} />
+                    <button
+                      onClick={() => setGamificationExpanded(false)}
+                      className="absolute top-2 right-2 p-1 rounded hover:bg-black/10 transition-colors"
+                    >
+                      <ChevronDown className="h-4 w-4 text-muted-foreground rotate-180" />
+                    </button>
+                  </div>
                   <DailyChallenges compact />
                   <AchievementMini />
                 </motion.div>
