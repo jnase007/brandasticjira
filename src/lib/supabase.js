@@ -217,11 +217,25 @@ export async function ensureValidSession() {
 }
 
 /**
- * Robust wrapper for Supabase queries with iOS resume recovery.
- * Retries on auth errors after refreshing the session.
+ * Robust wrapper for Supabase queries with tab-switch recovery.
+ * On every call: checks session, refreshes if stale, then executes query.
+ * This prevents the "buttons don't work after tab switch" issue.
  */
 export async function safeQuery(queryFn, options = {}) {
   const maxRetries = 2
+  
+  // Before EVERY query, do a quick session check
+  // This "wakes up" the Supabase client after tab switches
+  try {
+    const { data: sessionCheck } = await supabase.auth.getSession()
+    if (!sessionCheck?.session) {
+      console.log('[SafeQuery] Session null - pre-emptive refresh')
+      await supabase.auth.refreshSession()
+      await new Promise(r => setTimeout(r, 50))
+    }
+  } catch {
+    // Ignore session check errors, proceed with query
+  }
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -240,22 +254,25 @@ export async function safeQuery(queryFn, options = {}) {
         errorMsg.includes('expired') ||
         errorMsg.includes('invalid') ||
         errorMsg.includes('refresh_token') ||
+        errorMsg.includes('not authenticated') ||
         errorCode === 'PGRST301' ||
         errorCode === '401' ||
         errorCode === '403'
       
       if (isAuthError && attempt < maxRetries) {
-        console.warn(`[SafeQuery] Auth error on attempt ${attempt + 1}, refreshing...`)
+        console.warn(`[SafeQuery] Auth error on attempt ${attempt + 1}: ${errorMsg}`)
         
-        // Try to refresh the session
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        // Use getUser() first to force server check, then refreshSession()
+        const { data: userData, error: userError } = await supabase.auth.getUser()
         
-        if (!refreshError && refreshData?.session) {
-          console.log('[SafeQuery] Session refreshed, retrying query...')
-          // Small delay before retry
-          await new Promise(resolve => setTimeout(resolve, 100))
-          continue // Retry
+        if (userError || !userData?.user) {
+          console.log('[SafeQuery] getUser() failed, trying refreshSession()...')
+          await supabase.auth.refreshSession()
         }
+        
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 150))
+        continue // Retry
       }
       
       // Non-auth error or max retries - return the error
@@ -266,8 +283,9 @@ export async function safeQuery(queryFn, options = {}) {
       
       // On exception, try to refresh and retry
       if (attempt < maxRetries) {
+        await supabase.auth.getUser() // Force server check
         await supabase.auth.refreshSession()
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise(resolve => setTimeout(resolve, 150))
         continue
       }
       

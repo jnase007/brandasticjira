@@ -474,20 +474,31 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle mobile resume - uses getUser() to force server check, then getSession()
-  // This is the recommended approach from Supabase bug reports for iOS
+  // Handle tab switching and resume - aggressive recovery for Supabase session desyncs
+  // This is critical for fixing the "tab switch breaks buttons" issue
   useEffect(() => {
     let lastHiddenTime = 0
     let isRefreshing = false
+    let focusCount = 0 // Track rapid focus events to avoid spam
     
-    // Robust refresh: getUser() hits the server directly, bypassing local glitches
-    // This primes the session for subsequent getSession() calls
-    const refreshSession = async () => {
+    // Quick warmup: Just call getSession() to "wake up" the Supabase client
+    // This is fast and doesn't hit the network, but primes internal state
+    const warmupSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        return !!data?.session
+      } catch {
+        return false
+      }
+    }
+    
+    // Full refresh: getUser() hits the server directly, bypassing local glitches
+    const fullRefresh = async () => {
       if (isRefreshing) return null
       isRefreshing = true
       
       try {
-        console.log('[Auth] Forcing full session refresh via getUser()')
+        console.log('[Auth] Full session refresh via getUser()')
         
         // Step 1: getUser() forces a server check and triggers token refresh
         const { data: userData, error: userError } = await supabase.auth.getUser()
@@ -499,15 +510,9 @@ export function AuthProvider({ children }) {
         }
         
         // Step 2: Now getSession() should have the refreshed session
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        const { data: sessionData } = await supabase.auth.getSession()
+        const session = sessionData?.session
         
-        if (sessionError) {
-          console.error('[Auth] getSession() failed:', sessionError.message)
-          isRefreshing = false
-          return null
-        }
-        
-        const session = sessionData.session
         if (session?.user) {
           console.log('[Auth] Session refreshed successfully')
           setUser(session.user)
@@ -530,23 +535,40 @@ export function AuthProvider({ children }) {
       }
     }
     
+    // Handle ANY focus/visibility change - not just long ones
     const handleResume = async () => {
       if (document.visibilityState !== 'visible' && !document.hasFocus()) return
+      if (!user) return // Not logged in, nothing to recover
       
       const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
       
-      // Only check if we were hidden for 5+ seconds
-      if (timeSinceHidden < 5000) return
+      // Debounce rapid focus events (e.g., clicking back and forth quickly)
+      focusCount++
+      const currentCount = focusCount
+      await new Promise(r => setTimeout(r, 100))
+      if (currentCount !== focusCount) return // Another focus event happened, let it handle it
       
-      console.log('[Auth] Resume after', Math.round(timeSinceHidden / 1000), 's')
+      console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
       
-      // Use the robust refresh that hits the server
-      const session = await refreshSession()
+      // ALWAYS do a quick warmup on ANY tab switch
+      // This "pokes" the Supabase client to ensure it's in sync
+      const isValid = await warmupSession()
       
-      if (!session) {
-        // Refresh failed completely - reload the page as last resort
-        console.warn('[Auth] Session refresh failed - reloading page')
-        window.location.reload()
+      if (!isValid) {
+        console.warn('[Auth] Session invalid after warmup - doing full refresh')
+        const session = await fullRefresh()
+        
+        if (!session) {
+          console.warn('[Auth] Full refresh failed - reloading page')
+          window.location.reload()
+          return
+        }
+      }
+      
+      // If hidden for 30+ seconds, do a full refresh anyway as extra precaution
+      if (timeSinceHidden > 30000) {
+        console.log('[Auth] Long absence - doing precautionary full refresh')
+        await fullRefresh()
       }
     }
     
@@ -557,19 +579,27 @@ export function AuthProvider({ children }) {
         handleResume()
       }
     }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleResume)
-    window.addEventListener('pageshow', (e) => {
+    
+    const handleFocus = () => {
+      // On focus, also trigger resume check
+      handleResume()
+    }
+    
+    const handlePageShow = (e) => {
       if (e.persisted) {
         console.log('[Auth] Page restored from bfcache')
         handleResume()
       }
-    })
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('pageshow', handlePageShow)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleResume)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('pageshow', handlePageShow)
     }
   }, [user, profile])
   
