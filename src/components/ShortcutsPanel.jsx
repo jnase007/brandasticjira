@@ -8,44 +8,37 @@ const SHORTCUTS = [
     category: 'Navigation',
     items: [
       { keys: ['G', 'D'], description: 'Go to Dashboard' },
-      { keys: ['G', 'B'], description: 'Go to Boards' },
+      { keys: ['G', 'T'], description: 'Go to Time Tracking' },
       { keys: ['G', 'C'], description: 'Go to Clients' },
-      { keys: ['G', 'T'], description: 'Go to Team Hub' },
+      { keys: ['G', 'R'], description: 'Go to Reports' },
+      { keys: ['G', 'H'], description: 'Go to Team Hub' },
+      { keys: ['G', 'L'], description: 'Go to Leaderboard' },
+      { keys: ['G', 'B'], description: 'Go to Boards' },
       { keys: ['G', 'S'], description: 'Go to Settings' },
-      { keys: ['G', 'A'], description: 'Go to Admin (if admin)' },
     ],
   },
   {
-    category: 'Actions',
+    category: 'Time Tracking',
+    items: [
+      { keys: ['T', 'S'], description: 'Start timer' },
+      { keys: ['T', 'X'], description: 'Stop timer' },
+      { keys: ['Space'], description: 'Start/Stop (when timer focused)' },
+    ],
+  },
+  {
+    category: 'Quick Actions',
     items: [
       { keys: ['⌘', 'K'], description: 'Open command palette' },
-      { keys: ['T'], description: 'Toggle timer' },
-      { keys: ['N'], description: 'New task' },
-      { keys: ['/'], description: 'Focus search' },
+      { keys: ['C', 'T'], description: 'Create new task' },
+      { keys: ['C', 'B'], description: 'Create new board' },
       { keys: ['?'], description: 'Show keyboard shortcuts' },
     ],
   },
   {
-    category: 'Timer',
+    category: 'Preferences',
     items: [
-      { keys: ['Space'], description: 'Start/Stop timer (when focused)' },
-      { keys: ['Esc'], description: 'Close timer' },
-    ],
-  },
-  {
-    category: 'Boards',
-    items: [
-      { keys: ['C'], description: 'Create new task' },
-      { keys: ['F'], description: 'Filter tasks' },
-      { keys: ['←', '→'], description: 'Navigate columns' },
-    ],
-  },
-  {
-    category: 'Global',
-    items: [
-      { keys: ['⌘', '⇧', 'D'], description: 'Toggle dark mode' },
+      { keys: ['T', 'D'], description: 'Toggle dark mode' },
       { keys: ['Esc'], description: 'Close dialogs/modals' },
-      { keys: ['⌘', 'S'], description: 'Save (when editing)' },
     ],
   },
 ]

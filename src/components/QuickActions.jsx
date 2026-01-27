@@ -1,150 +1,156 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Plus, X, Timer, FileText, Users, Kanban, Clock,
-  MessageSquare, Zap, Sparkles, Target, Trophy,
-  Calendar, BarChart3, Search, Keyboard,
+import { 
+  Plus, Timer, X, Ticket, Command, Keyboard
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { useAuth } from '../contexts/AuthContext'
-
-const QUICK_ACTIONS = [
-  { id: 'timer', icon: Timer, label: 'Start Timer', color: 'bg-green-500', shortcut: 'T' },
-  { id: 'ticket', icon: FileText, label: 'New Task', color: 'bg-blue-500', shortcut: 'N' },
-  { id: 'search', icon: Search, label: 'Search', color: 'bg-purple-500', shortcut: '/' },
-  { id: 'boards', icon: Kanban, label: 'Boards', color: 'bg-orange-500', path: '/boards' },
-  { id: 'time', icon: Clock, label: 'Time Log', color: 'bg-teal-500', path: '/time' },
-  { id: 'shortcuts', icon: Keyboard, label: 'Shortcuts', color: 'bg-gray-500', shortcut: '?' },
-]
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip'
 
 export function QuickActionsFAB({ 
   onStartTimer, 
   onNewTicket, 
   onOpenSearch,
-  onShowShortcuts,
+  onShowShortcuts 
 }) {
   const [isOpen, setIsOpen] = useState(false)
-  const navigate = useNavigate()
 
-  // Close on escape
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
-
-  const handleAction = (action) => {
-    setIsOpen(false)
-    
-    switch (action.id) {
-      case 'timer':
-        onStartTimer?.()
-        break
-      case 'ticket':
-        onNewTicket?.()
-        break
-      case 'search':
-        onOpenSearch?.()
-        break
-      case 'shortcuts':
-        onShowShortcuts?.()
-        break
-      default:
-        if (action.path) {
-          navigate(action.path)
-        }
-    }
-  }
+  const actions = [
+    { 
+      id: 'timer', 
+      icon: Timer, 
+      label: 'Start Timer', 
+      shortcut: 'T S',
+      onClick: onStartTimer,
+      color: 'from-green-500 to-emerald-500'
+    },
+    { 
+      id: 'task', 
+      icon: Ticket, 
+      label: 'New Task', 
+      shortcut: 'C T',
+      onClick: onNewTicket,
+      color: 'from-purple-500 to-violet-500'
+    },
+    { 
+      id: 'command', 
+      icon: Command, 
+      label: 'Command Palette', 
+      shortcut: '⌘K',
+      onClick: onOpenSearch,
+      color: 'from-orange-500 to-amber-500'
+    },
+    { 
+      id: 'shortcuts', 
+      icon: Keyboard, 
+      label: 'Shortcuts', 
+      shortcut: '?',
+      onClick: onShowShortcuts,
+      color: 'from-slate-500 to-slate-600'
+    },
+  ]
 
   return (
-    <>
-      {/* Backdrop */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
-            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm hidden lg:block"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* FAB Container - Desktop only */}
-      <div className="fixed bottom-6 right-6 z-50 hidden lg:flex flex-col-reverse items-end gap-3">
-        {/* Action Buttons */}
+    <div className="fixed bottom-24 right-6 z-40 lg:bottom-8 hidden sm:block">
+      <TooltipProvider delayDuration={100}>
         <AnimatePresence>
-          {isOpen && QUICK_ACTIONS.map((action, index) => (
-            <motion.button
-              key={action.id}
-              initial={{ opacity: 0, y: 20, scale: 0.8 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0, 
-                scale: 1,
-                transition: { delay: index * 0.05 }
-              }}
-              exit={{ 
-                opacity: 0, 
-                y: 10, 
-                scale: 0.8,
-                transition: { delay: (QUICK_ACTIONS.length - index) * 0.03 }
-              }}
-              onClick={() => handleAction(action)}
-              className="flex items-center gap-3 group"
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute bottom-16 right-0 flex flex-col-reverse gap-2 items-end"
             >
-              {/* Label */}
-              <motion.span
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0, transition: { delay: index * 0.05 + 0.1 } }}
-                className="px-3 py-1.5 rounded-lg bg-background border shadow-lg text-sm font-medium whitespace-nowrap"
-              >
-                {action.label}
-                {action.shortcut && (
-                  <kbd className="ml-2 px-1.5 py-0.5 rounded bg-muted text-xs font-mono">
-                    {action.shortcut}
-                  </kbd>
-                )}
-              </motion.span>
-              
-              {/* Icon Button */}
-              <div className={cn(
-                "w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110",
-                action.color
-              )}>
-                <action.icon className="h-5 w-5" />
-              </div>
-            </motion.button>
-          ))}
+              {actions.map((action, idx) => (
+                <motion.div
+                  key={action.id}
+                  initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, x: 20 }}
+                  transition={{ delay: idx * 0.05 }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          action.onClick?.()
+                          setIsOpen(false)
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-full",
+                          "bg-gradient-to-r shadow-lg",
+                          "text-white font-medium text-sm",
+                          "hover:scale-105 active:scale-95 transition-transform",
+                          action.color
+                        )}
+                      >
+                        <span>{action.label}</span>
+                        <action.icon className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      <div className="flex items-center gap-2">
+                        <span>{action.label}</span>
+                        <kbd className="px-1.5 py-0.5 rounded bg-muted/50 text-xs font-mono">
+                          {action.shortcut}
+                        </kbd>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* Main FAB */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen(!isOpen)}
-          className={cn(
-            "w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
-            isOpen 
-              ? "bg-gray-800 dark:bg-gray-200 rotate-45" 
-              : "bg-gradient-to-br from-brand-orange to-brand-coral"
-          )}
-        >
-          {isOpen ? (
-            <X className="h-6 w-6 text-white dark:text-gray-800" />
-          ) : (
-            <Plus className="h-6 w-6 text-white" />
-          )}
-        </motion.button>
-      </div>
-    </>
+        {/* Main FAB Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <motion.button
+              onClick={() => setIsOpen(!isOpen)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                "w-14 h-14 rounded-full shadow-xl",
+                "bg-gradient-to-br from-brand-orange to-brand-coral",
+                "flex items-center justify-center",
+                "text-white transition-all",
+                "hover:shadow-2xl hover:shadow-brand-orange/30",
+                isOpen && "rotate-45"
+              )}
+            >
+              <AnimatePresence mode="wait">
+                {isOpen ? (
+                  <motion.div
+                    key="close"
+                    initial={{ rotate: -45, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: 45, opacity: 0 }}
+                  >
+                    <X className="h-6 w-6" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="open"
+                    initial={{ rotate: 45, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: -45, opacity: 0 }}
+                  >
+                    <Plus className="h-6 w-6" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            Quick Actions
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
   )
 }
-
-export default QuickActionsFAB

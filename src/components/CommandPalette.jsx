@@ -16,18 +16,43 @@ import {
   Sun,
   LogOut,
   Zap,
+  Building2,
+  BarChart3,
+  Trophy,
+  Wallet,
+  Timer,
+  HelpCircle,
+  Keyboard,
+  Activity,
+  Users2,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 const COMMANDS = [
+  // Navigation
   { id: 'dashboard', label: 'Go to Dashboard', icon: LayoutDashboard, shortcut: 'G D', action: 'navigate', path: '/dashboard', category: 'Navigation' },
+  { id: 'time', label: 'Go to Time Tracking', icon: Clock, shortcut: 'G T', action: 'navigate', path: '/time', category: 'Navigation' },
+  { id: 'clients', label: 'Go to Clients', icon: Building2, shortcut: 'G C', action: 'navigate', path: '/clients', category: 'Navigation' },
+  { id: 'reports', label: 'Go to Reports', icon: BarChart3, shortcut: 'G R', action: 'navigate', path: '/reports', category: 'Navigation' },
+  { id: 'payroll', label: 'Go to Payroll Report', icon: Wallet, action: 'navigate', path: '/reports?tab=payroll', category: 'Navigation' },
+  { id: 'team', label: 'Go to Team Hub', icon: Users2, shortcut: 'G H', action: 'navigate', path: '/team', category: 'Navigation' },
+  { id: 'leaderboard', label: 'Go to Leaderboard', icon: Trophy, shortcut: 'G L', action: 'navigate', path: '/leaderboard', category: 'Navigation' },
   { id: 'boards', label: 'Go to Boards', icon: Kanban, shortcut: 'G B', action: 'navigate', path: '/boards', category: 'Navigation' },
   { id: 'settings', label: 'Go to Settings', icon: Settings, shortcut: 'G S', action: 'navigate', path: '/settings', category: 'Navigation' },
-  { id: 'new-board', label: 'Create New Board', icon: Plus, shortcut: 'C B', action: 'navigate', path: '/boards?new=true', category: 'Actions' },
-  { id: 'new-ticket', label: 'Create New Task', icon: Ticket, shortcut: 'C T', action: 'custom', category: 'Actions' },
-  { id: 'start-timer', label: 'Start Timer', icon: Clock, shortcut: 'T S', action: 'custom', category: 'Time Tracking' },
-  { id: 'stop-timer', label: 'Stop Timer', icon: Clock, shortcut: 'T X', action: 'custom', category: 'Time Tracking' },
+  
+  // Quick Actions
+  { id: 'log-time', label: 'Log Time Entry', icon: Clock, shortcut: 'T L', action: 'custom', category: 'Quick Actions' },
+  { id: 'start-timer', label: 'Start Timer', icon: Timer, shortcut: 'T S', action: 'custom', category: 'Quick Actions' },
+  { id: 'stop-timer', label: 'Stop Timer', icon: Timer, shortcut: 'T X', action: 'custom', category: 'Quick Actions' },
+  { id: 'new-ticket', label: 'Create New Task', icon: Ticket, shortcut: 'C T', action: 'custom', category: 'Quick Actions' },
+  { id: 'new-board', label: 'Create New Board', icon: Plus, shortcut: 'C B', action: 'navigate', path: '/boards?new=true', category: 'Quick Actions' },
+  { id: 'activity', label: 'View Activity Feed', icon: Activity, action: 'custom', category: 'Quick Actions' },
+  
+  // Preferences
   { id: 'toggle-theme', label: 'Toggle Dark Mode', icon: Moon, shortcut: 'T D', action: 'theme', category: 'Preferences' },
+  { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard, shortcut: '?', action: 'custom', category: 'Preferences' },
+  
+  // Account
   { id: 'logout', label: 'Sign Out', icon: LogOut, action: 'custom', category: 'Account' },
 ]
 

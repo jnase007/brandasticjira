@@ -1619,6 +1619,7 @@ function ProfitabilityReport({ employees, clients, timeEntries, clientRates, sel
 
 // Payroll Report Component
 function PayrollReport({ employees, timeEntries }) {
+  const { toast } = useToast()
   const [startDate, setStartDate] = useState(() => {
     // Default to 2 weeks ago
     const d = new Date()
@@ -1756,6 +1757,105 @@ function PayrollReport({ employees, timeEntries }) {
     return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
   }, [startDate, endDate])
 
+  // Export functions
+  const buildPayrollExportData = () => {
+    return payrollData.map(member => ({
+      'Team Member': member.full_name,
+      'Email': member.email,
+      'Total Hours': (member.totalHours).toFixed(2),
+      'Billable Hours': (member.billableHours).toFixed(2),
+      'Non-Billable Hours': (member.nonBillableHours).toFixed(2),
+      'Time Entries': member.entries,
+      'Hourly Rate': member.hourlyRate > 0 ? `$${member.hourlyRate}` : '-',
+      'Estimated Pay': member.hourlyRate > 0 ? `$${member.estimatedPay.toFixed(2)}` : '-',
+    }))
+  }
+
+  const exportPayrollCSV = () => {
+    const data = buildPayrollExportData()
+    if (data.length === 0) {
+      toast({ title: 'No data to export', variant: 'destructive' })
+      return
+    }
+    const headers = Object.keys(data[0])
+    const csv = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => `"${row[h] ?? ''}"`).join(','))
+    ].join('\n')
+    
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `payroll-${startDate}-to-${endDate}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'CSV exported!', variant: 'success' })
+  }
+
+  const exportPayrollExcel = () => {
+    const data = buildPayrollExportData()
+    if (data.length === 0) {
+      toast({ title: 'No data to export', variant: 'destructive' })
+      return
+    }
+    const worksheet = XLSX.utils.json_to_sheet(data)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Payroll')
+    XLSX.writeFile(workbook, `payroll-${startDate}-to-${endDate}.xlsx`)
+    toast({ title: 'Excel exported!', variant: 'success' })
+  }
+
+  const exportPayrollPDF = async () => {
+    const data = buildPayrollExportData()
+    if (data.length === 0) {
+      toast({ title: 'No data to export', variant: 'destructive' })
+      return
+    }
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const logoDataUrl = await loadLogoDataUrl()
+
+    // Header
+    doc.setFillColor(255, 247, 237)
+    doc.roundedRect(30, 20, pageWidth - 60, 70, 8, 8, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text('Brandastic', 50, 50)
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Payroll Report: ${formatDate(startDate)} - ${formatDate(endDate)}`, 50, 70)
+
+    // Summary
+    doc.setFontSize(10)
+    doc.text(`Total Hours: ${formatDecimalHours(totals.totalHours)} | Total Pay: ${formatCurrency(totals.estimatedPay)} | Team Members: ${payrollData.length}`, 50, 100)
+
+    // Table
+    autoTable(doc, {
+      startY: 120,
+      head: [Object.keys(data[0])],
+      body: data.map(row => Object.values(row)),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 158, 11] },
+      margin: { left: 30, right: 30 },
+    })
+
+    // Footer
+    doc.setFontSize(9)
+    doc.setTextColor(120)
+    doc.text('Brandastic PM • Payroll Report • Confidential', 40, pageHeight - 20)
+    if (logoDataUrl) {
+      const logoProps = doc.getImageProperties(logoDataUrl)
+      const logoHeight = 10
+      const logoWidth = (logoProps.width / logoProps.height) * logoHeight
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - 60 - logoWidth, pageHeight - 28, logoWidth, logoHeight, undefined, 'FAST')
+    }
+
+    doc.save(`payroll-${startDate}-to-${endDate}.pdf`)
+    toast({ title: 'PDF exported!', variant: 'success' })
+  }
+
   return (
     <div className="space-y-6">
       <ReportHeader
@@ -1797,6 +1897,22 @@ function PayrollReport({ employees, timeEntries }) {
               </Button>
               <Button variant="outline" size="sm" onClick={() => setDateRange('month')}>
                 Last Month
+              </Button>
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" size="sm" onClick={exportPayrollExcel} className="gap-1">
+                <Download className="h-4 w-4" />
+                Excel
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportPayrollPDF} className="gap-1">
+                <FileText className="h-4 w-4" />
+                PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportPayrollCSV} className="gap-1">
+                <Download className="h-4 w-4" />
+                CSV
               </Button>
             </div>
           </div>
