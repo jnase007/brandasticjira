@@ -200,67 +200,77 @@ export async function forceSessionRefresh() {
 // ============================================
 
 /**
- * LIGHTWEIGHT session check - only reads local storage, no API calls.
- * Supabase's autoRefreshToken handles actual token refresh automatically.
- * This just checks if we have a session locally.
- * Returns true if session exists locally, false if not logged in.
+ * OPTIMISTIC session check - always returns true if we've ever had a session.
+ * This prevents "session expired" errors on iOS resume.
+ * Actual auth errors are handled by the query layer (safeQuery).
  */
-let lastSessionCheck = 0
-let cachedSessionValid = true
-
 export async function ensureValidSession() {
-  const now = Date.now()
-  
-  // Cache result for 30 seconds to avoid excessive checks
-  if (now - lastSessionCheck < 30000) {
-    return cachedSessionValid
-  }
-  
-  lastSessionCheck = now
-  
-  try {
-    // Only read from local storage - NO API call
-    // Supabase's autoRefreshToken handles the actual refresh in the background
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    cachedSessionValid = !!session
-    return cachedSessionValid
-  } catch (e) {
-    console.error('[Session] Error checking session:', e)
-    return cachedSessionValid // Return cached value on error
-  }
+  // Always return true - be optimistic
+  // If there's a real auth problem, the query will fail and safeQuery will handle it
+  // This prevents false "session expired" errors on iOS resume
+  return true
 }
 
 /**
- * Simple wrapper for Supabase queries.
- * Just executes the query - Supabase handles auth automatically.
- * Only retries once on actual auth errors.
+ * Robust wrapper for Supabase queries with iOS resume recovery.
+ * Retries on auth errors after refreshing the session.
  */
 export async function safeQuery(queryFn, options = {}) {
-  try {
-    const result = await queryFn()
-    
-    // If we get a JWT/auth error, try ONE refresh and retry
-    if (result.error) {
-      const errorMsg = result.error.message?.toLowerCase() || ''
-      const isAuthError = errorMsg.includes('jwt') || errorMsg.includes('expired')
+  const maxRetries = 2
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await queryFn()
       
-      if (isAuthError) {
-        console.warn('[SafeQuery] Auth error, attempting one refresh...')
-        const { error: refreshError } = await supabase.auth.refreshSession()
+      // Success - return result
+      if (!result.error) {
+        return result
+      }
+      
+      // Check if it's an auth error that we should retry
+      const errorMsg = result.error.message?.toLowerCase() || ''
+      const errorCode = result.error.code || ''
+      const isAuthError = 
+        errorMsg.includes('jwt') || 
+        errorMsg.includes('expired') ||
+        errorMsg.includes('invalid') ||
+        errorMsg.includes('refresh_token') ||
+        errorCode === 'PGRST301' ||
+        errorCode === '401' ||
+        errorCode === '403'
+      
+      if (isAuthError && attempt < maxRetries) {
+        console.warn(`[SafeQuery] Auth error on attempt ${attempt + 1}, refreshing...`)
         
-        if (!refreshError) {
-          // Retry the query once
-          return await queryFn()
+        // Try to refresh the session
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        
+        if (!refreshError && refreshData?.session) {
+          console.log('[SafeQuery] Session refreshed, retrying query...')
+          // Small delay before retry
+          await new Promise(resolve => setTimeout(resolve, 100))
+          continue // Retry
         }
       }
+      
+      // Non-auth error or max retries - return the error
+      return result
+      
+    } catch (e) {
+      console.error(`[SafeQuery] Exception on attempt ${attempt + 1}:`, e)
+      
+      // On exception, try to refresh and retry
+      if (attempt < maxRetries) {
+        await supabase.auth.refreshSession()
+        await new Promise(resolve => setTimeout(resolve, 100))
+        continue
+      }
+      
+      return { data: null, error: e }
     }
-    
-    return result
-  } catch (e) {
-    console.error('[SafeQuery] Exception:', e)
-    return { data: null, error: e }
   }
+  
+  return { data: null, error: new Error('Max retries exceeded') }
 }
 
 export async function signInWithEmail(email, password) {

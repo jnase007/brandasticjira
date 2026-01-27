@@ -496,81 +496,90 @@ export function AuthProvider({ children }) {
   }, [user])
 
   // Handle network and mobile resume events - iOS Safari specific fix
-  // See: https://github.com/supabase/supabase-js/issues - iOS WebKit suspends JS on sleep
+  // NUCLEAR OPTION: If backgrounded for too long, just reload the page
   useEffect(() => {
+    // Track when the page was last hidden
+    let lastHiddenTime = 0
+    
     // Refresh profile when user comes back online after being offline
     const handleOnline = () => {
       console.log('[Auth] Back online')
       refreshSessionAndProfile('online')
     }
 
-    // iOS Safari fix: Force session refresh on visibility/focus change
-    // This is the recommended workaround for iOS WebKit suspending JS and
-    // causing getSession() to return null temporarily after wake
+    // Handle visibility change - iOS suspend recovery
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[Auth] Page visible - forcing session check/refresh (iOS fix)')
+      if (document.visibilityState === 'hidden') {
+        // Page is being hidden - record the time
+        lastHiddenTime = Date.now()
+        console.log('[Auth] Page hidden at', new Date().toLocaleTimeString())
+      } else if (document.visibilityState === 'visible') {
+        const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
+        console.log(`[Auth] Page visible after ${Math.round(timeSinceHidden / 1000)}s`)
         
-        try {
-          // Step 1: Try getSession() - this often triggers internal refresh
-          const { data, error } = await supabase.auth.getSession()
-          
-          if (error || !data.session) {
-            // Step 2: If still null, explicitly call refreshSession()
-            // This is the KEY fix for iOS - poke the Supabase client to wake up
-            console.log('[Auth] Session null on resume - forcing refreshSession()')
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        // NUCLEAR OPTION: If hidden for more than 2 minutes, just reload
+        // This guarantees the app recovers from iOS suspend
+        if (timeSinceHidden > 2 * 60 * 1000) {
+          console.log('[Auth] Page was hidden for 2+ minutes - forcing reload for fresh state')
+          window.location.reload()
+          return
+        }
+        
+        // For shorter durations, try to recover the session in-place
+        if (timeSinceHidden > 30000) {
+          try {
+            // Try getSession first
+            const { data, error } = await supabase.auth.getSession()
             
-            if (refreshError) {
-              console.warn('[Auth] RefreshSession failed:', refreshError.message)
-              // Only clear state if refresh token is actually expired
-              if (refreshError.message?.includes('refresh_token') || 
-                  refreshError.message?.includes('Invalid') ||
-                  refreshError.message?.includes('expired')) {
-                setUser(null)
-                setProfile(null)
-                setAuthError('Session expired. Please log in again.')
+            if (error || !data.session) {
+              // Session is stale - try to refresh
+              console.log('[Auth] Session stale on resume - refreshing...')
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+              
+              if (refreshError) {
+                console.warn('[Auth] Refresh failed:', refreshError.message)
+                // If refresh fails after being hidden, just reload
+                if (timeSinceHidden > 60000) {
+                  console.log('[Auth] Refresh failed after 1+ min hidden - reloading')
+                  window.location.reload()
+                  return
+                }
+              } else if (refreshData?.session?.user) {
+                console.log('[Auth] Session recovered!')
+                setUser(refreshData.session.user)
+                const { data: profileData } = await getProfile(refreshData.session.user.id)
+                if (profileData) setProfile(profileData)
+                setSessionHealthy(true)
+                setAuthError(null)
               }
-            } else if (refreshData?.session?.user) {
-              console.log('[Auth] Session recovered after iOS resume!')
-              setUser(refreshData.session.user)
-              const { data: profileData } = await getProfile(refreshData.session.user.id)
-              if (profileData) setProfile(profileData)
+            } else if (data.session?.user) {
+              // Session OK - restore React state if needed
+              if (!user || user.id !== data.session.user.id) {
+                setUser(data.session.user)
+              }
+              if (!profile) {
+                const { data: profileData } = await getProfile(data.session.user.id)
+                if (profileData) setProfile(profileData)
+              }
               setSessionHealthy(true)
-              setAuthError(null)
             }
-          } else if (data.session?.user) {
-            // Session was available - update React state if needed
-            if (!user || user.id !== data.session.user.id) {
-              console.log('[Auth] Restoring user state after resume')
-              setUser(data.session.user)
+          } catch (e) {
+            console.warn('[Auth] Error recovering session:', e)
+            // On error after long hide, just reload
+            if (timeSinceHidden > 60000) {
+              window.location.reload()
             }
-            if (!profile) {
-              const { data: profileData } = await getProfile(data.session.user.id)
-              if (profileData) setProfile(profileData)
-            }
-            setSessionHealthy(true)
           }
-        } catch (e) {
-          console.warn('[Auth] Error during iOS resume fix:', e)
         }
       }
-    }
-    
-    // Also catch window focus for extra reliability (helps on iOS)
-    const handleFocus = () => {
-      console.log('[Auth] Window focus - triggering visibility check')
-      handleVisibilityChange()
     }
 
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
 
     return () => {
       window.removeEventListener('online', handleOnline)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
     }
   }, [refreshSessionAndProfile, user, profile])
 
