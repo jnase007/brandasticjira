@@ -24,6 +24,9 @@ import {
   Building2,
   Sparkles,
   BookOpen,
+  ChevronDown,
+  Target,
+  Flame,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -64,6 +67,7 @@ export default function Sidebar({
   const location = useLocation()
   const navigate = useNavigate()
   const { signOut, isAdmin, isActualAdmin, viewMode, toggleViewMode, toggleClientPreview, clientPreviewMode } = useAuth()
+  const [gamificationExpanded, setGamificationExpanded] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -134,17 +138,8 @@ export default function Sidebar({
         </Button>
       </div>
 
-      {/* XP Bar & Gamification */}
-      <div className="p-3 space-y-3">
-        <XPBar collapsed={collapsed} />
-        
-        {!collapsed && (
-          <>
-            <DailyChallenges compact />
-            <AchievementMini />
-          </>
-        )}
-        
+      {/* Search - prioritized at top */}
+      <div className="p-3 pb-2">
         <Button
           variant="outline"
           size={collapsed ? "icon" : "default"}
@@ -162,6 +157,54 @@ export default function Sidebar({
             </>
           )}
         </Button>
+      </div>
+
+      {/* Compact XP Bar & Gamification Toggle */}
+      <div className="px-3 pb-2">
+        {collapsed ? (
+          <XPBar collapsed={collapsed} />
+        ) : (
+          <div className="space-y-2">
+            {/* Compact Gamification Summary - Always Visible */}
+            <button
+              onClick={() => setGamificationExpanded(!gamificationExpanded)}
+              className="w-full p-2 rounded-lg bg-gradient-to-r from-brand-orange/10 to-brand-purple/5 border border-brand-orange/20 hover:border-brand-orange/40 transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <XPBar collapsed={true} />
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Target className="h-3 w-3 text-brand-purple" />
+                    <Trophy className="h-3 w-3 text-yellow-500" />
+                  </div>
+                </div>
+                <ChevronDown 
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform",
+                    gamificationExpanded && "rotate-180"
+                  )} 
+                />
+              </div>
+            </button>
+            
+            {/* Expanded Gamification Cards */}
+            <AnimatePresence>
+              {gamificationExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  <XPBar collapsed={false} />
+                  <DailyChallenges compact />
+                  <AchievementMini />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}

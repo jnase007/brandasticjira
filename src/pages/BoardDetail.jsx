@@ -12,6 +12,7 @@ import {
   Clock,
   Play,
   FolderOpen,
+  FolderPlus,
   Circle,
   PlayCircle,
   Eye,
@@ -21,6 +22,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardList,
+  Pencil,
+  Trash2,
+  Palette,
+  Loader2,
 } from 'lucide-react'
 import { 
   getBoard, 
@@ -101,6 +106,12 @@ export default function BoardDetail() {
     category_id: '',
   })
   const [saving, setSaving] = useState(false)
+
+  // Category management
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState(null)
+  const [categoryForm, setCategoryForm] = useState({ name: '', icon: '📁', color: '#6366F1' })
+  const [savingCategory, setSavingCategory] = useState(false)
 
   const [fetchError, setFetchError] = useState(null)
 
@@ -324,6 +335,87 @@ export default function BoardDetail() {
     }
   }
 
+  // Category management functions
+  const openCategoryDialog = (category = null) => {
+    if (category) {
+      setEditingCategory(category)
+      setCategoryForm({ name: category.name, icon: category.icon || '📁', color: category.color || '#6366F1' })
+    } else {
+      setEditingCategory(null)
+      setCategoryForm({ name: '', icon: '📁', color: '#6366F1' })
+    }
+    setCategoryDialogOpen(true)
+  }
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast({ title: 'Category name required', variant: 'destructive' })
+      return
+    }
+
+    setSavingCategory(true)
+    try {
+      if (editingCategory) {
+        // Update existing
+        const { error } = await supabase
+          .from('ticket_categories')
+          .update({ name: categoryForm.name, icon: categoryForm.icon, color: categoryForm.color })
+          .eq('id', editingCategory.id)
+        
+        if (error) throw error
+        setCategories(prev => prev.map(c => c.id === editingCategory.id ? { ...c, ...categoryForm } : c))
+        toast({ title: 'Category updated', variant: 'success' })
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from('ticket_categories')
+          .insert({
+            name: categoryForm.name,
+            icon: categoryForm.icon,
+            color: categoryForm.color,
+            board_id: boardId,
+            client_id: board?.client_id,
+            position: categories.length,
+          })
+          .select()
+          .single()
+        
+        if (error) throw error
+        setCategories(prev => [...prev, data])
+        toast({ title: 'Category created', variant: 'success' })
+      }
+      setCategoryDialogOpen(false)
+    } catch (error) {
+      console.error('Error saving category:', error)
+      toast({ title: 'Failed to save category', variant: 'destructive' })
+    } finally {
+      setSavingCategory(false)
+    }
+  }
+
+  const handleDeleteCategory = async (categoryId) => {
+    if (!confirm('Delete this category? Tasks in this category will become uncategorized.')) return
+    
+    try {
+      const { error } = await supabase
+        .from('ticket_categories')
+        .delete()
+        .eq('id', categoryId)
+      
+      if (error) throw error
+      setCategories(prev => prev.filter(c => c.id !== categoryId))
+      setSelectedCategory('all')
+      toast({ title: 'Category deleted', variant: 'success' })
+    } catch (error) {
+      console.error('Error deleting category:', error)
+      toast({ title: 'Failed to delete category', variant: 'destructive' })
+    }
+  }
+
+  // Common emoji options for categories
+  const CATEGORY_ICONS = ['📁', '🎨', '💻', '📝', '📊', '🔧', '🚀', '📱', '🌐', '📈', '💡', '🎯', '⚡', '🔥', '✨']
+  const CATEGORY_COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6', '#06B6D4', '#3B82F6']
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6">
@@ -395,24 +487,38 @@ export default function BoardDetail() {
           </div>
           
           {/* Category Filter */}
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-44">
+              <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  <span className="flex items-center gap-2">
+                    <span>{cat.icon}</span>
+                    <span>{cat.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+              <div className="border-t mt-1 pt-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); openCategoryDialog(); }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  New Category
+                </button>
+              </div>
+            </SelectContent>
+          </Select>
+          
+          {/* Category Management Button */}
           {categories.length > 0 && (
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-40">
-                <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    <span className="flex items-center gap-2">
-                      <span>{cat.icon}</span>
-                      <span>{cat.name}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Button variant="ghost" size="icon" onClick={() => openCategoryDialog()} title="Manage Categories">
+              <FolderPlus className="h-4 w-4" />
+            </Button>
           )}
           
           <Button 
@@ -637,30 +743,28 @@ export default function BoardDetail() {
             </div>
 
             {/* Category */}
-            {categories.length > 0 && (
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={newTicket.category_id}
-                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, category_id: value }))}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No Category</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        <span className="flex items-center gap-2">
-                          <span>{cat.icon}</span>
-                          <span>{cat.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label>Category</Label>
+              <Select
+                value={newTicket.category_id}
+                onValueChange={(value) => setNewTicket((prev) => ({ ...prev, category_id: value }))}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Category</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <span className="flex items-center gap-2">
+                        <span>{cat.icon}</span>
+                        <span>{cat.name}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
@@ -668,6 +772,128 @@ export default function BoardDetail() {
             </Button>
             <Button onClick={handleCreateTicket} disabled={saving}>
               {saving ? 'Creating...' : 'Create Ticket'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Management Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderPlus className="h-5 w-5 text-brand-orange" />
+              {editingCategory ? 'Edit Category' : 'New Category'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="categoryName">Name *</Label>
+              <Input
+                id="categoryName"
+                placeholder="e.g., Design, Development, Content"
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label>Icon</Label>
+              <div className="flex flex-wrap gap-2 mt-1.5 p-2 border rounded-lg bg-muted/30">
+                {CATEGORY_ICONS.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setCategoryForm(prev => ({ ...prev, icon }))}
+                    className={cn(
+                      "w-9 h-9 text-lg rounded-lg flex items-center justify-center transition-all",
+                      categoryForm.icon === icon 
+                        ? "bg-brand-orange text-white ring-2 ring-brand-orange ring-offset-2" 
+                        : "hover:bg-muted"
+                    )}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2 mt-1.5 p-2 border rounded-lg bg-muted/30">
+                {CATEGORY_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setCategoryForm(prev => ({ ...prev, color }))}
+                    className={cn(
+                      "w-9 h-9 rounded-lg transition-all",
+                      categoryForm.color === color && "ring-2 ring-offset-2 ring-foreground"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Existing categories list for management */}
+            {categories.length > 0 && !editingCategory && (
+              <div>
+                <Label>Existing Categories</Label>
+                <div className="mt-1.5 space-y-2 max-h-40 overflow-y-auto">
+                  {categories.map((cat) => (
+                    <div 
+                      key={cat.id} 
+                      className="flex items-center justify-between p-2 bg-muted/50 rounded-lg group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="w-6 h-6 rounded flex items-center justify-center text-white text-sm"
+                          style={{ backgroundColor: cat.color }}
+                        >
+                          {cat.icon}
+                        </span>
+                        <span className="font-medium text-sm">{cat.name}</span>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          variant="ghost" 
+                          size="icon-sm"
+                          onClick={() => openCategoryDialog(cat)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon-sm"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCategory} disabled={savingCategory}>
+              {savingCategory ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                editingCategory ? 'Update Category' : 'Create Category'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -274,6 +274,7 @@ export default function TicketDetail() {
       priority: data.priority,
       assigned_to: data.assigned_to || null,
       due_date: data.due_date || null,
+      start_date: data.start_date || null,
       estimated_hours: data.estimated_hours || null,
       tags: data.tags || [],
     })
@@ -388,6 +389,7 @@ export default function TicketDetail() {
         priority: editedTicket.priority,
         assigned_to: editedTicket.assigned_to || null,
         due_date: editedTicket.due_date || null,
+        start_date: editedTicket.start_date || null,
         estimated_hours: editedTicket.estimated_hours || null,
         ticket_type: editedTicket.ticket_type || 'task',
         resolution: editedTicket.resolution || 'unresolved',
@@ -864,6 +866,15 @@ export default function TicketDetail() {
                     </Select>
                   </div>
                   <div>
+                    <Label>Start Date</Label>
+                    <Input
+                      type="date"
+                      value={editedTicket.start_date || ''}
+                      onChange={(e) => setEditedTicket((prev) => ({ ...prev, start_date: e.target.value }))}
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
                     <Label>Due Date</Label>
                     <Input
                       type="date"
@@ -942,6 +953,19 @@ export default function TicketDetail() {
                     ) : (
                       <span className="text-sm text-brand-orange font-medium">Click to assign</span>
                     )}
+                  </div>
+                  <div 
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
+                    onClick={() => setEditMode(true)}
+                    title="Click to set start date"
+                  >
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> Start Date
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                    </p>
+                    <span className={cn("text-sm", !ticket.start_date && "text-muted-foreground")}>
+                      {ticket.start_date ? formatDate(ticket.start_date) : 'Not set'}
+                    </span>
                   </div>
                   <div 
                     className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
