@@ -11,6 +11,16 @@ import {
   X,
   Clock,
   Play,
+  FolderOpen,
+  Circle,
+  PlayCircle,
+  Eye,
+  UserCheck,
+  ThumbsUp,
+  Receipt,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardList,
 } from 'lucide-react'
 import { 
   getBoard, 
@@ -20,6 +30,7 @@ import {
   getTeamMembers,
   logActivity,
   ensureValidSession,
+  supabase,
 } from '../lib/supabase'
 import { useBoardRealtime } from '../hooks/useRealtime'
 import { useAuth } from '../contexts/AuthContext'
@@ -46,11 +57,26 @@ import {
 } from '../components/ui/dialog'
 import { useToast } from '../hooks/useToast'
 
+// New 7-status workflow columns
 const COLUMNS = [
-  { id: 'todo', label: 'To Do', color: 'status-todo' },
-  { id: 'inprogress', label: 'In Progress', color: 'status-inprogress' },
-  { id: 'done', label: 'Done', color: 'status-done' },
+  { id: 'new', label: 'New', color: 'bg-slate-500', icon: Circle },
+  { id: 'in_progress', label: 'In Progress', color: 'bg-amber-500', icon: PlayCircle },
+  { id: 'internal_review', label: 'Internal Review', color: 'bg-purple-500', icon: Eye },
+  { id: 'client_review', label: 'Client Review', color: 'bg-blue-500', icon: UserCheck },
+  { id: 'approved', label: 'Approved', color: 'bg-emerald-500', icon: ThumbsUp },
+  { id: 'ready_for_billing', label: 'Ready for Billing', color: 'bg-orange-500', icon: Receipt },
+  { id: 'closed', label: 'Closed', color: 'bg-green-500', icon: CheckCircle2 },
 ]
+
+// Legacy status mapping
+const STATUS_MAP = {
+  'todo': 'new',
+  'inprogress': 'in_progress', 
+  'done': 'closed',
+}
+
+// Normalize status for backwards compatibility
+const normalizeStatus = (status) => STATUS_MAP[status] || status
 
 export default function BoardDetail() {
   const { boardId } = useParams()
@@ -60,8 +86,10 @@ export default function BoardDetail() {
   const [board, setBoard] = useState(null)
   const [tickets, setTickets] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newTicket, setNewTicket] = useState({
     title: '',
@@ -69,6 +97,8 @@ export default function BoardDetail() {
     priority: 'medium',
     assigned_to: '',
     estimated_hours: '',
+    ticket_type: 'task',
+    category_id: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -91,15 +121,24 @@ export default function BoardDetail() {
         return
       }
       
-      const [boardRes, ticketsRes, teamRes] = await Promise.all([
+      const [boardRes, ticketsRes, teamRes, categoriesRes] = await Promise.all([
         getBoard(boardId),
         getTickets(boardId),
         getTeamMembers(),
+        supabase.from('ticket_categories').select('*').eq('board_id', boardId).order('position'),
       ])
 
       if (boardRes.data) setBoard(boardRes.data)
-      if (ticketsRes.data) setTickets(ticketsRes.data)
+      if (ticketsRes.data) {
+        // Normalize statuses for backwards compatibility
+        const normalizedTickets = ticketsRes.data.map(t => ({
+          ...t,
+          status: normalizeStatus(t.status)
+        }))
+        setTickets(normalizedTickets)
+      }
       if (teamRes.data) setTeamMembers(teamRes.data)
+      if (categoriesRes.data) setCategories(categoriesRes.data)
     } catch (error) {
       console.error('Error fetching board data:', error)
       setFetchError(error.message || 'Failed to load board data')
@@ -131,13 +170,22 @@ export default function BoardDetail() {
     },
   })
 
-  // Group tickets by status
-  const groupedTickets = groupTicketsByStatus(
-    tickets.filter((t) => 
+  // Filter and group tickets
+  const filteredTickets = tickets.filter((t) => {
+    const matchesSearch = 
       (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.ticket_id || '').toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  )
+    const matchesCategory = selectedCategory === 'all' || t.category_id === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+  
+  // Group tickets by status using the new column IDs
+  const groupedTickets = COLUMNS.reduce((acc, col) => {
+    acc[col.id] = filteredTickets
+      .filter(t => t.status === col.id)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+    return acc
+  }, {})
 
   // Handle drag end
   const handleDragEnd = async (result) => {
@@ -226,11 +274,14 @@ export default function BoardDetail() {
         priority: newTicket.priority,
         assigned_to: newTicket.assigned_to || null,
         estimated_hours: newTicket.estimated_hours ? parseFloat(newTicket.estimated_hours) : null,
+        ticket_type: newTicket.ticket_type || 'task',
+        category_id: newTicket.category_id || null,
         board_id: boardId,
         client_id: board.client_id,
         created_by: user.id,
-        status: 'todo',
-        position: groupedTickets.todo.length,
+        status: 'new',
+        resolution: 'unresolved',
+        position: (groupedTickets.new?.length || 0),
       }
 
       const { data, error } = await createTicket(ticketData)
@@ -253,6 +304,8 @@ export default function BoardDetail() {
         priority: 'medium',
         assigned_to: '',
         estimated_hours: '',
+        ticket_type: 'task',
+        category_id: '',
       })
 
       toast({
@@ -322,8 +375,8 @@ export default function BoardDetail() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+          <div className="relative flex-1 sm:w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search tasks..."
@@ -340,6 +393,28 @@ export default function BoardDetail() {
               </button>
             )}
           </div>
+          
+          {/* Category Filter */}
+          {categories.length > 0 && (
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-40">
+                <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    <span className="flex items-center gap-2">
+                      <span>{cat.icon}</span>
+                      <span>{cat.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
           <Button 
             variant="outline"
             onClick={() => {
@@ -367,17 +442,22 @@ export default function BoardDetail() {
         <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory sm:snap-none hide-scrollbar">
           {COLUMNS.map((column) => {
             const columnTickets = groupedTickets[column.id] || []
-            const statusInfo = getStatusInfo(column.id)
+            const ColumnIcon = column.icon
 
             return (
-              <div key={column.id} className="kanban-column flex-shrink-0 w-[85vw] sm:w-80 snap-center sm:snap-align-none">
+              <div key={column.id} className="kanban-column flex-shrink-0 w-[72vw] sm:w-64 md:w-72 lg:w-80 snap-center sm:snap-align-none">
                 {/* Column Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Badge variant={column.id} className="font-medium">
-                      {column.label}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-white text-sm font-medium",
+                      column.color
+                    )}>
+                      <ColumnIcon className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{column.label}</span>
+                      <span className="sm:hidden">{column.label.split(' ')[0]}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-foreground bg-muted rounded-full px-2 py-0.5">
                       {columnTickets.length}
                     </span>
                   </div>
@@ -385,6 +465,7 @@ export default function BoardDetail() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => setCreateDialogOpen(true)}
+                    className="opacity-50 hover:opacity-100"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -513,19 +594,73 @@ export default function BoardDetail() {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="estimatedHours">Estimated Hours</Label>
-              <Input
-                id="estimatedHours"
-                type="number"
-                min="0"
-                step="0.5"
-                placeholder="e.g., 4"
-                value={newTicket.estimated_hours}
-                onChange={(e) => setNewTicket((prev) => ({ ...prev, estimated_hours: e.target.value }))}
-                className="mt-1.5"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="estimatedHours">Estimated Hours</Label>
+                <Input
+                  id="estimatedHours"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="e.g., 4"
+                  value={newTicket.estimated_hours}
+                  onChange={(e) => setNewTicket((prev) => ({ ...prev, estimated_hours: e.target.value }))}
+                  className="mt-1.5"
+                />
+              </div>
+              
+              <div>
+                <Label>Type</Label>
+                <Select
+                  value={newTicket.ticket_type}
+                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, ticket_type: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="task">
+                      <span className="flex items-center gap-2">
+                        <ClipboardList className="h-4 w-4" />
+                        Task
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="client_homework">
+                      <span className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-orange-500" />
+                        Client Homework
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Category */}
+            {categories.length > 0 && (
+              <div>
+                <Label>Category</Label>
+                <Select
+                  value={newTicket.category_id}
+                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, category_id: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Category</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <span className="flex items-center gap-2">
+                          <span>{cat.icon}</span>
+                          <span>{cat.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>

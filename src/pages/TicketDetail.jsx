@@ -25,6 +25,14 @@ import {
   PlayCircle,
   CheckCircle2,
   ChevronRight,
+  Eye,
+  UserCheck,
+  ThumbsUp,
+  Receipt,
+  XCircle,
+  AlertTriangle,
+  Target,
+  ClipboardList,
 } from 'lucide-react'
 import {
   getTicket,
@@ -88,14 +96,49 @@ import { useAutosave } from '../hooks/useAutosave'
 import { FileUpload, InlineFileUpload } from '../components/FileUpload'
 
 // Status Pipeline Component - Shows ticket's position in the workflow
-const STATUS_STEPS = [
-  { id: 'todo', label: 'To Do', icon: Circle, color: 'bg-slate-400', activeColor: 'bg-blue-500', glowColor: 'shadow-blue-500/50' },
-  { id: 'inprogress', label: 'In Progress', icon: PlayCircle, color: 'bg-slate-400', activeColor: 'bg-amber-500', glowColor: 'shadow-amber-500/50' },
-  { id: 'done', label: 'Done', icon: CheckCircle2, color: 'bg-slate-400', activeColor: 'bg-green-500', glowColor: 'shadow-green-500/50' },
+// 7 statuses for tasks, 3 for client homework
+const TASK_STATUS_STEPS = [
+  { id: 'new', label: 'New', icon: Circle, color: 'bg-slate-400', activeColor: 'bg-slate-500', glowColor: 'shadow-slate-500/50' },
+  { id: 'in_progress', label: 'In Progress', icon: PlayCircle, color: 'bg-slate-400', activeColor: 'bg-amber-500', glowColor: 'shadow-amber-500/50' },
+  { id: 'internal_review', label: 'Internal Review', icon: Eye, color: 'bg-slate-400', activeColor: 'bg-purple-500', glowColor: 'shadow-purple-500/50' },
+  { id: 'client_review', label: 'Client Review', icon: UserCheck, color: 'bg-slate-400', activeColor: 'bg-blue-500', glowColor: 'shadow-blue-500/50' },
+  { id: 'approved', label: 'Approved', icon: ThumbsUp, color: 'bg-slate-400', activeColor: 'bg-emerald-500', glowColor: 'shadow-emerald-500/50' },
+  { id: 'ready_for_billing', label: 'Ready for Billing', icon: Receipt, color: 'bg-slate-400', activeColor: 'bg-orange-500', glowColor: 'shadow-orange-500/50' },
+  { id: 'closed', label: 'Closed', icon: CheckCircle2, color: 'bg-slate-400', activeColor: 'bg-green-500', glowColor: 'shadow-green-500/50' },
 ]
 
-function StatusPipeline({ currentStatus, onStatusChange, disabled }) {
-  const currentIndex = STATUS_STEPS.findIndex(s => s.id === currentStatus)
+const HOMEWORK_STATUS_STEPS = [
+  { id: 'new', label: 'New', icon: Circle, color: 'bg-slate-400', activeColor: 'bg-slate-500', glowColor: 'shadow-slate-500/50' },
+  { id: 'in_progress', label: 'In Progress', icon: PlayCircle, color: 'bg-slate-400', activeColor: 'bg-amber-500', glowColor: 'shadow-amber-500/50' },
+  { id: 'closed', label: 'Closed', icon: CheckCircle2, color: 'bg-slate-400', activeColor: 'bg-green-500', glowColor: 'shadow-green-500/50' },
+]
+
+// Legacy status mapping for backwards compatibility
+const STATUS_MAP = {
+  'todo': 'new',
+  'inprogress': 'in_progress',
+  'done': 'closed',
+}
+
+// Fallback for old code
+const STATUS_STEPS = TASK_STATUS_STEPS
+
+function StatusPipeline({ currentStatus, onStatusChange, disabled, ticketType = 'task' }) {
+  // Use appropriate status steps based on ticket type
+  const statusSteps = ticketType === 'client_homework' ? HOMEWORK_STATUS_STEPS : TASK_STATUS_STEPS
+  
+  // Map legacy status to new status
+  const normalizedStatus = STATUS_MAP[currentStatus] || currentStatus
+  const currentIndex = statusSteps.findIndex(s => s.id === normalizedStatus)
+  
+  // Generate gradient based on progress
+  const getGradient = () => {
+    const progress = currentIndex / (statusSteps.length - 1)
+    if (normalizedStatus === 'closed') return 'linear-gradient(90deg, #64748b, #f59e0b, #22c55e)'
+    if (progress > 0.7) return 'linear-gradient(90deg, #64748b, #8b5cf6, #3b82f6, #f59e0b)'
+    if (progress > 0.3) return 'linear-gradient(90deg, #64748b, #8b5cf6, #f59e0b)'
+    return 'linear-gradient(90deg, #64748b, #64748b)'
+  }
   
   return (
     <div className="relative">
@@ -107,21 +150,17 @@ function StatusPipeline({ currentStatus, onStatusChange, disabled }) {
         className="absolute top-1/2 left-0 h-1 -translate-y-1/2 rounded-full"
         initial={false}
         animate={{ 
-          width: `${(currentIndex / (STATUS_STEPS.length - 1)) * 100}%`,
-          background: currentStatus === 'done' 
-            ? 'linear-gradient(90deg, #3b82f6, #f59e0b, #22c55e)' 
-            : currentStatus === 'inprogress'
-            ? 'linear-gradient(90deg, #3b82f6, #f59e0b)'
-            : 'linear-gradient(90deg, #3b82f6, #3b82f6)'
+          width: `${Math.max(0, (currentIndex / (statusSteps.length - 1)) * 100)}%`,
+          background: getGradient()
         }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       />
       
       {/* Status steps */}
       <div className="relative flex justify-between items-center">
-        {STATUS_STEPS.map((step, index) => {
+        {statusSteps.map((step, index) => {
           const Icon = step.icon
-          const isActive = step.id === currentStatus
+          const isActive = step.id === normalizedStatus
           const isPast = index < currentIndex
           const isFuture = index > currentIndex
           
@@ -131,7 +170,7 @@ function StatusPipeline({ currentStatus, onStatusChange, disabled }) {
               onClick={() => !disabled && onStatusChange?.(step.id)}
               disabled={disabled}
               className={cn(
-                "relative flex flex-col items-center gap-2 p-2 rounded-xl transition-all duration-300",
+                "relative flex flex-col items-center gap-2 p-1 sm:p-2 rounded-xl transition-all duration-300",
                 !disabled && "cursor-pointer hover:bg-white/50 dark:hover:bg-slate-800/50",
                 disabled && "cursor-default"
               )}
@@ -141,21 +180,18 @@ function StatusPipeline({ currentStatus, onStatusChange, disabled }) {
               {/* Icon circle */}
               <motion.div
                 className={cn(
-                  "relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300",
+                  "relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full border-2 transition-all duration-300",
                   isActive && `${step.activeColor} border-transparent shadow-lg ${step.glowColor}`,
                   isPast && "bg-green-500 border-transparent",
                   isFuture && "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
                 )}
                 animate={isActive ? { 
-                  boxShadow: [
-                    `0 0 0 0 ${step.id === 'todo' ? 'rgba(59,130,246,0.4)' : step.id === 'inprogress' ? 'rgba(245,158,11,0.4)' : 'rgba(34,197,94,0.4)'}`,
-                    `0 0 0 10px ${step.id === 'todo' ? 'rgba(59,130,246,0)' : step.id === 'inprogress' ? 'rgba(245,158,11,0)' : 'rgba(34,197,94,0)'}`,
-                  ]
+                  boxShadow: ['0 0 0 0 rgba(99,102,241,0.4)', '0 0 0 10px rgba(99,102,241,0)']
                 } : {}}
                 transition={isActive ? { duration: 1.5, repeat: Infinity } : {}}
               >
                 <Icon className={cn(
-                  "w-6 h-6 transition-colors duration-300",
+                  "w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 transition-colors duration-300",
                   isActive && "text-white",
                   isPast && "text-white",
                   isFuture && "text-slate-400 dark:text-slate-500"
@@ -172,9 +208,9 @@ function StatusPipeline({ currentStatus, onStatusChange, disabled }) {
                 )}
               </motion.div>
               
-              {/* Label */}
+              {/* Label - hidden on small screens, visible on medium+ */}
               <span className={cn(
-                "text-xs font-medium transition-colors duration-300 whitespace-nowrap",
+                "hidden sm:block text-[10px] sm:text-xs font-medium transition-colors duration-300 whitespace-nowrap",
                 isActive && "text-foreground font-semibold",
                 isPast && "text-green-600 dark:text-green-400",
                 isFuture && "text-muted-foreground"
@@ -353,6 +389,8 @@ export default function TicketDetail() {
         assigned_to: editedTicket.assigned_to || null,
         due_date: editedTicket.due_date || null,
         estimated_hours: editedTicket.estimated_hours || null,
+        ticket_type: editedTicket.ticket_type || 'task',
+        resolution: editedTicket.resolution || 'unresolved',
         tags: editedTicket.tags || [],
       })
 
@@ -701,9 +739,23 @@ export default function TicketDetail() {
         className="mb-8 p-6 rounded-xl border bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 shadow-sm"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Workflow Status
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Workflow Status
+            </h3>
+            {ticket.ticket_type === 'client_homework' && (
+              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
+                <UserCheck className="h-3 w-3 mr-1" />
+                Client Homework
+              </Badge>
+            )}
+            {ticket.resolution === 'resolved' && (
+              <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Resolved
+              </Badge>
+            )}
+          </div>
           <span className="text-xs text-muted-foreground">
             Click a status to move this task
           </span>
@@ -712,6 +764,7 @@ export default function TicketDetail() {
           currentStatus={ticket.status} 
           onStatusChange={handleStatusChange}
           disabled={saving}
+          ticketType={ticket.ticket_type}
         />
       </motion.div>
 

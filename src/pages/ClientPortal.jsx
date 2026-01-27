@@ -134,11 +134,29 @@ const PRIORITY_STYLES = {
   low: { color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: 'bg-emerald-500' },
 }
 
+// Status config supporting both legacy and new 7-status workflow
 const STATUS_CONFIG = {
+  // New 7-status workflow
+  new: { label: 'New', icon: Circle, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800' },
+  in_progress: { label: 'In Progress', icon: Play, color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  internal_review: { label: 'Internal Review', icon: Eye, color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-900/30' },
+  client_review: { label: 'Awaiting Your Review', icon: Eye, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30', clientAction: true },
+  approved: { label: 'Approved', icon: ThumbsUp, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  ready_for_billing: { label: 'Ready for Billing', icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  closed: { label: 'Completed', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900/30' },
+  
+  // Legacy status mappings
   todo: { label: 'Planned', icon: Circle, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800' },
   inprogress: { label: 'In Progress', icon: Play, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
   done: { label: 'Completed', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
 }
+
+// Client Homework status options (restricted for clients)
+const HOMEWORK_STATUS_OPTIONS = [
+  { value: 'new', label: 'Not Started', icon: Circle },
+  { value: 'in_progress', label: 'Working on it', icon: Play },
+  { value: 'closed', label: 'Completed', icon: CheckCircle2 },
+]
 
 // Greeting based on time of day
 function getGreeting() {
@@ -190,10 +208,12 @@ function StatCard({ icon: Icon, iconBg, iconColor, label, value, suffix, subtext
 }
 
 // Ticket Card for Activity View
-function TicketActivityCard({ ticket, onViewDetails, onComment }) {
-  const statusConfig = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.todo
+function TicketActivityCard({ ticket, onViewDetails, onComment, onStatusChange }) {
+  const statusConfig = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.new
   const StatusIcon = statusConfig.icon
   const priorityStyle = PRIORITY_STYLES[ticket.priority] || PRIORITY_STYLES.medium
+  const isClientHomework = ticket.ticket_type === 'client_homework'
+  const needsClientAction = ticket.status === 'client_review'
 
   return (
     <motion.div
@@ -205,7 +225,9 @@ function TicketActivityCard({ ticket, onViewDetails, onComment }) {
       <div className={cn(
         "p-4 rounded-xl border bg-card/50 backdrop-blur-sm transition-all",
         "hover:shadow-lg hover:shadow-brand-orange/5 hover:border-brand-orange/20",
-        "cursor-pointer"
+        "cursor-pointer",
+        isClientHomework && "border-l-4 border-l-orange-500",
+        needsClientAction && "ring-2 ring-blue-400/50 border-blue-300"
       )}
         onClick={() => onViewDetails(ticket)}
       >
@@ -219,9 +241,21 @@ function TicketActivityCard({ ticket, onViewDetails, onComment }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h4 className="font-semibold text-sm truncate group-hover:text-brand-orange transition-colors">
-                  {ticket.title}
-                </h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-sm truncate group-hover:text-brand-orange transition-colors">
+                    {ticket.title}
+                  </h4>
+                  {isClientHomework && (
+                    <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-[10px] px-1.5 py-0">
+                      Your Task
+                    </Badge>
+                  )}
+                  {needsClientAction && (
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] px-1.5 py-0 animate-pulse">
+                      Review Needed
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {ticket.ticket_id}
                 </p>
@@ -475,13 +509,18 @@ function NewRequestDialog({ open, onOpenChange, clientId, userId, onSuccess }) {
 }
 
 // Ticket Detail Dialog with Comments
-function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clientName }) {
+function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clientName, onStatusChange }) {
   const { toast } = useToast()
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [mentionedUserIds, setMentionedUserIds] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [sendingComment, setSendingComment] = useState(false)
+  const [changingStatus, setChangingStatus] = useState(false)
+  
+  const isClientHomework = ticket?.ticket_type === 'client_homework'
+  const needsClientReview = ticket?.status === 'client_review'
+  const canChangeStatus = isClientHomework || needsClientReview
 
   useEffect(() => {
     if (open && ticket) {
@@ -551,9 +590,28 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clie
     }
   }
 
+  const handleStatusChange = async (newStatus) => {
+    if (!ticket || !onStatusChange) return
+    setChangingStatus(true)
+    try {
+      await onStatusChange(ticket.id, newStatus)
+      toast({
+        title: '✅ Status updated!',
+        description: `Task marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to update status',
+        variant: 'destructive',
+      })
+    } finally {
+      setChangingStatus(false)
+    }
+  }
+
   if (!ticket) return null
 
-  const statusConfig = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.todo
+  const statusConfig = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.new
   const StatusIcon = statusConfig.icon
   const priorityStyle = PRIORITY_STYLES[ticket.priority] || PRIORITY_STYLES.medium
 
@@ -566,7 +624,16 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clie
               <StatusIcon className={cn("h-6 w-6", statusConfig.color)} />
             </div>
             <div className="flex-1 min-w-0">
-              <DialogTitle className="text-xl mb-1">{ticket.title}</DialogTitle>
+              <DialogTitle className="text-xl mb-1">
+                <div className="flex items-center gap-2">
+                  {ticket.title}
+                  {isClientHomework && (
+                    <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
+                      Your Task
+                    </Badge>
+                  )}
+                </div>
+              </DialogTitle>
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge variant="outline" className="text-xs">
                   {ticket.ticket_id}
@@ -583,6 +650,71 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clie
               </div>
             </div>
           </div>
+          
+          {/* Client Status Change Section */}
+          {canChangeStatus && (
+            <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border border-orange-200 dark:border-orange-800">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="h-4 w-4 text-orange-500" />
+                <span className="font-medium text-sm">
+                  {needsClientReview ? 'Review Required' : 'Update Your Progress'}
+                </span>
+              </div>
+              
+              {needsClientReview ? (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleStatusChange('approved')}
+                    disabled={changingStatus}
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    {changingStatus ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <ThumbsUp className="h-4 w-4 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleStatusChange('in_progress')}
+                    disabled={changingStatus}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                  >
+                    Request Changes
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2 flex-wrap">
+                  {HOMEWORK_STATUS_OPTIONS.map((option) => {
+                    const OptionIcon = option.icon
+                    const isActive = ticket.status === option.value
+                    return (
+                      <Button
+                        key={option.value}
+                        size="sm"
+                        variant={isActive ? 'default' : 'outline'}
+                        onClick={() => handleStatusChange(option.value)}
+                        disabled={changingStatus || isActive}
+                        className={cn(
+                          isActive && "bg-green-500 hover:bg-green-500"
+                        )}
+                      >
+                        {changingStatus ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        ) : (
+                          <OptionIcon className="h-4 w-4 mr-1" />
+                        )}
+                        {option.label}
+                      </Button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto py-4 space-y-6">
@@ -894,6 +1026,39 @@ export default function ClientPortal() {
   const handleCommentTicket = (ticket) => {
     setSelectedTicket(ticket)
     setTicketDetailOpen(true)
+  }
+
+  // Handle ticket status change (for client homework and client review)
+  const handleTicketStatusChange = async (ticketId, newStatus) => {
+    try {
+      // Update resolution if closing
+      const updateData = { 
+        status: newStatus,
+        resolution: newStatus === 'closed' ? 'resolved' : undefined
+      }
+      
+      const { error } = await supabase
+        .from('tickets')
+        .update(updateData)
+        .eq('id', ticketId)
+      
+      if (error) throw error
+      
+      // Update local state
+      setTickets(prev => prev.map(t => 
+        t.id === ticketId ? { ...t, status: newStatus } : t
+      ))
+      
+      // Update selected ticket if it's the one we changed
+      if (selectedTicket?.id === ticketId) {
+        setSelectedTicket(prev => ({ ...prev, status: newStatus }))
+      }
+      
+      return { success: true }
+    } catch (error) {
+      console.error('Error updating ticket status:', error)
+      throw error
+    }
   }
 
   if (loading) {
@@ -1617,6 +1782,7 @@ export default function ClientPortal() {
           userId={user?.id}
           clientId={profile?.client_id}
           clientName={client?.name || profile?.full_name}
+          onStatusChange={handleTicketStatusChange}
         />
     </motion.div>
     </div>

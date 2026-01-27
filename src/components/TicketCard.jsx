@@ -7,21 +7,32 @@ import {
   Calendar,
   AlertCircle,
   UserCircle2,
+  ClipboardList,
+  UserCheck,
+  Target,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react'
-import { cn, formatRelativeDate, getPriorityInfo, getInitials } from '../lib/utils'
+import { cn, formatRelativeDate, getPriorityInfo, getInitials, getStatusInfo, getHoursProgress } from '../lib/utils'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
+import { Progress } from './ui/progress'
 
 const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
   const navigate = useNavigate()
   const priorityInfo = getPriorityInfo(ticket.priority)
+  const statusInfo = getStatusInfo(ticket.status)
   const hasAttachments = ticket.attachments?.length > 0
   const hasDueDate = !!ticket.due_date
-  const isOverdue = hasDueDate && new Date(ticket.due_date) < new Date() && ticket.status !== 'done'
+  const isOverdue = hasDueDate && new Date(ticket.due_date) < new Date() && !['done', 'closed'].includes(ticket.status)
+  const isClientHomework = ticket.ticket_type === 'client_homework'
   const clientSlug = ticket.client?.slug || ticket.client_id
   const ticketKey = ticket.ticket_id || ticket.id
   const ticketLink = clientSlug ? `/clients/${clientSlug}/tickets/${ticketKey}` : `/tickets/${ticketKey}`
+  
+  // Calculate hours progress if we have estimated hours
+  const hoursProgress = getHoursProgress(ticket.estimated_hours, ticket.tracked_minutes || ticket.actual_minutes || 0)
 
   // Handle click to navigate to ticket detail
   const handleClick = useCallback((e) => {
@@ -70,10 +81,23 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
       <div className="pl-2">
         {/* Header with Assignee */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono text-muted-foreground">
               {ticket.ticket_id}
             </span>
+            {isClientHomework && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-400">
+                      <UserCheck className="h-2.5 w-2.5 mr-0.5" />
+                      HW
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>Client Homework</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Badge variant={ticket.priority} className="text-[10px] px-1.5 py-0">
               {priorityInfo.label}
             </Badge>
@@ -160,17 +184,40 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
             </TooltipProvider>
           )}
 
-          {ticket.estimated_hours && (
+          {ticket.estimated_hours > 0 && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <Clock className="h-3 w-3" />
-                    <span>{ticket.estimated_hours}h</span>
+                  <div className={cn(
+                    "flex items-center gap-1.5 text-[11px] px-1.5 py-0.5 rounded-md",
+                    hoursProgress.status === 'over' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                    hoursProgress.status === 'warning' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                    hoursProgress.status === 'on_track' && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  )}>
+                    {hoursProgress.status === 'over' ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : hoursProgress.status === 'warning' ? (
+                      <AlertCircle className="h-3 w-3" />
+                    ) : (
+                      <Target className="h-3 w-3" />
+                    )}
+                    <span className="font-medium">{hoursProgress.actualHours}/{ticket.estimated_hours}h</span>
+                    <span className="text-[9px] opacity-70">({hoursProgress.percentage}%)</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  Estimated: {ticket.estimated_hours} hours
+                <TooltipContent className="max-w-[200px]">
+                  <div className="space-y-1">
+                    <div className="font-medium">Hours Progress</div>
+                    <div className="text-xs">
+                      Actual: {hoursProgress.actualHours}h / Estimated: {ticket.estimated_hours}h
+                    </div>
+                    {hoursProgress.status === 'over' && (
+                      <div className="text-red-400 text-xs">Over by {hoursProgress.overBy.toFixed(1)}h</div>
+                    )}
+                    {hoursProgress.status === 'on_track' && hoursProgress.remaining > 0 && (
+                      <div className="text-green-400 text-xs">{hoursProgress.remaining.toFixed(1)}h remaining</div>
+                    )}
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

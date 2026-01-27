@@ -82,14 +82,75 @@ export function getElapsedMinutes(startTime) {
 
 /**
  * Get status display info
+ * Supports both new 7-status workflow and legacy 3-status
  */
 export function getStatusInfo(status) {
   const statusMap = {
-    todo: { label: 'To Do', color: 'status-todo', icon: 'Circle' },
-    inprogress: { label: 'In Progress', color: 'status-inprogress', icon: 'Clock' },
-    done: { label: 'Done', color: 'status-done', icon: 'CheckCircle' },
+    // New 7-status workflow
+    new: { label: 'New', color: 'bg-slate-500', textColor: 'text-slate-700', icon: 'Circle' },
+    in_progress: { label: 'In Progress', color: 'bg-amber-500', textColor: 'text-amber-700', icon: 'PlayCircle' },
+    internal_review: { label: 'Internal Review', color: 'bg-purple-500', textColor: 'text-purple-700', icon: 'Eye' },
+    client_review: { label: 'Client Review', color: 'bg-blue-500', textColor: 'text-blue-700', icon: 'UserCheck' },
+    approved: { label: 'Approved', color: 'bg-emerald-500', textColor: 'text-emerald-700', icon: 'ThumbsUp' },
+    ready_for_billing: { label: 'Ready for Billing', color: 'bg-orange-500', textColor: 'text-orange-700', icon: 'Receipt' },
+    closed: { label: 'Closed', color: 'bg-green-500', textColor: 'text-green-700', icon: 'CheckCircle2' },
+    
+    // Legacy status mappings (for backwards compatibility)
+    todo: { label: 'New', color: 'bg-slate-500', textColor: 'text-slate-700', icon: 'Circle' },
+    inprogress: { label: 'In Progress', color: 'bg-amber-500', textColor: 'text-amber-700', icon: 'Clock' },
+    done: { label: 'Closed', color: 'bg-green-500', textColor: 'text-green-700', icon: 'CheckCircle' },
+    
+    // CSS class-based colors for legacy UI
+    'status-todo': { label: 'New', color: 'status-todo', icon: 'Circle' },
+    'status-inprogress': { label: 'In Progress', color: 'status-inprogress', icon: 'Clock' },
+    'status-done': { label: 'Closed', color: 'status-done', icon: 'CheckCircle' },
   }
-  return statusMap[status] || statusMap.todo
+  return statusMap[status] || statusMap.new
+}
+
+/**
+ * Get ticket type display info
+ */
+export function getTicketTypeInfo(type) {
+  const typeMap = {
+    task: { label: 'Task', color: 'bg-blue-500', icon: 'ClipboardList' },
+    client_homework: { label: 'Client Homework', color: 'bg-orange-500', icon: 'UserCheck' },
+  }
+  return typeMap[type] || typeMap.task
+}
+
+/**
+ * Get resolution display info
+ */
+export function getResolutionInfo(resolution) {
+  const resolutionMap = {
+    unresolved: { label: 'Unresolved', color: 'bg-amber-500', textColor: 'text-amber-700' },
+    resolved: { label: 'Resolved', color: 'bg-green-500', textColor: 'text-green-700' },
+  }
+  return resolutionMap[resolution] || resolutionMap.unresolved
+}
+
+/**
+ * Calculate hours progress (estimated vs actual)
+ */
+export function getHoursProgress(estimatedHours, actualMinutes) {
+  if (!estimatedHours || estimatedHours <= 0) return { percentage: 0, status: 'unknown' }
+  
+  const actualHours = (actualMinutes || 0) / 60
+  const percentage = Math.round((actualHours / estimatedHours) * 100)
+  
+  let status = 'on_track'
+  if (percentage >= 100) status = 'over'
+  else if (percentage >= 80) status = 'warning'
+  
+  return { 
+    percentage, 
+    status,
+    actualHours: Math.round(actualHours * 10) / 10,
+    estimatedHours,
+    remaining: Math.max(0, estimatedHours - actualHours),
+    overBy: Math.max(0, actualHours - estimatedHours)
+  }
 }
 
 /**
