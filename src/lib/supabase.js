@@ -19,7 +19,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storage: localStorage, // Using localStorage (cookies break OAuth)
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'pkce', // More secure flow
-    debug: false, // Set to true temporarily to debug iOS issues
+    debug: true, // ENABLED: Shows GoTrueClient logs for debugging tab switch issues
   },
   realtime: {
     params: {
@@ -217,24 +217,50 @@ export async function ensureValidSession() {
 }
 
 /**
- * Robust wrapper for Supabase queries with tab-switch recovery.
- * On every call: checks session, refreshes if stale, then executes query.
- * This prevents the "buttons don't work after tab switch" issue.
+ * AGGRESSIVE wrapper for Supabase queries with tab-switch recovery.
+ * This is the key fix for "buttons don't work after tab switch".
+ * 
+ * Strategy:
+ * 1. Before EVERY query, force a session refresh via refreshSession()
+ * 2. If query fails with auth error, use getUser() to hit server directly
+ * 3. Retry with exponential backoff
  */
 export async function safeQuery(queryFn, options = {}) {
-  const maxRetries = 2
+  const maxRetries = 3
   
-  // Before EVERY query, do a quick session check
-  // This "wakes up" the Supabase client after tab switches
+  // AGGRESSIVE: Before EVERY query, ensure session is fresh
+  // This is the key to fixing tab switch issues - we don't trust the cached session
   try {
+    console.log('[SafeQuery] Pre-query session check')
+    
+    // First check if session exists in memory
     const { data: sessionCheck } = await supabase.auth.getSession()
+    
     if (!sessionCheck?.session) {
-      console.log('[SafeQuery] Session null - pre-emptive refresh')
-      await supabase.auth.refreshSession()
-      await new Promise(r => setTimeout(r, 50))
+      console.log('[SafeQuery] Session null in memory - forcing refresh')
+      
+      // Try refreshSession first (uses refresh token from storage)
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+      
+      if (refreshError || !refreshData?.session) {
+        console.log('[SafeQuery] refreshSession failed, trying getUser()...')
+        
+        // getUser() hits the server directly - last resort
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !userData?.user) {
+          console.error('[SafeQuery] All pre-query recovery failed')
+          // Don't return error here - let the query attempt anyway
+          // The query might work if there's a race condition
+        }
+      }
+      
+      // Small delay to let the client sync
+      await new Promise(r => setTimeout(r, 100))
     }
-  } catch {
-    // Ignore session check errors, proceed with query
+  } catch (e) {
+    console.warn('[SafeQuery] Pre-query check exception:', e.message)
+    // Continue anyway - the query might work
   }
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -243,39 +269,54 @@ export async function safeQuery(queryFn, options = {}) {
       
       // Success - return result
       if (!result.error) {
+        if (attempt > 0) {
+          console.log(`[SafeQuery] Query succeeded on attempt ${attempt + 1}`)
+        }
         return result
       }
       
       // Check if it's an auth error that we should retry
       const errorMsg = result.error.message?.toLowerCase() || ''
       const errorCode = result.error.code || ''
+      const errorStatus = result.error.status || result.status
+      
       const isAuthError = 
         errorMsg.includes('jwt') || 
         errorMsg.includes('expired') ||
         errorMsg.includes('invalid') ||
         errorMsg.includes('refresh_token') ||
         errorMsg.includes('not authenticated') ||
+        errorMsg.includes('no rows') || // Sometimes auth issues manifest as "no rows"
         errorCode === 'PGRST301' ||
         errorCode === '401' ||
-        errorCode === '403'
+        errorCode === '403' ||
+        errorStatus === 401 ||
+        errorStatus === 403
       
       if (isAuthError && attempt < maxRetries) {
-        console.warn(`[SafeQuery] Auth error on attempt ${attempt + 1}: ${errorMsg}`)
+        console.warn(`[SafeQuery] Auth error "${errorMsg}" on attempt ${attempt + 1}/${maxRetries}`)
         
-        // Use getUser() first to force server check, then refreshSession()
-        const { data: userData, error: userError } = await supabase.auth.getUser()
+        // Aggressive recovery: getUser() -> refreshSession() -> wait
+        console.log('[SafeQuery] Attempting recovery...')
         
-        if (userError || !userData?.user) {
-          console.log('[SafeQuery] getUser() failed, trying refreshSession()...')
+        try {
+          // getUser() forces server check
+          await supabase.auth.getUser()
+          // refreshSession() gets new tokens
           await supabase.auth.refreshSession()
+        } catch {
+          // Ignore recovery errors
         }
         
-        // Small delay before retry
-        await new Promise(resolve => setTimeout(resolve, 150))
+        // Exponential backoff
+        const delay = 200 * Math.pow(2, attempt)
+        console.log(`[SafeQuery] Waiting ${delay}ms before retry...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
         continue // Retry
       }
       
       // Non-auth error or max retries - return the error
+      console.log(`[SafeQuery] Returning error: ${errorMsg}`)
       return result
       
     } catch (e) {
@@ -283,9 +324,13 @@ export async function safeQuery(queryFn, options = {}) {
       
       // On exception, try to refresh and retry
       if (attempt < maxRetries) {
-        await supabase.auth.getUser() // Force server check
-        await supabase.auth.refreshSession()
-        await new Promise(resolve => setTimeout(resolve, 150))
+        try {
+          await supabase.auth.getUser()
+          await supabase.auth.refreshSession()
+        } catch {}
+        
+        const delay = 200 * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
       

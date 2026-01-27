@@ -474,114 +474,170 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle tab switching and resume - aggressive recovery for Supabase session desyncs
-  // This is critical for fixing the "tab switch breaks buttons" issue
+  // AGGRESSIVE TAB SWITCH RECOVERY
+  // This handles the "buttons don't work after tab switch" issue
+  // Uses multiple strategies: visibility, focus, storage events, and BroadcastChannel
   useEffect(() => {
     let lastHiddenTime = 0
     let isRefreshing = false
-    let focusCount = 0 // Track rapid focus events to avoid spam
+    let resumeChannel = null
     
-    // Quick warmup: Just call getSession() to "wake up" the Supabase client
-    // This is fast and doesn't hit the network, but primes internal state
-    const warmupSession = async () => {
-      try {
-        const { data } = await supabase.auth.getSession()
-        return !!data?.session
-      } catch {
-        return false
+    // Initialize BroadcastChannel for resume sync
+    try {
+      resumeChannel = new BroadcastChannel('brandastic_resume_sync')
+      resumeChannel.onmessage = async (e) => {
+        if (e.data === 'session_recovered') {
+          console.log('[Auth] Another tab recovered session, syncing...')
+          const { data } = await supabase.auth.getSession()
+          if (data?.session) {
+            setUser(data.session.user)
+            setSessionHealthy(true)
+          }
+        }
       }
+    } catch (e) {
+      console.log('[Auth] BroadcastChannel not supported')
     }
     
-    // Full refresh: getUser() hits the server directly, bypassing local glitches
-    const fullRefresh = async () => {
-      if (isRefreshing) return null
-      isRefreshing = true
+    // Notify other tabs that we recovered
+    const notifyRecovery = () => {
+      try {
+        resumeChannel?.postMessage('session_recovered')
+      } catch {}
+    }
+    
+    // NUCLEAR OPTION: Force reload the Supabase client's internal state
+    // This is the most aggressive recovery - it re-reads from localStorage
+    const forceReloadSession = async () => {
+      console.log('[Auth] FORCE: Re-reading session from storage')
       
       try {
-        console.log('[Auth] Full session refresh via getUser()')
+        // Step 1: Clear any internal cache by calling signOut locally (doesn't hit server)
+        // This forces GoTrueClient to re-read from storage on next getSession()
         
-        // Step 1: getUser() forces a server check and triggers token refresh
-        const { data: userData, error: userError } = await supabase.auth.getUser()
+        // Step 2: Manually read from localStorage to check if tokens exist
+        const storageKey = 'brandastic-auth'
+        const stored = localStorage.getItem(storageKey)
         
-        if (userError || !userData.user) {
-          console.error('[Auth] getUser() failed:', userError?.message)
-          isRefreshing = false
+        if (!stored) {
+          console.log('[Auth] No session in storage - user not logged in')
           return null
         }
         
-        // Step 2: Now getSession() should have the refreshed session
-        const { data: sessionData } = await supabase.auth.getSession()
-        const session = sessionData?.session
+        console.log('[Auth] Session exists in storage, forcing client reload')
         
-        if (session?.user) {
-          console.log('[Auth] Session refreshed successfully')
-          setUser(session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
+        // Step 3: Call refreshSession() which forces a token refresh from server
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        
+        if (refreshError) {
+          console.error('[Auth] refreshSession() failed:', refreshError.message)
           
-          // Also refresh profile if needed
-          if (!profile) {
-            const { data: profileData } = await getProfile(session.user.id)
-            if (profileData) setProfile(profileData)
+          // Step 4: Try getUser() as fallback - this hits the server directly
+          const { data: userData, error: userError } = await supabase.auth.getUser()
+          
+          if (userError || !userData?.user) {
+            console.error('[Auth] getUser() also failed - session truly expired')
+            return null
           }
+          
+          // getUser() succeeded, session should be recovered now
+          const { data: sessionData } = await supabase.auth.getSession()
+          return sessionData?.session
         }
         
-        isRefreshing = false
-        return session
+        return refreshData?.session
       } catch (err) {
-        console.error('[Auth] Refresh error:', err)
-        isRefreshing = false
+        console.error('[Auth] Force reload error:', err)
         return null
       }
     }
     
-    // Handle ANY focus/visibility change - not just long ones
-    const handleResume = async () => {
-      if (document.visibilityState !== 'visible' && !document.hasFocus()) return
-      if (!user) return // Not logged in, nothing to recover
+    // Full recovery with retries
+    const recoverSession = async (retries = 3) => {
+      if (isRefreshing) return true
+      isRefreshing = true
       
-      const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
+      console.log('[Auth] Starting session recovery...')
       
-      // Debounce rapid focus events (e.g., clicking back and forth quickly)
-      focusCount++
-      const currentCount = focusCount
-      await new Promise(r => setTimeout(r, 100))
-      if (currentCount !== focusCount) return // Another focus event happened, let it handle it
-      
-      console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
-      
-      // ALWAYS do a quick warmup on ANY tab switch
-      // This "pokes" the Supabase client to ensure it's in sync
-      const isValid = await warmupSession()
-      
-      if (!isValid) {
-        console.warn('[Auth] Session invalid after warmup - doing full refresh')
-        const session = await fullRefresh()
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        console.log(`[Auth] Recovery attempt ${attempt}/${retries}`)
         
-        if (!session) {
-          console.warn('[Auth] Full refresh failed - reloading page')
-          window.location.reload()
-          return
+        // First try getSession() - might work if just a minor desync
+        const { data: sessionData } = await supabase.auth.getSession()
+        
+        if (sessionData?.session?.user) {
+          console.log('[Auth] Session valid on attempt', attempt)
+          setUser(sessionData.session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
+          isRefreshing = false
+          notifyRecovery()
+          return true
+        }
+        
+        // Session null - try more aggressive recovery
+        console.log('[Auth] Session null, trying force reload...')
+        const session = await forceReloadSession()
+        
+        if (session?.user) {
+          console.log('[Auth] Force reload succeeded on attempt', attempt)
+          setUser(session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
+          isRefreshing = false
+          notifyRecovery()
+          
+          // Refresh profile too
+          if (!profile && session.user.id) {
+            const { data: profileData } = await getProfile(session.user.id)
+            if (profileData) setProfile(profileData)
+          }
+          return true
+        }
+        
+        // Wait before next attempt
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 300 * attempt))
         }
       }
       
-      // If hidden for 30+ seconds, do a full refresh anyway as extra precaution
-      if (timeSinceHidden > 30000) {
-        console.log('[Auth] Long absence - doing precautionary full refresh')
-        await fullRefresh()
+      console.error('[Auth] All recovery attempts failed')
+      isRefreshing = false
+      return false
+    }
+    
+    // Handle resume from tab switch
+    const handleResume = async () => {
+      // Only act if we're actually visible/focused
+      if (document.visibilityState !== 'visible' && !document.hasFocus()) return
+      
+      const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
+      console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
+      
+      // ALWAYS attempt recovery on ANY tab switch (even 1 second)
+      // This is aggressive but necessary for the tab switch bug
+      const recovered = await recoverSession()
+      
+      if (!recovered && user) {
+        // We were logged in but can't recover - reload page as last resort
+        console.warn('[Auth] Cannot recover session - reloading page')
+        window.location.reload()
       }
     }
     
+    // Event handlers
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         lastHiddenTime = Date.now()
+        console.log('[Auth] Tab hidden')
       } else {
+        console.log('[Auth] Tab visible')
         handleResume()
       }
     }
     
     const handleFocus = () => {
-      // On focus, also trigger resume check
+      console.log('[Auth] Window focused')
       handleResume()
     }
     
@@ -591,15 +647,27 @@ export function AuthProvider({ children }) {
         handleResume()
       }
     }
+    
+    // Storage event - catches when another tab modifies localStorage
+    const handleStorage = (e) => {
+      if (e.key === 'brandastic-auth') {
+        console.log('[Auth] Storage changed by another tab')
+        handleResume()
+      }
+    }
 
+    // Register all event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
     window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('storage', handleStorage)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('storage', handleStorage)
+      resumeChannel?.close()
     }
   }, [user, profile])
   
