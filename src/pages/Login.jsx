@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Users, Building2 } from 'lucide-react'
@@ -19,6 +19,16 @@ const TEAM_PHOTOS = [
   'https://auth.brandastic.co/storage/v1/object/public/images/DSC02926%20(1).jpg',
 ]
 
+// Fisher-Yates shuffle algorithm for randomization
+function shuffleArray(array) {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 export default function Login() {
   const navigate = useNavigate()
   const { signIn, signInWithGoogle, user } = useAuth()
@@ -29,19 +39,22 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  
+  // Randomize photos on each page load - useMemo ensures shuffle only happens once per mount
+  const shuffledPhotos = useMemo(() => shuffleArray(TEAM_PHOTOS), [])
 
   // Redirect if already logged in
   useEffect(() => {
     if (user) navigate('/dashboard', { replace: true })
   }, [user, navigate])
 
-  // Rotate background images
+  // Rotate background images through the shuffled array
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % TEAM_PHOTOS.length)
+      setCurrentImageIndex((prev) => (prev + 1) % shuffledPhotos.length)
     }, 8000)
     return () => clearInterval(interval)
-  }, [])
+  }, [shuffledPhotos.length])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -78,7 +91,7 @@ export default function Login() {
         <AnimatePresence mode="sync">
           <motion.img
             key={currentImageIndex}
-            src={TEAM_PHOTOS[currentImageIndex]}
+            src={shuffledPhotos[currentImageIndex]}
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
             initial={{ scale: 1.1, opacity: 0 }}
