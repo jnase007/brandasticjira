@@ -15,6 +15,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storage: localStorage, // Explicitly use localStorage for persistence
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'pkce', // More secure flow
+    debug: false, // Set to true temporarily to debug iOS issues in Safari Web Inspector
   },
   realtime: {
     params: {

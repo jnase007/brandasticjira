@@ -474,11 +474,85 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle mobile resume and visibility changes - AGGRESSIVE iOS fix
+  // Handle mobile resume and visibility changes - AGGRESSIVE iOS fix with MULTI-RETRY
   // iOS Safari/Chrome suspends JavaScript when backgrounded - this recovers from that
   useEffect(() => {
     let lastHiddenTime = 0
     let isRecovering = false
+    
+    // Multi-retry session recovery - iOS sometimes needs multiple attempts
+    const tryRefresh = async (attempt = 1, timeSinceHidden = 0) => {
+      try {
+        // Check current session
+        let { data: { session } } = await supabase.auth.getSession()
+        
+        if (session) {
+          console.log('[Auth] Session recovered on attempt', attempt)
+          // Restore React state if it was lost
+          if (!user || user.id !== session.user.id) {
+            console.log('[Auth] Restoring user state')
+            setUser(session.user)
+          }
+          if (!profile) {
+            const { data: profileData } = await getProfile(session.user.id)
+            if (profileData) setProfile(profileData)
+          }
+          setSessionHealthy(true)
+          setAuthError(null)
+          return true
+        }
+        
+        // Session is null - try to refresh
+        console.log('[Auth] Session null - refreshing (attempt', attempt, ')')
+        const { error } = await supabase.auth.refreshSession()
+        
+        if (!error) {
+          // Re-check after refresh
+          const retrySession = await supabase.auth.getSession()
+          if (retrySession.data.session) {
+            console.log('[Auth] Refresh succeeded on attempt', attempt)
+            const sess = retrySession.data.session
+            if (!user || user.id !== sess.user.id) {
+              setUser(sess.user)
+            }
+            if (!profile) {
+              const { data: profileData } = await getProfile(sess.user.id)
+              if (profileData) setProfile(profileData)
+            }
+            setSessionHealthy(true)
+            setAuthError(null)
+            return true
+          }
+        } else {
+          console.error('[Auth] Refresh error on attempt', attempt, ':', error.message)
+        }
+        
+        // Retry up to 3 times with delay
+        if (attempt < 3) {
+          console.log('[Auth] Retrying in 500ms...')
+          await new Promise(resolve => setTimeout(resolve, 500))
+          return tryRefresh(attempt + 1, timeSinceHidden)
+        }
+        
+        // All retries failed
+        console.warn('[Auth] Session recovery failed after 3 attempts')
+        
+        // If hidden for 60+ seconds and recovery failed, reload
+        if (timeSinceHidden > 60000) {
+          console.log('[Auth] Forcing page reload after failed recovery')
+          window.location.reload()
+        }
+        
+        return false
+      } catch (err) {
+        console.error('[Auth] Resume error on attempt', attempt, ':', err)
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          return tryRefresh(attempt + 1, timeSinceHidden)
+        }
+        return false
+      }
+    }
     
     const handleResume = async () => {
       // Only run if page is actually visible/focused and we're not already recovering
@@ -494,69 +568,21 @@ export function AuthProvider({ children }) {
         return
       }
       
-      // For any resume, check if session needs recovery
-      if (timeSinceHidden > 5000) { // More aggressive: check even after 5s
+      // For any resume after 5+ seconds, run aggressive recovery
+      if (timeSinceHidden > 5000) {
         isRecovering = true
-        console.log('[Auth] iOS resume detected after', Math.round(timeSinceHidden / 1000), 's - checking session')
-        
-        try {
-          // Step 1: Check current session
-          let { data: { session } } = await supabase.auth.getSession()
-          
-          if (!session) {
-            // Step 2: Session is null (iOS glitch) - explicitly refresh
-            console.log('[Auth] Session null on resume - forcing refresh')
-            const { error } = await supabase.auth.refreshSession()
-            
-            if (error) {
-              console.error('[Auth] Refresh failed on resume:', error.message)
-              // If refresh fails after long hide, reload the page
-              if (timeSinceHidden > 60000) {
-                window.location.reload()
-                return
-              }
-            } else {
-              // Step 3: Re-check after refresh
-              const retry = await supabase.auth.getSession()
-              session = retry.data.session
-              console.log('[Auth] Session recovered:', session ? 'yes' : 'no')
-            }
-          }
-          
-          // Step 4: If session is now good, update React state
-          if (session?.user) {
-            // Restore React state if it was lost
-            if (!user || user.id !== session.user.id) {
-              console.log('[Auth] Restoring user state from recovered session')
-              setUser(session.user)
-            }
-            if (!profile) {
-              const { data: profileData } = await getProfile(session.user.id)
-              if (profileData) setProfile(profileData)
-            }
-            setSessionHealthy(true)
-            setAuthError(null)
-          }
-        } catch (err) {
-          console.error('[Auth] Resume auth error:', err)
-          // On error after long hide, reload
-          if (timeSinceHidden > 60000) {
-            window.location.reload()
-          }
-        } finally {
-          isRecovering = false
-        }
+        console.log('[Auth] iOS resume after', Math.round(timeSinceHidden / 1000), 's - starting aggressive recovery')
+        await tryRefresh(1, timeSinceHidden)
+        isRecovering = false
       }
     }
     
     const handleHide = () => {
       if (document.visibilityState === 'hidden') {
         lastHiddenTime = Date.now()
-        console.log('[Auth] Page hidden at', new Date().toLocaleTimeString())
       }
     }
     
-    // Combine handlers
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         handleHide()
@@ -567,10 +593,10 @@ export function AuthProvider({ children }) {
 
     // Listen to multiple events for maximum iOS compatibility
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleResume) // Tab regains focus
+    window.addEventListener('focus', handleResume)
     window.addEventListener('pageshow', handleResume) // iOS back/forward cache
 
-    // iOS-specific: Delay initial check to give WebKit time to settle after page load
+    // Initial check after 1 second to let WebKit settle
     const initialTimeout = setTimeout(handleResume, 1000)
 
     return () => {
@@ -580,6 +606,26 @@ export function AuthProvider({ children }) {
       clearTimeout(initialTimeout)
     }
   }, [user, profile])
+  
+  // Periodic "heartbeat" check - keeps session fresh during long idle periods
+  useEffect(() => {
+    const heartbeat = setInterval(async () => {
+      // Only run when page is visible and user is logged in
+      if (document.visibilityState === 'visible' && user) {
+        try {
+          const { data } = await supabase.auth.getSession()
+          if (!data.session) {
+            console.log('[Auth] Heartbeat: session null - refreshing')
+            await supabase.auth.refreshSession()
+          }
+        } catch (e) {
+          console.warn('[Auth] Heartbeat error:', e)
+        }
+      }
+    }, 5 * 60 * 1000) // Every 5 minutes when visible
+    
+    return () => clearInterval(heartbeat)
+  }, [user])
 
   // Retry auth (for when stuck on loading) - just reload the page for clean state
   const retryAuth = useCallback(() => {
