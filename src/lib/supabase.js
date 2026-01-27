@@ -29,6 +29,123 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 })
 
 // ============================================
+// MULTI-TAB SYNCHRONIZATION
+// ============================================
+// Keeps auth state synced across all browser tabs using BroadcastChannel
+
+const CHANNEL_NAME = 'brandastic-auth-sync'
+let authChannel = null
+let tabSyncListeners = new Set()
+
+// Initialize BroadcastChannel for cross-tab communication
+function initTabSync() {
+  if (typeof window === 'undefined' || !('BroadcastChannel' in window)) {
+    console.log('[TabSync] BroadcastChannel not supported')
+    return
+  }
+  
+  if (authChannel) return // Already initialized
+  
+  try {
+    authChannel = new BroadcastChannel(CHANNEL_NAME)
+    
+    authChannel.onmessage = (event) => {
+      const { type, payload } = event.data || {}
+      console.log(`[TabSync] Received: ${type}`)
+      
+      switch (type) {
+        case 'SESSION_REFRESHED':
+          // Another tab refreshed the session - reload our session from storage
+          console.log('[TabSync] Another tab refreshed session, syncing...')
+          supabase.auth.getSession().then(({ data }) => {
+            if (data?.session) {
+              notifyTabSyncListeners('session_synced', data.session)
+            }
+          })
+          break
+          
+        case 'SIGNED_OUT':
+          // Another tab signed out - sign out this tab too
+          console.log('[TabSync] Another tab signed out, signing out this tab...')
+          supabase.auth.signOut({ scope: 'local' })
+          notifyTabSyncListeners('signed_out', null)
+          break
+          
+        case 'SIGNED_IN':
+          // Another tab signed in - sync session
+          console.log('[TabSync] Another tab signed in, syncing...')
+          supabase.auth.getSession().then(({ data }) => {
+            if (data?.session) {
+              notifyTabSyncListeners('session_synced', data.session)
+            }
+          })
+          break
+      }
+    }
+    
+    authChannel.onmessageerror = (error) => {
+      console.error('[TabSync] Message error:', error)
+    }
+    
+    console.log('[TabSync] Initialized multi-tab sync')
+  } catch (e) {
+    console.error('[TabSync] Failed to initialize:', e)
+  }
+}
+
+// Broadcast an auth event to other tabs
+export function broadcastAuthEvent(type, payload = null) {
+  if (!authChannel) {
+    initTabSync()
+  }
+  
+  if (authChannel) {
+    try {
+      authChannel.postMessage({ type, payload })
+      console.log(`[TabSync] Broadcast: ${type}`)
+    } catch (e) {
+      console.error('[TabSync] Broadcast failed:', e)
+    }
+  }
+}
+
+// Subscribe to tab sync events
+export function onTabSync(callback) {
+  tabSyncListeners.add(callback)
+  return () => tabSyncListeners.delete(callback)
+}
+
+function notifyTabSyncListeners(event, data) {
+  tabSyncListeners.forEach(cb => {
+    try {
+      cb(event, data)
+    } catch (e) {
+      console.error('[TabSync] Listener error:', e)
+    }
+  })
+}
+
+// Initialize tab sync on load
+initTabSync()
+
+// Listen for Supabase auth events and broadcast to other tabs
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log(`[TabSync] Auth event: ${event}`)
+  
+  switch (event) {
+    case 'SIGNED_IN':
+      broadcastAuthEvent('SIGNED_IN', { userId: session?.user?.id })
+      break
+    case 'SIGNED_OUT':
+      broadcastAuthEvent('SIGNED_OUT')
+      break
+    case 'TOKEN_REFRESHED':
+      broadcastAuthEvent('SESSION_REFRESHED', { expiresAt: session?.expires_at })
+      break
+  }
+})
+
+// ============================================
 // SESSION HEALTH MONITOR
 // ============================================
 

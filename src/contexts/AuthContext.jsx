@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { supabase, getProfile, onSessionHealthChange, forceSessionRefresh } from '../lib/supabase'
+import { supabase, getProfile, onSessionHealthChange, forceSessionRefresh, onTabSync } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -45,6 +45,32 @@ export function AuthProvider({ children }) {
       // Only show error for actual session expiry, not transient issues
       if (!healthy && reason?.includes('expired')) {
         setAuthError('Your session has expired. Please sign in again.')
+      }
+    })
+    
+    return unsubscribe
+  }, [])
+  
+  // Listen for multi-tab sync events
+  useEffect(() => {
+    const unsubscribe = onTabSync(async (event, data) => {
+      console.log(`[Auth] Tab sync event: ${event}`)
+      
+      if (event === 'session_synced' && data) {
+        // Another tab refreshed the session - update our state
+        setUser(data.user)
+        if (data.user) {
+          const { data: profileData } = await getProfile(data.user.id)
+          if (profileData) {
+            setProfile(profileData)
+          }
+        }
+        setSessionHealthy(true)
+        setAuthError(null)
+      } else if (event === 'signed_out') {
+        // Another tab signed out - clear our state
+        setUser(null)
+        setProfile(null)
       }
     })
     
