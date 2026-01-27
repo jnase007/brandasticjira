@@ -6,7 +6,7 @@ import {
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
   ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
-  Trophy, TrendingUp, PartyPopper, Upload, X
+  Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play
 } from 'lucide-react'
 import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -118,6 +118,7 @@ export default function ClientManagement() {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('clients')
+  const [statusFilter, setStatusFilter] = useState('active') // 'active', 'inactive', 'all'
   
   // Data
   const [clients, setClients] = useState([])
@@ -449,10 +450,17 @@ export default function ClientManagement() {
     setProjectFeatured(false)
   }
 
-  // Filter
+  // Filter by status
   const activeClients = clients.filter((c) => c.is_active !== false)
+  const inactiveClients = clients.filter((c) => c.is_active === false)
+  
+  const clientsByStatus = statusFilter === 'active' 
+    ? activeClients 
+    : statusFilter === 'inactive' 
+      ? inactiveClients 
+      : clients
 
-  const filteredClients = activeClients
+  const filteredClients = clientsByStatus
     .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       // Pinned clients first
@@ -774,7 +782,7 @@ export default function ClientManagement() {
                   <CardTitle>Client Directory</CardTitle>
                   <CardDescription>All clients with portal access</CardDescription>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -784,12 +792,38 @@ export default function ClientManagement() {
                       className="pl-9"
                     />
                   </div>
-                  {/* Client invite button removed - using shareable link for now */}
+                  
+                  {/* Status Filter */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">
+                        <div className="flex items-center gap-2">
+                          <Play className="h-3 w-3 text-green-500" />
+                          Active ({activeClients.length})
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="inactive">
+                        <div className="flex items-center gap-2">
+                          <Pause className="h-3 w-3 text-amber-500" />
+                          Inactive ({inactiveClients.length})
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-3 w-3 text-muted-foreground" />
+                          All ({clients.length})
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {activeClients.length === 0 ? (
+              {clients.length === 0 ? (
                 <EmptyClientsState onImport={async () => {
                   setRefreshing(true)
                   try {
@@ -811,6 +845,52 @@ export default function ClientManagement() {
                 }} loading={refreshing} />
               ) : (
               <>
+              {filteredClients.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                    {statusFilter === 'inactive' ? (
+                      <Pause className="h-8 w-8 text-amber-500" />
+                    ) : statusFilter === 'active' ? (
+                      <Play className="h-8 w-8 text-green-500" />
+                    ) : (
+                      <Building2 className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {searchQuery 
+                      ? 'No matching clients found'
+                      : statusFilter === 'inactive' 
+                        ? 'No inactive clients' 
+                        : statusFilter === 'active'
+                          ? 'No active clients'
+                          : 'No clients found'
+                    }
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    {searchQuery 
+                      ? `No clients match "${searchQuery}" in the ${statusFilter} filter.`
+                      : statusFilter === 'inactive'
+                        ? 'All your clients are currently active.'
+                        : statusFilter === 'active'
+                          ? 'Try switching to "All" or "Inactive" to see other clients.'
+                          : 'Import clients to get started.'
+                    }
+                  </p>
+                  {(statusFilter !== 'all' || searchQuery) && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setStatusFilter('all')
+                        setSearchQuery('')
+                      }}
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredClients.map((client) => {
                   // Count unique team members assigned to this client
@@ -832,7 +912,8 @@ export default function ClientManagement() {
                       whileHover={{ y: -2 }}
                       className={cn(
                         "p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group relative",
-                        isPinned(client.id) && "ring-2 ring-yellow-400/50 border-yellow-400/30"
+                        isPinned(client.id) && "ring-2 ring-yellow-400/50 border-yellow-400/30",
+                        client.is_active === false && "opacity-75 border-dashed"
                       )}
                     >
                       {/* Pin button */}
@@ -869,7 +950,15 @@ export default function ClientManagement() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate">{client.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold truncate">{client.name}</h3>
+                            {client.is_active === false && (
+                              <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-[10px] px-1.5 py-0">
+                                <Pause className="h-2.5 w-2.5 mr-0.5" />
+                                Paused
+                              </Badge>
+                            )}
+                          </div>
                           {client.account_services && client.account_services.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {client.account_services.slice(0, 2).map((service, i) => (
@@ -934,16 +1023,21 @@ export default function ClientManagement() {
                   )
                 })}
               </div>
+              )}
               
               {/* Summary Footer */}
               <div className="mt-6 p-4 rounded-xl bg-muted/50 border">
                 <div className="flex flex-wrap gap-6 justify-center text-center">
                   <div>
-                    <p className="text-2xl font-bold text-brand-orange">{activeClients.length}</p>
-                    <p className="text-sm text-muted-foreground">Active Clients</p>
+                    <p className="text-2xl font-bold text-green-600">{activeClients.length}</p>
+                    <p className="text-sm text-muted-foreground">Active</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className="text-2xl font-bold text-amber-500">{inactiveClients.length}</p>
+                    <p className="text-sm text-muted-foreground">Paused</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-brand-orange">
                       ${activeClients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * 175), 0).toLocaleString()}
                     </p>
                     <p className="text-sm text-muted-foreground">Monthly Revenue</p>
