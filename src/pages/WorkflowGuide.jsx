@@ -116,6 +116,10 @@ export default function WorkflowGuide() {
               The <strong>Tasks</strong> tab shows all work for that client.
             </p>
             <p>
+              <strong>⭐ Star your favorites!</strong> Click the star icon on any client card to pin them to the top.
+              Your starred clients persist across sessions.
+            </p>
+            <p>
               When you create a task without selecting a board, it is automatically placed on a
               <strong> General Tasks</strong> board for that client.
             </p>
@@ -450,9 +454,11 @@ export default function WorkflowGuide() {
             <div className="bg-muted/50 p-3 rounded-lg">
               <p className="font-medium text-foreground mb-2">📊 Ad Spend Tab</p>
               <ul className="list-disc pl-5 space-y-1">
-                <li>Track monthly ad budgets by platform (Facebook, Google, etc.)</li>
-                <li>Compare budget vs. actuals</li>
-                <li>Filter by year</li>
+                <li>Track monthly ad budgets by platform (Facebook, Google, TikTok, etc.)</li>
+                <li>Compare budget vs. actuals with color-coded variance</li>
+                <li><strong>Monthly & yearly totals</strong> - See totals at the bottom of the table</li>
+                <li><strong>Apply to entire year</strong> - Add a budget for all 12 months with one click</li>
+                <li>Filter by year with the arrow buttons</li>
               </ul>
             </div>
             
