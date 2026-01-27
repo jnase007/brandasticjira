@@ -1816,40 +1816,126 @@ function PayrollReport({ employees, timeEntries }) {
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const logoDataUrl = await loadLogoDataUrl()
+    const margin = 40
 
-    // Header
-    doc.setFillColor(255, 247, 237)
-    doc.roundedRect(30, 20, pageWidth - 60, 70, 8, 8, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
-    doc.text('Brandastic', 50, 50)
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Payroll Report: ${formatDate(startDate)} - ${formatDate(endDate)}`, 50, 70)
-
-    // Summary
-    doc.setFontSize(10)
-    doc.text(`Total Hours: ${formatDecimalHours(totals.totalHours)} | Total Pay: ${formatCurrency(totals.estimatedPay)} | Team Members: ${payrollData.length}`, 50, 100)
-
-    // Table
-    autoTable(doc, {
-      startY: 120,
-      head: [Object.keys(data[0])],
-      body: data.map(row => Object.values(row)),
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [245, 158, 11] },
-      margin: { left: 30, right: 30 },
-    })
-
-    // Footer
-    doc.setFontSize(9)
-    doc.setTextColor(120)
-    doc.text('Brandastic PM • Payroll Report • Confidential', 40, pageHeight - 20)
+    // ========== HEADER SECTION ==========
+    // Orange gradient-style header bar
+    doc.setFillColor(247, 147, 30) // Brand orange
+    doc.rect(0, 0, pageWidth, 80, 'F')
+    
+    // Add a subtle darker accent stripe
+    doc.setFillColor(234, 88, 12) // Darker orange accent
+    doc.rect(0, 75, pageWidth, 5, 'F')
+    
+    // Logo in header
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 10
+      const logoHeight = 45
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
-      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - 60 - logoWidth, pageHeight - 28, logoWidth, logoHeight, undefined, 'FAST')
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 17, logoWidth, logoHeight, undefined, 'FAST')
+    }
+    
+    // Company name in header (right side)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(24)
+    doc.setTextColor(255, 255, 255)
+    doc.text('BRANDASTIC', pageWidth - margin, 42, { align: 'right' })
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Project Management', pageWidth - margin, 60, { align: 'right' })
+
+    // ========== TITLE SECTION ==========
+    doc.setTextColor(30, 30, 30)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.text('Payroll Report', margin, 115)
+    
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`${formatDate(startDate)} — ${formatDate(endDate)}`, margin, 135)
+
+    // ========== SUMMARY CARDS ==========
+    const cardY = 155
+    const cardHeight = 50
+    const cardWidth = (pageWidth - margin * 2 - 30) / 4
+    
+    const summaryCards = [
+      { label: 'Total Hours', value: formatDecimalHours(totals.totalHours), color: [59, 130, 246] },
+      { label: 'Billable Hours', value: formatDecimalHours(totals.billableHours), color: [34, 197, 94] },
+      { label: 'Team Members', value: payrollData.length.toString(), color: [168, 85, 247] },
+      { label: 'Total Pay', value: formatCurrency(totals.estimatedPay), color: [247, 147, 30] },
+    ]
+    
+    summaryCards.forEach((card, i) => {
+      const cardX = margin + i * (cardWidth + 10)
+      // Card background
+      doc.setFillColor(248, 250, 252)
+      doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 6, 6, 'F')
+      // Left accent bar
+      doc.setFillColor(...card.color)
+      doc.roundedRect(cardX, cardY, 4, cardHeight, 2, 2, 'F')
+      // Text
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(100, 100, 100)
+      doc.text(card.label, cardX + 14, cardY + 18)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      doc.setTextColor(30, 30, 30)
+      doc.text(card.value, cardX + 14, cardY + 38)
+    })
+
+    // ========== DATA TABLE ==========
+    autoTable(doc, {
+      startY: cardY + cardHeight + 25,
+      head: [Object.keys(data[0])],
+      body: data.map(row => Object.values(row)),
+      styles: { 
+        fontSize: 9,
+        cellPadding: 8,
+        lineColor: [230, 230, 230],
+        lineWidth: 0.5,
+      },
+      headStyles: { 
+        fillColor: [247, 147, 30],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      alternateRowStyles: {
+        fillColor: [252, 252, 253],
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold' }, // Team Member name bold
+      },
+      margin: { left: margin, right: margin },
+    })
+
+    // ========== FOOTER ==========
+    // Footer line
+    doc.setDrawColor(230, 230, 230)
+    doc.setLineWidth(1)
+    doc.line(margin, pageHeight - 45, pageWidth - margin, pageHeight - 45)
+    
+    // Footer text
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text('Brandastic PM', margin, pageHeight - 25)
+    doc.text('•', margin + 62, pageHeight - 25)
+    doc.text('Payroll Report', margin + 72, pageHeight - 25)
+    doc.text('•', margin + 130, pageHeight - 25)
+    doc.text('Confidential', margin + 140, pageHeight - 25)
+    
+    // Generated date on right
+    doc.text(`Generated ${formatDate(new Date())}`, pageWidth - margin, pageHeight - 25, { align: 'right' })
+    
+    // Small logo in footer
+    if (logoDataUrl) {
+      const logoProps = doc.getImageProperties(logoDataUrl)
+      const logoHeight = 20
+      const logoWidth = (logoProps.width / logoProps.height) * logoHeight
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - margin - logoWidth - 100, pageHeight - 38, logoWidth, logoHeight, undefined, 'FAST')
     }
 
     doc.save(`payroll-${startDate}-to-${endDate}.pdf`)
@@ -2373,41 +2459,92 @@ export default function Reports() {
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const logoDataUrl = await loadLogoDataUrl()
+    const margin = 40
 
-    const headerY = 40
-    doc.setFillColor(255, 247, 237)
-    doc.roundedRect(30, 20, pageWidth - 60, 70, 8, 8, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
-    doc.text('Brandastic', 110, headerY + 10)
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(title, 110, headerY + 30)
-    doc.text(`Generated ${formatDate(new Date())}`, 110, headerY + 48)
-    // Top logo removed per request (footer logo remains)
-
-    autoTable(doc, {
-      startY: 110,
-      head: [Object.keys(data[0] || { Report: 'No data' })],
-      body: data.map((row) => Object.values(row)),
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [245, 158, 11] },
-      margin: { left: 30, right: 30 },
-    })
-
-    doc.setFontSize(9)
-    doc.setTextColor(120)
-    doc.text(
-      'Brandastic PM • Confidential',
-      40,
-      pageHeight - 20
-    )
+    // ========== HEADER SECTION ==========
+    // Orange gradient-style header bar
+    doc.setFillColor(247, 147, 30) // Brand orange
+    doc.rect(0, 0, pageWidth, 80, 'F')
+    
+    // Add a subtle darker accent stripe
+    doc.setFillColor(234, 88, 12) // Darker orange accent
+    doc.rect(0, 75, pageWidth, 5, 'F')
+    
+    // Logo in header
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 10
+      const logoHeight = 45
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
-      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - 60 - logoWidth, pageHeight - 28, logoWidth, logoHeight, undefined, 'FAST')
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 17, logoWidth, logoHeight, undefined, 'FAST')
     }
+    
+    // Company name in header (right side)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(24)
+    doc.setTextColor(255, 255, 255)
+    doc.text('BRANDASTIC', pageWidth - margin, 42, { align: 'right' })
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Project Management', pageWidth - margin, 60, { align: 'right' })
+
+    // ========== TITLE SECTION ==========
+    doc.setTextColor(30, 30, 30)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.text(title, margin, 115)
+    
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Generated ${formatDate(new Date())}`, margin, 135)
+
+    // ========== DATA TABLE ==========
+    autoTable(doc, {
+      startY: 155,
+      head: [Object.keys(data[0] || { Report: 'No data' })],
+      body: data.map((row) => Object.values(row)),
+      styles: { 
+        fontSize: 9,
+        cellPadding: 8,
+        lineColor: [230, 230, 230],
+        lineWidth: 0.5,
+      },
+      headStyles: { 
+        fillColor: [247, 147, 30],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      alternateRowStyles: {
+        fillColor: [252, 252, 253],
+      },
+      margin: { left: margin, right: margin },
+    })
+
+    // ========== FOOTER ==========
+    // Footer line
+    doc.setDrawColor(230, 230, 230)
+    doc.setLineWidth(1)
+    doc.line(margin, pageHeight - 45, pageWidth - margin, pageHeight - 45)
+    
+    // Footer text
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text('Brandastic PM', margin, pageHeight - 25)
+    doc.text('•', margin + 62, pageHeight - 25)
+    doc.text('Confidential', margin + 72, pageHeight - 25)
+    
+    // Generated date on right
+    doc.text(`Generated ${formatDate(new Date())}`, pageWidth - margin, pageHeight - 25, { align: 'right' })
+    
+    // Small logo in footer
+    if (logoDataUrl) {
+      const logoProps = doc.getImageProperties(logoDataUrl)
+      const logoHeight = 20
+      const logoWidth = (logoProps.width / logoProps.height) * logoHeight
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', pageWidth - margin - logoWidth - 100, pageHeight - 38, logoWidth, logoHeight, undefined, 'FAST')
+    }
+    
     doc.save(filename.replace('.csv', '.pdf'))
     toast({ title: 'PDF exported!', variant: 'success' })
   }
