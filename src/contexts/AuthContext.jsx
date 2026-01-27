@@ -495,21 +495,68 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Minimal event listeners - Supabase's autoRefreshToken handles token refresh
-  // We only refresh profile data, not auth, to avoid hammering Supabase
+  // Handle network and mobile resume events
   useEffect(() => {
-    // Only refresh profile when user comes back online after being offline
+    // Refresh profile when user comes back online after being offline
     const handleOnline = () => {
       console.log('[Auth] Back online')
       refreshSessionAndProfile('online')
     }
 
+    // Handle mobile resume - iOS Safari suspends JS, need to restore session
+    let lastVisibleTime = Date.now()
+    
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const timeSinceVisible = Date.now() - lastVisibleTime
+        
+        // If backgrounded for more than 30 seconds on mobile, restore session from storage
+        if (timeSinceVisible > 30000) {
+          console.log(`[Auth] Resuming after ${Math.round(timeSinceVisible / 1000)}s`)
+          
+          try {
+            // Re-read session from localStorage (iOS may have cleared our React state)
+            const { data: { session } } = await supabase.auth.getSession()
+            
+            if (session?.user) {
+              // Session still valid - update React state if needed
+              if (!user || user.id !== session.user.id) {
+                console.log('[Auth] Restoring user state after mobile resume')
+                setUser(session.user)
+              }
+              
+              // Refresh profile if we don't have it
+              if (!profile) {
+                const { data: profileData } = await getProfile(session.user.id)
+                if (profileData) {
+                  setProfile(profileData)
+                }
+              }
+            } else if (user) {
+              // We had a user but session is gone - clear state
+              console.log('[Auth] Session lost after mobile resume, clearing state')
+              setUser(null)
+              setProfile(null)
+            }
+          } catch (e) {
+            console.warn('[Auth] Error restoring session on mobile resume:', e)
+          }
+        }
+        
+        lastVisibleTime = Date.now()
+      } else {
+        lastVisibleTime = Date.now()
+      }
+    }
+
     window.addEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       window.removeEventListener('online', handleOnline)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [refreshSessionAndProfile])
+  }, [refreshSessionAndProfile, user, profile])
 
   // Retry auth (for when stuck on loading) - refreshes session and reloads
   const retryAuth = useCallback(async () => {
