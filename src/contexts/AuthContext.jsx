@@ -162,13 +162,24 @@ export function AuthProvider({ children }) {
 
     initAuth()
 
-    // Listen for auth changes
+    // Listen for auth changes - CRITICAL for handling token refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth event:', event)
+        console.log('[Auth] Auth event:', event, session?.user?.email || 'no user')
+        
+        // Handle TOKEN_REFRESHED - this is key for tab switch recovery
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('[Auth] Token refreshed - updating user state')
+          setUser(session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
+          return // Don't need to do profile check for refresh
+        }
         
         if (session?.user) {
           setUser(session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
           
           // For new signups or OAuth logins, ensure profile exists
           if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
@@ -635,17 +646,49 @@ export function AuthProvider({ children }) {
     }
   }, [user])
   
-  // Periodic "heartbeat" check - keeps session fresh during long idle periods
+  // AGGRESSIVE HEARTBEAT - uses getUser() which FORCES server check
+  // This keeps the session alive and catches desyncs proactively
   useEffect(() => {
+    let heartbeatCount = 0
+    
     const heartbeat = setInterval(async () => {
-      if (document.visibilityState === 'visible' && user) {
-        const { data } = await supabase.auth.getSession()
-        if (!data.session) {
-          console.log('[Auth] Heartbeat: session null - reloading')
-          window.location.reload()
+      // Only run when tab is visible and user is logged in
+      if (document.visibilityState !== 'visible' || !user) return
+      
+      heartbeatCount++
+      console.log(`[Auth] Heartbeat #${heartbeatCount}`)
+      
+      try {
+        // Use getUser() - this HITS THE SERVER and forces token refresh if needed
+        // Much more reliable than getSession() which just reads memory/localStorage
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !userData?.user) {
+          console.warn('[Auth] Heartbeat: getUser() failed, trying recovery...')
+          
+          // Try refreshSession
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (refreshError || !refreshData?.session) {
+            console.error('[Auth] Heartbeat: refresh also failed - reloading page')
+            window.location.reload()
+            return
+          }
+          
+          // Refresh succeeded - update state
+          setUser(refreshData.session.user)
+          console.log('[Auth] Heartbeat: recovered via refreshSession')
+        } else {
+          // getUser succeeded - session is definitely valid
+          // This "poke" keeps the internal client state fresh
+          if (userData.user.id !== user?.id) {
+            setUser(userData.user)
+          }
         }
+      } catch (e) {
+        console.error('[Auth] Heartbeat error:', e)
       }
-    }, 2 * 60 * 1000) // Every 2 minutes when visible
+    }, 30 * 1000) // Every 30 seconds when visible - aggressive but necessary
     
     return () => clearInterval(heartbeat)
   }, [user])
