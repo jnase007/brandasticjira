@@ -42,7 +42,7 @@ import SessionStatus from './components/SessionStatus'
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
 import { Badge } from './components/ui/badge'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
 
 // Lightweight page loading spinner for route transitions with timeout handling
 function PageLoader() {
@@ -440,7 +440,10 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [location.pathname])
 
-  // Auto-recover from stale chunk caches after deploys
+  // State for update notification
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  
+  // Auto-recover from stale chunk caches after deploys + version checking
   useEffect(() => {
     const alreadyRetried = () => sessionStorage.getItem('chunk_reload_attempted') === 'true'
     const markRetried = () => sessionStorage.setItem('chunk_reload_attempted', 'true')
@@ -449,26 +452,85 @@ function App() {
     // Clear retry flag once app loads successfully
     clearRetried()
 
+    // Check for deployment updates by comparing versions
+    const checkForUpdates = async () => {
+      try {
+        // Get current app version (injected at build time)
+        const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null
+        if (!currentVersion) return
+        
+        // Fetch server version with cache-busting
+        const response = await fetch(`/version.json?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        })
+        
+        if (!response.ok) return
+        
+        const serverVersion = await response.json()
+        
+        // If versions differ, a new deployment happened
+        if (serverVersion.version && serverVersion.version !== currentVersion) {
+          console.log(`[App] New version available: ${serverVersion.version} (current: ${currentVersion})`)
+          setUpdateAvailable(true)
+        }
+      } catch (e) {
+        // Ignore fetch errors (offline, etc.)
+      }
+    }
+    
+    // Check for updates periodically (every 2 minutes)
+    const versionCheckInterval = setInterval(checkForUpdates, 2 * 60 * 1000)
+    
+    // Also check when tab becomes visible (user returns to tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkForUpdates()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     const isChunkLoadError = (message = '') =>
       message.includes('Failed to fetch dynamically imported module') ||
       message.includes('Loading chunk') ||
-      message.includes('ChunkLoadError')
+      message.includes('ChunkLoadError') ||
+      message.includes('Importing a module script failed') ||
+      message.includes('error loading dynamically imported module')
+
+    const isDeploymentError = (message = '') =>
+      message.includes('Unexpected token') ||
+      message.includes('SyntaxError') ||
+      message.includes('is not defined') ||
+      (message.includes('404') && message.includes('.js'))
 
     const handleError = (event) => {
-      const message = event?.reason?.message || event?.message || ''
+      const message = event?.reason?.message || event?.message || String(event?.reason || '')
+      
+      // Handle chunk load errors with auto-refresh
       if (isChunkLoadError(message)) {
+        console.warn('[App] Chunk load error detected, refreshing...')
         if (!alreadyRetried()) {
           markRetried()
           window.location.reload()
         }
+        return
+      }
+      
+      // Handle other deployment-related errors (stale code)
+      if (isDeploymentError(message)) {
+        console.warn('[App] Possible stale code detected:', message)
+        setUpdateAvailable(true)
       }
     }
 
     window.addEventListener('error', handleError)
     window.addEventListener('unhandledrejection', handleError)
+    
     return () => {
       window.removeEventListener('error', handleError)
       window.removeEventListener('unhandledrejection', handleError)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      clearInterval(versionCheckInterval)
     }
   }, [])
 
@@ -591,6 +653,34 @@ function App() {
       {confetti}
       <EasterEggs />
       <SessionStatus />
+      
+      {/* Update available notification - appears when a new deployment is detected */}
+      <AnimatePresence>
+        {updateAvailable && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2.5 shadow-lg"
+          >
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Sparkles className="h-4 w-4" />
+                <span className="font-medium">New update available!</span>
+                <span className="hidden sm:inline opacity-90">Refresh to get the latest features.</span>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       {user ? (
         <FocusModeProvider>
         <GamificationProvider>
