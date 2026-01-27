@@ -193,23 +193,96 @@ export function GamificationProvider({ children }) {
         .single()
 
       if (gamData && !error) {
+        let achievements = gamData.achievements || []
+        let xp = gamData.xp || 0
+        let needsUpdate = false
+
+        // Check if first_login achievement should be awarded
+        if (!achievements.includes('first_login')) {
+          achievements = [...achievements, 'first_login']
+          xp += 10 // Award the 10 XP for first login
+          needsUpdate = true
+          
+          // Show achievement popup
+          const firstLoginAchievement = ACHIEVEMENTS.find(a => a.id === 'first_login')
+          if (firstLoginAchievement) {
+            setTimeout(() => {
+              setShowAchievement(firstLoginAchievement)
+              setTimeout(() => setShowAchievement(null), 4000)
+            }, 1000) // Delay slightly so UI is ready
+          }
+        }
+
         setStats({
-          xp: gamData.xp || 0,
-          level: getLevel(gamData.xp || 0),
+          xp: xp,
+          level: getLevel(xp),
           ticketsCompleted: gamData.tickets_completed || 0,
           hoursLogged: parseFloat(gamData.hours_logged) || 0,
           commentsCount: gamData.comments_count || 0,
           currentStreak: gamData.current_streak || 0,
           longestStreak: gamData.longest_streak || 0,
-          achievements: gamData.achievements || [],
+          achievements: achievements,
         })
+
+        // Save the first_login achievement if we just awarded it
+        if (needsUpdate) {
+          await supabase
+            .from('user_gamification_stats')
+            .upsert({
+              user_id: user.id,
+              achievements: achievements,
+              xp: xp,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' })
+          console.log('[Gamification] Awarded first_login achievement!')
+        }
         
         // If hours logged seems stale (0 but user might have time entries), sync with real data
         if (gamData.hours_logged === 0 || gamData.hours_logged === null) {
           syncWithRealData()
         }
       } else if (error?.code === 'PGRST116') {
-        // No row exists yet - sync from real data to bootstrap
+        // No row exists yet - create with first_login achievement
+        const initialAchievements = ['first_login']
+        const initialXP = 10
+        
+        await supabase
+          .from('user_gamification_stats')
+          .upsert({
+            user_id: user.id,
+            achievements: initialAchievements,
+            xp: initialXP,
+            tickets_completed: 0,
+            hours_logged: 0,
+            comments_count: 0,
+            current_streak: 0,
+            longest_streak: 0,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' })
+
+        setStats({
+          xp: initialXP,
+          level: 1,
+          ticketsCompleted: 0,
+          hoursLogged: 0,
+          commentsCount: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          achievements: initialAchievements,
+        })
+
+        // Show the welcome achievement popup
+        const firstLoginAchievement = ACHIEVEMENTS.find(a => a.id === 'first_login')
+        if (firstLoginAchievement) {
+          setTimeout(() => {
+            setShowAchievement(firstLoginAchievement)
+            setTimeout(() => setShowAchievement(null), 4000)
+          }, 1000)
+        }
+        
+        console.log('[Gamification] New user initialized with first_login achievement!')
+        
+        // Then sync from real data to bootstrap other stats
         await syncWithRealData()
       }
     } catch (error) {
