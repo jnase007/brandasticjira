@@ -485,9 +485,8 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // NUCLEAR TAB SWITCH FIX
-  // The Supabase client's internal state gets corrupted on tab switch
-  // Solution: Manually save session tokens and restore them using setSession()
+  // NUCLEAR TAB SWITCH FIX with startAutoRefresh/stopAutoRefresh
+  // This pattern comes from React Native iOS fixes and applies to web too
   useEffect(() => {
     let lastHiddenTime = 0
     let savedSession = null
@@ -600,40 +599,68 @@ export function AuthProvider({ children }) {
       return false
     }
     
-    // Handle tab becoming visible
-    const handleResume = async () => {
-      if (document.visibilityState !== 'visible') return
-      
-      const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
-      console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
-      
-      // Always try to restore on ANY tab switch
-      const restored = await restoreSession()
-      
-      if (!restored && user) {
-        console.warn('[Auth] Cannot restore session - reloading page')
-        window.location.reload()
-      }
-    }
-    
-    const handleVisibilityChange = () => {
+    // Handle visibility change with startAutoRefresh/stopAutoRefresh
+    // This is the KEY fix from React Native iOS patterns
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden') {
+        // Tab is being hidden - STOP auto refresh to avoid races
+        console.log('[Auth] Tab hidden - stopping auto refresh')
         lastHiddenTime = Date.now()
-        saveSession() // Save before we're backgrounded
+        saveSession()
+        
+        try {
+          supabase.auth.stopAutoRefresh()
+        } catch (e) {
+          console.log('[Auth] stopAutoRefresh not available:', e.message)
+        }
       } else {
-        handleResume()
+        // Tab is visible - RESTART auto refresh and force a check
+        console.log('[Auth] Tab visible - restarting auto refresh')
+        
+        try {
+          supabase.auth.startAutoRefresh()
+        } catch (e) {
+          console.log('[Auth] startAutoRefresh not available:', e.message)
+        }
+        
+        const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
+        console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
+        
+        // Force a session check/restore
+        const restored = await restoreSession()
+        
+        if (!restored && user) {
+          console.warn('[Auth] Cannot restore session - reloading page')
+          window.location.reload()
+        }
       }
     }
     
-    const handleFocus = () => {
-      handleResume()
+    const handleFocus = async () => {
+      if (document.visibilityState === 'visible') {
+        // Also restart auto refresh on focus (belt and suspenders)
+        try {
+          supabase.auth.startAutoRefresh()
+        } catch {}
+        
+        await restoreSession()
+      }
     }
     
-    const handlePageShow = (e) => {
+    const handlePageShow = async (e) => {
       if (e.persisted) {
-        handleResume()
+        console.log('[Auth] Page restored from bfcache')
+        try {
+          supabase.auth.startAutoRefresh()
+        } catch {}
+        await restoreSession()
       }
     }
+
+    // Initial call to ensure auto refresh is running
+    try {
+      supabase.auth.startAutoRefresh()
+    } catch {}
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
