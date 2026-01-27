@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { supabase, getProfile, onSessionHealthChange, forceSessionRefresh, onTabSync } from '../lib/supabase'
+import { supabase, getProfile, onSessionHealthChange, onTabSync } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -82,90 +82,70 @@ export function AuthProvider({ children }) {
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth loading timeout - forcing complete')
       setLoading(false)
-    }, 8000) // 8 second max wait (increased for slow connections)
+    }, 5000) // 5 second max wait
 
-    // Get initial session
+    // Get initial session - SIMPLE: just read from localStorage, no API calls
     const initAuth = async () => {
       try {
-        // Use getUser() for secure server-side validation (recommended by Supabase)
-        // This validates the JWT with Supabase servers, unlike getSession() which only reads local storage
-        const { data: { user: validatedUser }, error } = await supabase.auth.getUser()
+        // Use getSession() - reads from localStorage, NO API call
+        // This is fast and won't cause timeouts
+        const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          // AuthSessionMissingError is expected when not logged in, don't treat as error
-          if (error.name !== 'AuthSessionMissingError') {
-            console.error('Auth validation error:', error)
-            setAuthError(error.message)
-          }
+          console.error('Session read error:', error)
           setLoading(false)
           clearTimeout(safetyTimeout)
           return
         }
         
-        if (validatedUser) {
-          console.log('User validated for:', validatedUser.email)
-          setUser(validatedUser)
+        if (session?.user) {
+          console.log('Session found for:', session.user.email)
+          setUser(session.user)
           
-          // Fetch user profile - try multiple times if needed
-          let profileData = null
-          let retries = 0
-          const maxRetries = 3
-          
-          while (!profileData && retries < maxRetries) {
-            try {
-              const { data, error: profileError } = await getProfile(validatedUser.id)
-              if (data) {
-                profileData = data
-              } else if (profileError) {
-                console.log(`Profile fetch attempt ${retries + 1} failed:`, profileError.message)
-              }
-              
-              // If no profile exists, try to create one
-              if (!profileData && retries === 0) {
-                console.log('No profile found, attempting to create one...')
-                const { error: createError } = await supabase
-                  .from('profiles')
-                  .upsert({
-                    id: validatedUser.id,
-                    email: validatedUser.email,
-                    full_name: validatedUser.user_metadata?.full_name || 
-                               validatedUser.user_metadata?.name || 
-                               validatedUser.email?.split('@')[0] || 'User',
-                    role: 'team',
-                    avatar_url: validatedUser.user_metadata?.avatar_url || 
-                                validatedUser.user_metadata?.picture || null,
-                  }, { onConflict: 'id' })
-                
-                if (createError) {
-                  console.error('Profile creation error:', createError.message)
-                } else {
-                  // Fetch the newly created profile
-                  const { data: newProfile } = await getProfile(validatedUser.id)
-                  if (newProfile) {
-                    profileData = newProfile
-                  }
-                }
-              }
-            } catch (profileErr) {
-              console.log(`Profile fetch attempt ${retries + 1} exception:`, profileErr)
-            }
-            retries++
+          // Fetch profile - single attempt only, don't retry aggressively
+          try {
+            const { data: profileData, error: profileError } = await getProfile(session.user.id)
             
-            // Wait a bit before retrying
-            if (!profileData && retries < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 500))
+            if (profileData) {
+              setProfile(profileData)
+            } else if (!profileError) {
+              // No profile exists - create one
+              console.log('Creating profile for:', session.user.email)
+              const { error: createError } = await supabase
+                .from('profiles')
+                .upsert({
+                  id: session.user.id,
+                  email: session.user.email,
+                  full_name: session.user.user_metadata?.full_name || 
+                             session.user.user_metadata?.name || 
+                             session.user.email?.split('@')[0] || 'User',
+                  role: 'team',
+                  avatar_url: session.user.user_metadata?.avatar_url || 
+                              session.user.user_metadata?.picture || null,
+                }, { onConflict: 'id' })
+              
+              if (!createError) {
+                const { data: newProfile } = await getProfile(session.user.id)
+                setProfile(newProfile)
+              }
             }
-          }
-          
-          if (profileData) {
-            setProfile(profileData)
-          } else {
-            console.warn('Could not load profile after retries, continuing without profile')
-            // Set a minimal profile so the app can still function
+            
+            // If still no profile, create a minimal one for display
+            if (!profileData) {
+              setProfile({
+                id: session.user.id,
+                email: session.user.email,
+                full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+                role: 'team',
+              })
+            }
+          } catch (profileErr) {
+            console.warn('Profile fetch error:', profileErr)
+            // Set minimal profile so app can function
             setProfile({
-              id: validatedUser.id,
-              email: validatedUser.email,
-              full_name: validatedUser.user_metadata?.full_name || validatedUser.email?.split('@')[0] || 'User',
+              id: session.user.id,
+              email: session.user.email,
+              full_name: session.user.email?.split('@')[0] || 'User',
               role: 'team',
             })
           }
@@ -174,7 +154,6 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         console.error('Auth init error:', error)
-        setAuthError(error.message)
       } finally {
         setLoading(false)
         clearTimeout(safetyTimeout)
@@ -495,113 +474,54 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle network and mobile resume events - iOS Safari specific fix
-  // NUCLEAR OPTION: If backgrounded for too long, just reload the page
+  // Handle mobile resume and visibility changes
+  // iOS Safari suspends JavaScript when the page is backgrounded - this recovers from that
   useEffect(() => {
-    // Track when the page was last hidden
     let lastHiddenTime = 0
     
-    // Refresh profile when user comes back online after being offline
-    const handleOnline = () => {
-      console.log('[Auth] Back online')
-      refreshSessionAndProfile('online')
-    }
-
-    // Handle visibility change - iOS suspend recovery
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden') {
-        // Page is being hidden - record the time
         lastHiddenTime = Date.now()
-        console.log('[Auth] Page hidden at', new Date().toLocaleTimeString())
       } else if (document.visibilityState === 'visible') {
         const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
-        console.log(`[Auth] Page visible after ${Math.round(timeSinceHidden / 1000)}s`)
         
-        // NUCLEAR OPTION: If hidden for more than 2 minutes, just reload
-        // This guarantees the app recovers from iOS suspend
-        if (timeSinceHidden > 2 * 60 * 1000) {
-          console.log('[Auth] Page was hidden for 2+ minutes - forcing reload for fresh state')
+        // If hidden for 3+ minutes, force reload for clean state
+        // This is the "nuclear option" that guarantees recovery
+        if (timeSinceHidden > 3 * 60 * 1000) {
+          console.log('[Auth] Page hidden 3+ min - reloading')
           window.location.reload()
           return
         }
         
-        // For shorter durations, try to recover the session in-place
-        if (timeSinceHidden > 30000) {
-          try {
-            // Try getSession first
-            const { data, error } = await supabase.auth.getSession()
-            
-            if (error || !data.session) {
-              // Session is stale - try to refresh
-              console.log('[Auth] Session stale on resume - refreshing...')
-              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-              
-              if (refreshError) {
-                console.warn('[Auth] Refresh failed:', refreshError.message)
-                // If refresh fails after being hidden, just reload
-                if (timeSinceHidden > 60000) {
-                  console.log('[Auth] Refresh failed after 1+ min hidden - reloading')
-                  window.location.reload()
-                  return
-                }
-              } else if (refreshData?.session?.user) {
-                console.log('[Auth] Session recovered!')
-                setUser(refreshData.session.user)
-                const { data: profileData } = await getProfile(refreshData.session.user.id)
-                if (profileData) setProfile(profileData)
-                setSessionHealthy(true)
-                setAuthError(null)
+        // For shorter durations (30s+), just poke the session to wake it up
+        if (timeSinceHidden > 30000 && user) {
+          console.log('[Auth] Resuming after', Math.round(timeSinceHidden / 1000), 'seconds')
+          
+          // Simple approach: just refresh the session token
+          // This wakes up Supabase's internal state on iOS
+          supabase.auth.refreshSession().then(({ error }) => {
+            if (error) {
+              console.warn('[Auth] Resume refresh failed:', error.message)
+              // If refresh fails after long hide, reload
+              if (timeSinceHidden > 60000) {
+                window.location.reload()
               }
-            } else if (data.session?.user) {
-              // Session OK - restore React state if needed
-              if (!user || user.id !== data.session.user.id) {
-                setUser(data.session.user)
-              }
-              if (!profile) {
-                const { data: profileData } = await getProfile(data.session.user.id)
-                if (profileData) setProfile(profileData)
-              }
+            } else {
+              console.log('[Auth] Resume refresh successful')
               setSessionHealthy(true)
             }
-          } catch (e) {
-            console.warn('[Auth] Error recovering session:', e)
-            // On error after long hide, just reload
-            if (timeSinceHidden > 60000) {
-              window.location.reload()
-            }
-          }
+          })
         }
       }
     }
 
-    window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user])
 
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [refreshSessionAndProfile, user, profile])
-
-  // Retry auth (for when stuck on loading) - refreshes session and reloads
-  const retryAuth = useCallback(async () => {
-    setLoading(true)
-    setAuthError(null)
-    try {
-      // Simple refresh using local session
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (session?.user) {
-        setUser(session.user)
-        const { data: profileData } = await getProfile(session.user.id)
-        setProfile(profileData)
-        setSessionHealthy(true)
-      }
-    } catch (error) {
-      setAuthError(error.message)
-    } finally {
-      setLoading(false)
-    }
+  // Retry auth (for when stuck on loading) - just reload the page for clean state
+  const retryAuth = useCallback(() => {
+    window.location.reload()
   }, [])
 
   // Toggle view mode (for admins to see team view)
@@ -675,25 +595,27 @@ export function AuthProvider({ children }) {
     setAuthError(null)
     
     try {
-      const success = await forceSessionRefresh()
+      // Use refreshSession() which handles token refresh properly
+      const { data, error } = await supabase.auth.refreshSession()
       
-      if (success) {
-        // Re-fetch user and profile after refresh
-        const { data: { user: refreshedUser } } = await supabase.auth.getUser()
-        if (refreshedUser) {
-          setUser(refreshedUser)
-          const { data: profileData } = await getProfile(refreshedUser.id)
-          if (profileData) {
-            setProfile(profileData)
-          }
-        }
-        setSessionHealthy(true)
-        return true
-      } else {
+      if (error) {
+        console.error('[Auth] Force refresh error:', error)
         setSessionHealthy(false)
         setAuthError('Unable to refresh session. Please sign in again.')
         return false
       }
+      
+      if (data?.session?.user) {
+        setUser(data.session.user)
+        const { data: profileData } = await getProfile(data.session.user.id)
+        if (profileData) {
+          setProfile(profileData)
+        }
+        setSessionHealthy(true)
+        return true
+      }
+      
+      return false
     } catch (error) {
       console.error('[Auth] Force refresh error:', error)
       setAuthError('Session refresh failed. Please sign in again.')
