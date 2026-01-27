@@ -4,7 +4,8 @@ import {
   BarChart3, TrendingUp, TrendingDown, Users, Building2, 
   Calendar, DollarSign, Clock, Download, Filter, RefreshCw,
   ChevronLeft, ChevronRight, FileText, PieChart, Target,
-  ArrowUpRight, ArrowDownRight, Minus, Eye, EyeOff, Printer
+  ArrowUpRight, ArrowDownRight, Minus, Eye, EyeOff, Printer,
+  Wallet, UserCheck, X, Check
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -1616,6 +1617,478 @@ function ProfitabilityReport({ employees, clients, timeEntries, clientRates, sel
   )
 }
 
+// Payroll Report Component
+function PayrollReport({ employees, timeEntries }) {
+  const [startDate, setStartDate] = useState(() => {
+    // Default to 2 weeks ago
+    const d = new Date()
+    d.setDate(d.getDate() - 14)
+    return d.toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0]
+  })
+  const [selectedMembers, setSelectedMembers] = useState([])
+  const [showMemberSelector, setShowMemberSelector] = useState(false)
+
+  // Quick date range presets
+  const setDateRange = (preset) => {
+    const today = new Date()
+    const end = today.toISOString().split('T')[0]
+    let start
+    
+    switch (preset) {
+      case 'week':
+        start = new Date(today.setDate(today.getDate() - 7)).toISOString().split('T')[0]
+        break
+      case '2weeks':
+        start = new Date(today.setDate(today.getDate() - 14)).toISOString().split('T')[0]
+        break
+      case 'month':
+        start = new Date(today.setMonth(today.getMonth() - 1)).toISOString().split('T')[0]
+        break
+      case 'lastPayroll':
+        // Assuming bi-weekly payroll, find last period
+        const dayOfMonth = new Date().getDate()
+        if (dayOfMonth <= 15) {
+          start = new Date(today.getFullYear(), today.getMonth() - 1, 16).toISOString().split('T')[0]
+          setEndDate(new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0])
+        } else {
+          start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+          setEndDate(new Date(today.getFullYear(), today.getMonth(), 15).toISOString().split('T')[0])
+        }
+        break
+      default:
+        start = new Date(today.setDate(today.getDate() - 14)).toISOString().split('T')[0]
+    }
+    
+    setStartDate(start)
+    if (preset !== 'lastPayroll') setEndDate(end)
+  }
+
+  // Toggle member selection
+  const toggleMember = (memberId) => {
+    setSelectedMembers(prev => 
+      prev.includes(memberId)
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    )
+  }
+
+  // Select all / deselect all
+  const toggleAllMembers = () => {
+    if (selectedMembers.length === employees.length) {
+      setSelectedMembers([])
+    } else {
+      setSelectedMembers(employees.map(e => e.id))
+    }
+  }
+
+  // Calculate hours for each selected member in date range
+  const payrollData = useMemo(() => {
+    const membersToShow = selectedMembers.length > 0 
+      ? employees.filter(e => selectedMembers.includes(e.id))
+      : employees
+
+    return membersToShow.map(member => {
+      const memberEntries = timeEntries.filter(entry => {
+        if (entry.user_id !== member.id) return false
+        const entryDate = entry.date
+        if (!entryDate) return false
+        return entryDate >= startDate && entryDate <= endDate
+      })
+
+      const totalMinutes = memberEntries.reduce((sum, e) => sum + (e.minutes || 0), 0)
+      const billableMinutes = memberEntries.filter(e => e.billable).reduce((sum, e) => sum + (e.minutes || 0), 0)
+      const nonBillableMinutes = totalMinutes - billableMinutes
+
+      // Group by client
+      const clientBreakdown = {}
+      memberEntries.forEach(entry => {
+        const clientName = entry.client?.name || 'No Client'
+        if (!clientBreakdown[clientName]) {
+          clientBreakdown[clientName] = { minutes: 0, billable: 0 }
+        }
+        clientBreakdown[clientName].minutes += entry.minutes || 0
+        if (entry.billable) clientBreakdown[clientName].billable += entry.minutes || 0
+      })
+
+      // Group by date for daily breakdown
+      const dailyBreakdown = {}
+      memberEntries.forEach(entry => {
+        const date = entry.date
+        if (!dailyBreakdown[date]) {
+          dailyBreakdown[date] = 0
+        }
+        dailyBreakdown[date] += entry.minutes || 0
+      })
+
+      return {
+        ...member,
+        totalMinutes,
+        totalHours: totalMinutes / 60,
+        billableMinutes,
+        billableHours: billableMinutes / 60,
+        nonBillableMinutes,
+        nonBillableHours: nonBillableMinutes / 60,
+        entries: memberEntries.length,
+        clientBreakdown,
+        dailyBreakdown,
+        hourlyRate: member.hourly_cost || 0,
+        estimatedPay: (totalMinutes / 60) * (member.hourly_cost || 0),
+      }
+    }).sort((a, b) => b.totalMinutes - a.totalMinutes)
+  }, [employees, timeEntries, selectedMembers, startDate, endDate])
+
+  // Totals
+  const totals = useMemo(() => ({
+    totalHours: payrollData.reduce((sum, m) => sum + m.totalHours, 0),
+    billableHours: payrollData.reduce((sum, m) => sum + m.billableHours, 0),
+    nonBillableHours: payrollData.reduce((sum, m) => sum + m.nonBillableHours, 0),
+    totalEntries: payrollData.reduce((sum, m) => sum + m.entries, 0),
+    estimatedPay: payrollData.reduce((sum, m) => sum + m.estimatedPay, 0),
+  }), [payrollData])
+
+  // Calculate days in range
+  const daysInRange = useMemo(() => {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+  }, [startDate, endDate])
+
+  return (
+    <div className="space-y-6">
+      <ReportHeader
+        title="Payroll / Contractor Hours Report"
+        subtitle={`${formatDate(startDate)} - ${formatDate(endDate)} (${daysInRange} days)`}
+      />
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          {/* Date Range */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">Start Date</label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-44"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">End Date</label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-44"
+              />
+            </div>
+            
+            {/* Quick Presets */}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDateRange('week')}>
+                Last 7 Days
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDateRange('2weeks')}>
+                Last 2 Weeks
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDateRange('month')}>
+                Last Month
+              </Button>
+            </div>
+          </div>
+
+          {/* Team Member Selection */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-muted-foreground">
+                Team Members ({selectedMembers.length === 0 ? 'All' : selectedMembers.length} selected)
+              </label>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={toggleAllMembers}
+                >
+                  {selectedMembers.length === employees.length ? 'Deselect All' : 'Select All'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowMemberSelector(!showMemberSelector)}
+                >
+                  {showMemberSelector ? 'Hide' : 'Choose Members'}
+                </Button>
+              </div>
+            </div>
+            
+            {/* Selected members chips */}
+            {selectedMembers.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedMembers.map(memberId => {
+                  const member = employees.find(e => e.id === memberId)
+                  return (
+                    <Badge 
+                      key={memberId} 
+                      variant="secondary"
+                      className="gap-1 cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => toggleMember(memberId)}
+                    >
+                      {member?.full_name}
+                      <X className="h-3 w-3" />
+                    </Badge>
+                  )
+                })}
+              </div>
+            )}
+            
+            {/* Member selector dropdown */}
+            <AnimatePresence>
+              {showMemberSelector && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-3 bg-muted/50 rounded-lg">
+                    {employees.map(member => (
+                      <button
+                        key={member.id}
+                        onClick={() => toggleMember(member.id)}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-lg text-left transition-colors",
+                          selectedMembers.includes(member.id)
+                            ? "bg-brand-orange text-white"
+                            : "bg-background hover:bg-muted"
+                        )}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.avatar_url} />
+                          <AvatarFallback className="text-xs">{getInitials(member.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{member.full_name}</p>
+                          <p className="text-xs opacity-70 truncate">{member.email}</p>
+                        </div>
+                        {selectedMembers.includes(member.id) && (
+                          <Check className="h-4 w-4 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Users className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Team Members</p>
+                <p className="text-2xl font-bold">{payrollData.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Clock className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Hours</p>
+                <p className="text-2xl font-bold">{formatDecimalHours(totals.totalHours)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <DollarSign className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Billable Hours</p>
+                <p className="text-2xl font-bold">{formatDecimalHours(totals.billableHours)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-500/10">
+                <FileText className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Time Entries</p>
+                <p className="text-2xl font-bold">{totals.totalEntries}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/20">
+                <Wallet className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Est. Payroll</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(totals.estimatedPay)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Detailed Breakdown Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserCheck className="h-5 w-5" />
+            Hours by Team Member
+          </CardTitle>
+          <CardDescription>
+            {formatDate(startDate)} to {formatDate(endDate)} • {daysInRange} days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-3 font-medium">Team Member</th>
+                  <th className="text-right p-3 font-medium">Total Hours</th>
+                  <th className="text-right p-3 font-medium">Billable</th>
+                  <th className="text-right p-3 font-medium">Non-Billable</th>
+                  <th className="text-right p-3 font-medium">Entries</th>
+                  <th className="text-right p-3 font-medium">Hourly Rate</th>
+                  <th className="text-right p-3 font-medium">Est. Pay</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payrollData.map((member) => (
+                  <tr key={member.id} className="border-b hover:bg-muted/50">
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.avatar_url} />
+                          <AvatarFallback className="text-xs">{getInitials(member.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{member.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-semibold text-lg">
+                      {formatDecimalHours(member.totalHours)}
+                    </td>
+                    <td className="p-3 text-right text-green-600">
+                      {formatDecimalHours(member.billableHours)}
+                    </td>
+                    <td className="p-3 text-right text-muted-foreground">
+                      {formatDecimalHours(member.nonBillableHours)}
+                    </td>
+                    <td className="p-3 text-right">
+                      {member.entries}
+                    </td>
+                    <td className="p-3 text-right text-muted-foreground">
+                      {member.hourlyRate > 0 ? formatCurrency(member.hourlyRate) + '/hr' : '-'}
+                    </td>
+                    <td className="p-3 text-right font-medium text-green-600">
+                      {member.hourlyRate > 0 ? formatCurrency(member.estimatedPay) : '-'}
+                    </td>
+                  </tr>
+                ))}
+                
+                {/* Totals Row */}
+                <tr className="bg-muted/50 font-semibold">
+                  <td className="p-3">TOTAL</td>
+                  <td className="p-3 text-right text-lg">{formatDecimalHours(totals.totalHours)}</td>
+                  <td className="p-3 text-right text-green-600">{formatDecimalHours(totals.billableHours)}</td>
+                  <td className="p-3 text-right text-muted-foreground">{formatDecimalHours(totals.nonBillableHours)}</td>
+                  <td className="p-3 text-right">{totals.totalEntries}</td>
+                  <td className="p-3 text-right">-</td>
+                  <td className="p-3 text-right text-green-600 text-lg">{formatCurrency(totals.estimatedPay)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {payrollData.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              No time entries found for the selected period and team members.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Client Breakdown per Member */}
+      {payrollData.length > 0 && payrollData.some(m => Object.keys(m.clientBreakdown).length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Hours by Client
+            </CardTitle>
+            <CardDescription>
+              Breakdown of hours per team member by client
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {payrollData.filter(m => m.entries > 0).map((member) => (
+                <div key={member.id} className="space-y-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={member.avatar_url} />
+                      <AvatarFallback className="text-xs">{getInitials(member.full_name)}</AvatarFallback>
+                    </Avatar>
+                    {member.full_name}
+                    <span className="text-muted-foreground font-normal">
+                      ({formatDecimalHours(member.totalHours)} total)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pl-8">
+                    {Object.entries(member.clientBreakdown).map(([clientName, data]) => (
+                      <div key={clientName} className="p-2 bg-muted/50 rounded-lg">
+                        <p className="text-sm font-medium truncate">{clientName}</p>
+                        <p className="text-lg font-semibold">{formatDecimalHours(data.minutes / 60)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <ReportFooter />
+    </div>
+  )
+}
+
 // Main Reports Page
 export default function Reports() {
   const { user, profile, isAdmin, loading: authLoading } = useAuth()
@@ -1991,23 +2464,32 @@ export default function Reports() {
 
       {/* Tabs */}
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="bg-muted/50">
+        <TabsList className="bg-muted/50 flex-wrap">
           <TabsTrigger value="time" className="gap-2">
             <Clock className="h-4 w-4" />
-            Time Reports
+            <span className="hidden sm:inline">Time Reports</span>
+            <span className="sm:hidden">Time</span>
+          </TabsTrigger>
+          <TabsTrigger value="payroll" className="gap-2">
+            <Wallet className="h-4 w-4" />
+            <span className="hidden sm:inline">Payroll</span>
+            <span className="sm:hidden">Pay</span>
           </TabsTrigger>
           <TabsTrigger value="client" className="gap-2">
             <Building2 className="h-4 w-4" />
-            Client Reports
+            <span className="hidden sm:inline">Client Reports</span>
+            <span className="sm:hidden">Clients</span>
           </TabsTrigger>
           <TabsTrigger value="team" className="gap-2">
             <Users className="h-4 w-4" />
-            Team Reports
+            <span className="hidden sm:inline">Team Reports</span>
+            <span className="sm:hidden">Team</span>
           </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="profitability" className="gap-2">
               <DollarSign className="h-4 w-4" />
-              Profitability
+              <span className="hidden sm:inline">Profitability</span>
+              <span className="sm:hidden">Profit</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -2043,6 +2525,15 @@ export default function Reports() {
               timeEntries={timeEntries}
               selectedYear={selectedYear}
               selectedMonth={selectedMonth}
+            />
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="payroll">
+          <motion.div variants={itemVariants}>
+            <PayrollReport
+              employees={employees}
+              timeEntries={timeEntries}
             />
           </motion.div>
         </TabsContent>
