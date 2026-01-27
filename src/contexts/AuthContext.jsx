@@ -474,202 +474,166 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // AGGRESSIVE TAB SWITCH RECOVERY
-  // This handles the "buttons don't work after tab switch" issue
-  // Uses multiple strategies: visibility, focus, storage events, and BroadcastChannel
+  // NUCLEAR TAB SWITCH FIX
+  // The Supabase client's internal state gets corrupted on tab switch
+  // Solution: Manually save session tokens and restore them using setSession()
   useEffect(() => {
     let lastHiddenTime = 0
-    let isRefreshing = false
-    let resumeChannel = null
+    let savedSession = null
     
-    // Initialize BroadcastChannel for resume sync
-    try {
-      resumeChannel = new BroadcastChannel('brandastic_resume_sync')
-      resumeChannel.onmessage = async (e) => {
-        if (e.data === 'session_recovered') {
-          console.log('[Auth] Another tab recovered session, syncing...')
-          const { data } = await supabase.auth.getSession()
-          if (data?.session) {
+    // Save the current session when tab is hidden
+    const saveSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (data?.session) {
+          savedSession = {
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          }
+          console.log('[Auth] Session saved before tab switch')
+        }
+      } catch (e) {
+        console.error('[Auth] Failed to save session:', e)
+      }
+    }
+    
+    // Restore the session using setSession() - bypasses corrupted internal state
+    const restoreSession = async () => {
+      console.log('[Auth] Attempting session restore...')
+      
+      // First, try normal getSession
+      const { data: currentSession } = await supabase.auth.getSession()
+      
+      if (currentSession?.session?.user) {
+        console.log('[Auth] Session already valid')
+        setUser(currentSession.session.user)
+        setSessionHealthy(true)
+        return true
+      }
+      
+      console.log('[Auth] Session null, attempting manual restore...')
+      
+      // Try to restore from our saved session
+      if (savedSession?.access_token && savedSession?.refresh_token) {
+        console.log('[Auth] Using saved tokens to restore session')
+        
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: savedSession.access_token,
+            refresh_token: savedSession.refresh_token,
+          })
+          
+          if (!error && data?.session?.user) {
+            console.log('[Auth] Session restored via setSession!')
             setUser(data.session.user)
             setSessionHealthy(true)
+            setAuthError(null)
+            return true
           }
+          
+          console.log('[Auth] setSession failed:', error?.message)
+        } catch (e) {
+          console.error('[Auth] setSession exception:', e)
         }
       }
-    } catch (e) {
-      console.log('[Auth] BroadcastChannel not supported')
-    }
-    
-    // Notify other tabs that we recovered
-    const notifyRecovery = () => {
-      try {
-        resumeChannel?.postMessage('session_recovered')
-      } catch {}
-    }
-    
-    // NUCLEAR OPTION: Force reload the Supabase client's internal state
-    // This is the most aggressive recovery - it re-reads from localStorage
-    const forceReloadSession = async () => {
-      console.log('[Auth] FORCE: Re-reading session from storage')
       
+      // Try to read directly from localStorage and restore
+      console.log('[Auth] Trying localStorage restore...')
       try {
-        // Step 1: Clear any internal cache by calling signOut locally (doesn't hit server)
-        // This forces GoTrueClient to re-read from storage on next getSession()
-        
-        // Step 2: Manually read from localStorage to check if tokens exist
         const storageKey = 'brandastic-auth'
         const stored = localStorage.getItem(storageKey)
         
-        if (!stored) {
-          console.log('[Auth] No session in storage - user not logged in')
-          return null
-        }
-        
-        console.log('[Auth] Session exists in storage, forcing client reload')
-        
-        // Step 3: Call refreshSession() which forces a token refresh from server
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-        
-        if (refreshError) {
-          console.error('[Auth] refreshSession() failed:', refreshError.message)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          const accessToken = parsed?.access_token || parsed?.currentSession?.access_token
+          const refreshToken = parsed?.refresh_token || parsed?.currentSession?.refresh_token
           
-          // Step 4: Try getUser() as fallback - this hits the server directly
-          const { data: userData, error: userError } = await supabase.auth.getUser()
-          
-          if (userError || !userData?.user) {
-            console.error('[Auth] getUser() also failed - session truly expired')
-            return null
+          if (accessToken && refreshToken) {
+            console.log('[Auth] Found tokens in localStorage, restoring...')
+            
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+            
+            if (!error && data?.session?.user) {
+              console.log('[Auth] localStorage restore succeeded!')
+              setUser(data.session.user)
+              setSessionHealthy(true)
+              setAuthError(null)
+              return true
+            }
           }
-          
-          // getUser() succeeded, session should be recovered now
-          const { data: sessionData } = await supabase.auth.getSession()
-          return sessionData?.session
         }
-        
-        return refreshData?.session
-      } catch (err) {
-        console.error('[Auth] Force reload error:', err)
-        return null
-      }
-    }
-    
-    // Full recovery with retries
-    const recoverSession = async (retries = 3) => {
-      if (isRefreshing) return true
-      isRefreshing = true
-      
-      console.log('[Auth] Starting session recovery...')
-      
-      for (let attempt = 1; attempt <= retries; attempt++) {
-        console.log(`[Auth] Recovery attempt ${attempt}/${retries}`)
-        
-        // First try getSession() - might work if just a minor desync
-        const { data: sessionData } = await supabase.auth.getSession()
-        
-        if (sessionData?.session?.user) {
-          console.log('[Auth] Session valid on attempt', attempt)
-          setUser(sessionData.session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
-          isRefreshing = false
-          notifyRecovery()
-          return true
-        }
-        
-        // Session null - try more aggressive recovery
-        console.log('[Auth] Session null, trying force reload...')
-        const session = await forceReloadSession()
-        
-        if (session?.user) {
-          console.log('[Auth] Force reload succeeded on attempt', attempt)
-          setUser(session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
-          isRefreshing = false
-          notifyRecovery()
-          
-          // Refresh profile too
-          if (!profile && session.user.id) {
-            const { data: profileData } = await getProfile(session.user.id)
-            if (profileData) setProfile(profileData)
-          }
-          return true
-        }
-        
-        // Wait before next attempt
-        if (attempt < retries) {
-          await new Promise(r => setTimeout(r, 300 * attempt))
-        }
+      } catch (e) {
+        console.error('[Auth] localStorage restore failed:', e)
       }
       
-      console.error('[Auth] All recovery attempts failed')
-      isRefreshing = false
+      // Final fallback: refreshSession
+      console.log('[Auth] Trying refreshSession as last resort...')
+      try {
+        const { data, error } = await supabase.auth.refreshSession()
+        
+        if (!error && data?.session?.user) {
+          console.log('[Auth] refreshSession succeeded!')
+          setUser(data.session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
+          return true
+        }
+      } catch (e) {
+        console.error('[Auth] refreshSession failed:', e)
+      }
+      
+      console.error('[Auth] ALL restore methods failed')
       return false
     }
     
-    // Handle resume from tab switch
+    // Handle tab becoming visible
     const handleResume = async () => {
-      // Only act if we're actually visible/focused
-      if (document.visibilityState !== 'visible' && !document.hasFocus()) return
+      if (document.visibilityState !== 'visible') return
       
       const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
       console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
       
-      // ALWAYS attempt recovery on ANY tab switch (even 1 second)
-      // This is aggressive but necessary for the tab switch bug
-      const recovered = await recoverSession()
+      // Always try to restore on ANY tab switch
+      const restored = await restoreSession()
       
-      if (!recovered && user) {
-        // We were logged in but can't recover - reload page as last resort
-        console.warn('[Auth] Cannot recover session - reloading page')
+      if (!restored && user) {
+        console.warn('[Auth] Cannot restore session - reloading page')
         window.location.reload()
       }
     }
     
-    // Event handlers
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         lastHiddenTime = Date.now()
-        console.log('[Auth] Tab hidden')
+        saveSession() // Save before we're backgrounded
       } else {
-        console.log('[Auth] Tab visible')
         handleResume()
       }
     }
     
     const handleFocus = () => {
-      console.log('[Auth] Window focused')
       handleResume()
     }
     
     const handlePageShow = (e) => {
       if (e.persisted) {
-        console.log('[Auth] Page restored from bfcache')
-        handleResume()
-      }
-    }
-    
-    // Storage event - catches when another tab modifies localStorage
-    const handleStorage = (e) => {
-      if (e.key === 'brandastic-auth') {
-        console.log('[Auth] Storage changed by another tab')
         handleResume()
       }
     }
 
-    // Register all event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
     window.addEventListener('pageshow', handlePageShow)
-    window.addEventListener('storage', handleStorage)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('pageshow', handlePageShow)
-      window.removeEventListener('storage', handleStorage)
-      resumeChannel?.close()
     }
-  }, [user, profile])
+  }, [user])
   
   // Periodic "heartbeat" check - keeps session fresh during long idle periods
   useEffect(() => {
