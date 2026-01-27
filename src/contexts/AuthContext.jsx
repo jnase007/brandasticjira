@@ -474,50 +474,112 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle mobile resume and visibility changes
-  // iOS Safari suspends JavaScript when the page is backgrounded - this recovers from that
+  // Handle mobile resume and visibility changes - AGGRESSIVE iOS fix
+  // iOS Safari/Chrome suspends JavaScript when backgrounded - this recovers from that
   useEffect(() => {
     let lastHiddenTime = 0
+    let isRecovering = false
     
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden') {
-        lastHiddenTime = Date.now()
-      } else if (document.visibilityState === 'visible') {
-        const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
+    const handleResume = async () => {
+      // Only run if page is actually visible/focused and we're not already recovering
+      if (isRecovering) return
+      if (document.visibilityState !== 'visible' && !document.hasFocus()) return
+      
+      const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
+      
+      // Nuclear option: If hidden 3+ minutes, just reload
+      if (timeSinceHidden > 3 * 60 * 1000) {
+        console.log('[Auth] Page hidden 3+ min - reloading for fresh state')
+        window.location.reload()
+        return
+      }
+      
+      // For any resume, check if session needs recovery
+      if (timeSinceHidden > 5000) { // More aggressive: check even after 5s
+        isRecovering = true
+        console.log('[Auth] iOS resume detected after', Math.round(timeSinceHidden / 1000), 's - checking session')
         
-        // If hidden for 3+ minutes, force reload for clean state
-        // This is the "nuclear option" that guarantees recovery
-        if (timeSinceHidden > 3 * 60 * 1000) {
-          console.log('[Auth] Page hidden 3+ min - reloading')
-          window.location.reload()
-          return
-        }
-        
-        // For shorter durations (30s+), just poke the session to wake it up
-        if (timeSinceHidden > 30000 && user) {
-          console.log('[Auth] Resuming after', Math.round(timeSinceHidden / 1000), 'seconds')
+        try {
+          // Step 1: Check current session
+          let { data: { session } } = await supabase.auth.getSession()
           
-          // Simple approach: just refresh the session token
-          // This wakes up Supabase's internal state on iOS
-          supabase.auth.refreshSession().then(({ error }) => {
+          if (!session) {
+            // Step 2: Session is null (iOS glitch) - explicitly refresh
+            console.log('[Auth] Session null on resume - forcing refresh')
+            const { error } = await supabase.auth.refreshSession()
+            
             if (error) {
-              console.warn('[Auth] Resume refresh failed:', error.message)
-              // If refresh fails after long hide, reload
+              console.error('[Auth] Refresh failed on resume:', error.message)
+              // If refresh fails after long hide, reload the page
               if (timeSinceHidden > 60000) {
                 window.location.reload()
+                return
               }
             } else {
-              console.log('[Auth] Resume refresh successful')
-              setSessionHealthy(true)
+              // Step 3: Re-check after refresh
+              const retry = await supabase.auth.getSession()
+              session = retry.data.session
+              console.log('[Auth] Session recovered:', session ? 'yes' : 'no')
             }
-          })
+          }
+          
+          // Step 4: If session is now good, update React state
+          if (session?.user) {
+            // Restore React state if it was lost
+            if (!user || user.id !== session.user.id) {
+              console.log('[Auth] Restoring user state from recovered session')
+              setUser(session.user)
+            }
+            if (!profile) {
+              const { data: profileData } = await getProfile(session.user.id)
+              if (profileData) setProfile(profileData)
+            }
+            setSessionHealthy(true)
+            setAuthError(null)
+          }
+        } catch (err) {
+          console.error('[Auth] Resume auth error:', err)
+          // On error after long hide, reload
+          if (timeSinceHidden > 60000) {
+            window.location.reload()
+          }
+        } finally {
+          isRecovering = false
         }
       }
     }
+    
+    const handleHide = () => {
+      if (document.visibilityState === 'hidden') {
+        lastHiddenTime = Date.now()
+        console.log('[Auth] Page hidden at', new Date().toLocaleTimeString())
+      }
+    }
+    
+    // Combine handlers
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleHide()
+      } else {
+        handleResume()
+      }
+    }
 
+    // Listen to multiple events for maximum iOS compatibility
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [user])
+    window.addEventListener('focus', handleResume) // Tab regains focus
+    window.addEventListener('pageshow', handleResume) // iOS back/forward cache
+
+    // iOS-specific: Delay initial check to give WebKit time to settle after page load
+    const initialTimeout = setTimeout(handleResume, 1000)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleResume)
+      window.removeEventListener('pageshow', handleResume)
+      clearTimeout(initialTimeout)
+    }
+  }, [user, profile])
 
   // Retry auth (for when stuck on loading) - just reload the page for clean state
   const retryAuth = useCallback(() => {
