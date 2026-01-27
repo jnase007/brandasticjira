@@ -125,25 +125,88 @@ export default function ClientManagement() {
   const [projects, setProjects] = useState([])
   const [clientUsers, setClientUsers] = useState([])
   
-  // Pinned clients (stored in localStorage)
-  const [pinnedClients, setPinnedClients] = useState(() => {
-    try {
-    const stored = localStorage.getItem('pinnedClients')
-    return stored ? JSON.parse(stored) : []
-    } catch (e) {
-      console.warn('Invalid pinned clients data, resetting...')
-      return []
-    }
-  })
+  // Pinned/favorite clients (stored in database for persistence)
+  const [pinnedClients, setPinnedClients] = useState([])
+  const [favoritesLoading, setFavoritesLoading] = useState(false)
   
-  const togglePinClient = (clientId) => {
-    setPinnedClients(prev => {
-      const newPinned = prev.includes(clientId) 
-        ? prev.filter(id => id !== clientId)
-        : [...prev, clientId]
-      localStorage.setItem('pinnedClients', JSON.stringify(newPinned))
-      return newPinned
-    })
+  // Fetch user's favorite clients from database
+  const fetchFavorites = async () => {
+    if (!user?.id) return
+    try {
+      const { data, error } = await supabase
+        .from('user_favorite_clients')
+        .select('client_id')
+        .eq('user_id', user.id)
+      
+      if (error) {
+        // Table might not exist yet - fall back to localStorage
+        console.warn('[ClientManagement] Favorites table not ready, using localStorage:', error.message)
+        try {
+          const stored = localStorage.getItem('pinnedClients')
+          setPinnedClients(stored ? JSON.parse(stored) : [])
+        } catch (e) {
+          setPinnedClients([])
+        }
+        return
+      }
+      
+      const favoriteIds = (data || []).map(f => f.client_id)
+      setPinnedClients(favoriteIds)
+      // Also sync to localStorage as backup
+      localStorage.setItem('pinnedClients', JSON.stringify(favoriteIds))
+    } catch (err) {
+      console.error('[ClientManagement] Error fetching favorites:', err)
+    }
+  }
+  
+  const togglePinClient = async (clientId) => {
+    if (!user?.id) return
+    
+    const wasPinned = pinnedClients.includes(clientId)
+    
+    // Optimistic update
+    const newPinned = wasPinned 
+      ? pinnedClients.filter(id => id !== clientId)
+      : [...pinnedClients, clientId]
+    setPinnedClients(newPinned)
+    localStorage.setItem('pinnedClients', JSON.stringify(newPinned))
+    
+    try {
+      if (wasPinned) {
+        // Remove from favorites
+        const { error } = await supabase
+          .from('user_favorite_clients')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('client_id', clientId)
+        
+        if (error) throw error
+      } else {
+        // Add to favorites
+        const { error } = await supabase
+          .from('user_favorite_clients')
+          .insert({
+            user_id: user.id,
+            client_id: clientId,
+          })
+        
+        if (error) throw error
+      }
+    } catch (err) {
+      console.error('[ClientManagement] Error toggling favorite:', err)
+      // Revert on error
+      setPinnedClients(pinnedClients)
+      localStorage.setItem('pinnedClients', JSON.stringify(pinnedClients))
+      
+      // If table doesn't exist, show helpful message
+      if (err.message?.includes('does not exist') || err.message?.includes('schema cache')) {
+        toast({
+          title: 'Database update needed',
+          description: 'Run supabase/fix-adspend-favorites.sql to enable persistent favorites',
+          variant: 'destructive',
+        })
+      }
+    }
   }
   
   const isPinned = (clientId) => pinnedClients.includes(clientId)
@@ -280,6 +343,7 @@ export default function ClientManagement() {
     
     console.log('[ClientManagement] Auth ready, fetching data for:', user.email)
     fetchData()
+    fetchFavorites() // Fetch user's favorite clients from database
   }, [authLoading, user?.id])
 
   // Create request
