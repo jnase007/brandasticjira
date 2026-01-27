@@ -440,6 +440,22 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [location.pathname])
 
+  // iOS Safari Keep-Alive Hack
+  // Hidden iframe prevents iOS from fully suspending JavaScript context during tab switch
+  // This is a known workaround for iOS Safari/Chrome background suspension
+  useEffect(() => {
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    iframe.src = '/keep-alive.html'
+    iframe.id = 'keep-alive-iframe'
+    document.body.appendChild(iframe)
+
+    return () => {
+      const el = document.getElementById('keep-alive-iframe')
+      if (el) document.body.removeChild(el)
+    }
+  }, [])
+
   // State for update notification
   const [updateAvailable, setUpdateAvailable] = useState(false)
   
