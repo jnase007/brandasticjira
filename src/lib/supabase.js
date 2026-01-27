@@ -146,20 +146,11 @@ supabase.auth.onAuthStateChange((event, session) => {
 })
 
 // ============================================
-// SESSION HEALTH MONITOR
+// SESSION HEALTH (SIMPLIFIED)
 // ============================================
 
-// Track session health state
-let sessionHealthy = true
-let lastHealthCheck = 0
-let healthCheckInProgress = false
-let consecutiveFailures = 0
-const MAX_CONSECUTIVE_FAILURES = 3
-
-// Event system for session state changes
+// Minimal session health tracking - no aggressive polling
 const sessionListeners = new Set()
-let lastNotification = 0
-let lastNotifiedState = true
 
 export function onSessionHealthChange(callback) {
   sessionListeners.add(callback)
@@ -167,141 +158,17 @@ export function onSessionHealthChange(callback) {
 }
 
 function notifySessionHealthChange(healthy, reason) {
-  // Debounce notifications (max once per 2 seconds) and only if state actually changed
-  const now = Date.now()
-  if (now - lastNotification < 2000 && healthy === lastNotifiedState) {
-    return
-  }
-  
-  // Only notify if state actually changed
-  if (healthy === lastNotifiedState && sessionHealthy === healthy) {
-    return
-  }
-  
-  lastNotification = now
-  lastNotifiedState = healthy
-  sessionHealthy = healthy
-  
   sessionListeners.forEach(cb => {
     try {
       cb(healthy, reason)
     } catch (e) {
-      console.error('[SessionHealth] Listener error:', e)
+      console.error('[Session] Listener error:', e)
     }
   })
 }
 
 /**
- * Performs a health check on the current session.
- * Returns true if session is valid, false if recovery is needed.
- */
-export async function checkSessionHealth() {
-  const now = Date.now()
-  
-  // Debounce health checks (max once per 5 seconds)
-  if (now - lastHealthCheck < 5000) {
-    return sessionHealthy
-  }
-  
-  if (healthCheckInProgress) {
-    return sessionHealthy
-  }
-  
-  healthCheckInProgress = true
-  lastHealthCheck = now
-  
-  try {
-    // Use getUser() for authoritative server-side validation
-    const { data: { user }, error } = await supabase.auth.getUser()
-    
-    if (error) {
-      if (error.name === 'AuthSessionMissingError') {
-        // No session - this is expected when logged out
-        consecutiveFailures = 0
-        healthCheckInProgress = false
-        return true
-      }
-      
-      console.warn('[SessionHealth] Check failed:', error.message)
-      consecutiveFailures++
-      
-      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        console.error('[SessionHealth] Multiple failures, attempting recovery...')
-        const recovered = await attemptSessionRecovery()
-        if (!recovered) {
-          notifySessionHealthChange(false, 'Session recovery failed')
-        }
-        consecutiveFailures = 0
-        healthCheckInProgress = false
-        return recovered
-      }
-      
-      healthCheckInProgress = false
-      return false
-    }
-    
-    if (!user) {
-      healthCheckInProgress = false
-      return true // No user = logged out state, which is valid
-    }
-    
-    // Session is healthy
-    consecutiveFailures = 0
-    if (!sessionHealthy) {
-      notifySessionHealthChange(true, 'Session recovered')
-    }
-    
-    healthCheckInProgress = false
-    return true
-  } catch (e) {
-    console.error('[SessionHealth] Exception:', e)
-    consecutiveFailures++
-    healthCheckInProgress = false
-    return false
-  }
-}
-
-/**
- * Attempts to recover a stale or invalid session.
- */
-async function attemptSessionRecovery() {
-  console.log('[SessionHealth] Attempting session recovery...')
-  
-  try {
-    // First, try to refresh the session
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-    
-    if (refreshError) {
-      console.warn('[SessionHealth] Refresh failed:', refreshError.message)
-      
-      // Check if this is a fatal error (refresh token expired/invalid)
-      if (refreshError.message?.includes('refresh_token') ||
-          refreshError.message?.includes('Invalid Refresh Token') ||
-          refreshError.message?.includes('Already Used')) {
-        console.error('[SessionHealth] Refresh token invalid - user needs to re-login')
-        notifySessionHealthChange(false, 'Refresh token expired')
-        return false
-      }
-      
-      // For network errors, the session might still be valid
-      return true
-    }
-    
-    if (refreshData?.session) {
-      console.log('[SessionHealth] Session refreshed successfully')
-      notifySessionHealthChange(true, 'Session refreshed')
-      return true
-    }
-    
-    return false
-  } catch (e) {
-    console.error('[SessionHealth] Recovery exception:', e)
-    return false
-  }
-}
-
-/**
- * Force a session refresh. Call this when you suspect the session is stale.
+ * Force a session refresh. Call this when user clicks retry.
  */
 export async function forceSessionRefresh() {
   console.log('[Session] Force refresh requested...')
@@ -317,7 +184,7 @@ export async function forceSessionRefresh() {
     
     if (data?.session) {
       console.log('[Session] Force refresh successful')
-      notifySessionHealthChange(true, 'Force refreshed')
+      notifySessionHealthChange(true, 'Refreshed')
       return true
     }
     
@@ -333,139 +200,67 @@ export async function forceSessionRefresh() {
 // ============================================
 
 /**
- * Ensures the session is valid before making a request.
- * Uses getUser() for secure server-side validation (recommended by Supabase).
- * Proactively refreshes if token is expiring soon.
- * Returns true if session is valid, false if user needs to re-login.
+ * LIGHTWEIGHT session check - only reads local storage, no API calls.
+ * Supabase's autoRefreshToken handles actual token refresh automatically.
+ * This just checks if we have a session locally.
+ * Returns true if session exists locally, false if not logged in.
  */
+let lastSessionCheck = 0
+let cachedSessionValid = true
+
 export async function ensureValidSession() {
+  const now = Date.now()
+  
+  // Cache result for 30 seconds to avoid excessive checks
+  if (now - lastSessionCheck < 30000) {
+    return cachedSessionValid
+  }
+  
+  lastSessionCheck = now
+  
   try {
-    // Use getUser() for secure server-side validation
-    // This validates the JWT with Supabase servers, unlike getSession() which only reads local storage
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    if (userError) {
-      // AuthSessionMissingError is expected when not logged in
-      if (userError.name !== 'AuthSessionMissingError') {
-        console.warn('[Session] Error validating user:', userError.message)
-      }
-      return false
-    }
-    
-    if (!user) {
-      console.warn('[Session] No authenticated user')
-      return false
-    }
-    
-    // Get session for expiry info (needed for proactive refresh timing)
+    // Only read from local storage - NO API call
+    // Supabase's autoRefreshToken handles the actual refresh in the background
     const { data: { session } } = await supabase.auth.getSession()
     
-    if (!session) {
-      // User is valid but no session - this shouldn't happen, but handle gracefully
-      return true
-    }
-    
-    // Check if token is expiring soon (within 5 minutes)
-    const expiresAt = session.expires_at
-    const now = Math.floor(Date.now() / 1000)
-    const expiresIn = expiresAt - now
-    
-    if (expiresIn < 300) { // Less than 5 minutes
-      console.log(`[Session] Token expiring in ${expiresIn}s, refreshing...`)
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-      
-      if (refreshError) {
-        console.warn('[Session] Refresh failed:', refreshError.message)
-        // Check if it's a fatal error (refresh token expired)
-        if (refreshError.message?.includes('refresh_token') || 
-            refreshError.message?.includes('expired') ||
-            refreshError.message?.includes('invalid')) {
-          return false
-        }
-        // For other errors, session might still work
-        return true
-      }
-      
-      console.log('[Session] Token refreshed successfully')
-      return !!refreshData?.session
-    }
-    
-    return true
+    cachedSessionValid = !!session
+    return cachedSessionValid
   } catch (e) {
-    console.error('[Session] Error validating session:', e)
-    return false
+    console.error('[Session] Error checking session:', e)
+    return cachedSessionValid // Return cached value on error
   }
 }
 
 /**
- * Wrapper for Supabase queries that handles auth errors gracefully.
- * If a query fails due to auth issues, it attempts to refresh and retry.
- * Includes exponential backoff for retries.
+ * Simple wrapper for Supabase queries.
+ * Just executes the query - Supabase handles auth automatically.
+ * Only retries once on actual auth errors.
  */
 export async function safeQuery(queryFn, options = {}) {
-  const { maxRetries = 2, retryDelay = 500 } = options
-  let lastError = null
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await queryFn()
+  try {
+    const result = await queryFn()
+    
+    // If we get a JWT/auth error, try ONE refresh and retry
+    if (result.error) {
+      const errorMsg = result.error.message?.toLowerCase() || ''
+      const isAuthError = errorMsg.includes('jwt') || errorMsg.includes('expired')
       
-      // Check for auth-related errors
-      if (result.error) {
-        const errorMsg = result.error.message?.toLowerCase() || ''
-        const errorCode = result.error.code || ''
+      if (isAuthError) {
+        console.warn('[SafeQuery] Auth error, attempting one refresh...')
+        const { error: refreshError } = await supabase.auth.refreshSession()
         
-        const isAuthError = 
-          errorMsg.includes('jwt') || 
-          errorMsg.includes('expired') || 
-          errorMsg.includes('invalid') ||
-          errorMsg.includes('not authenticated') ||
-          errorMsg.includes('permission denied') ||
-          errorCode === 'PGRST301' ||
-          errorCode === '401' ||
-          errorCode === '403'
-        
-        if (isAuthError && attempt < maxRetries) {
-          console.warn(`[SafeQuery] Auth error on attempt ${attempt + 1}, refreshing session...`)
-          
-          // Wait before retry (exponential backoff)
-          if (attempt > 0) {
-            await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
-          }
-          
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (!refreshError && refreshData?.session) {
-            console.log('[SafeQuery] Session refreshed, retrying query...')
-            continue // Retry the query
-          } else {
-            // Refresh failed - only notify on final failure, not transient errors
-            if (refreshError?.message?.includes('expired') || refreshError?.message?.includes('refresh_token')) {
-              notifySessionHealthChange(false, 'Session expired')
-            }
-            lastError = result.error
-            break
-          }
+        if (!refreshError) {
+          // Retry the query once
+          return await queryFn()
         }
-        
-        // Non-auth error or max retries reached
-        lastError = result.error
-      }
-      
-      // Success or non-retryable error
-      return result
-    } catch (e) {
-      console.error(`[SafeQuery] Exception on attempt ${attempt + 1}:`, e)
-      lastError = e
-      
-      // Don't retry on network errors immediately
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
       }
     }
+    
+    return result
+  } catch (e) {
+    console.error('[SafeQuery] Exception:', e)
+    return { data: null, error: e }
   }
-  
-  return { data: null, error: lastError }
 }
 
 export async function signInWithEmail(email, password) {

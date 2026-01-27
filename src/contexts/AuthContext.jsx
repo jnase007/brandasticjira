@@ -475,146 +475,55 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Lightweight profile refresh - only fetches profile, no auth API calls
+  // Supabase's autoRefreshToken handles token refresh automatically
   const refreshSessionAndProfile = useCallback(async (source = 'unknown') => {
-    if (refreshInFlightRef.current) return
+    if (refreshInFlightRef.current || !user) return
     refreshInFlightRef.current = true
+    
     try {
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Session refresh timeout')), 8000)
-      )
-
-      // Use getUser() for secure server-side validation (recommended by Supabase)
-      const { data: { user: validatedUser }, error: userError } = await Promise.race([
-        supabase.auth.getUser(),
-        timeout,
-      ])
-
-      if (userError) {
-        // AuthSessionMissingError is expected when not logged in
-        if (userError.name !== 'AuthSessionMissingError') {
-          console.warn('Auth validation error:', userError)
-          setAuthError(userError.message)
-        }
-        return
-      }
-
-      if (!validatedUser) {
-        return
-      }
-
-      // Get session for expiry info (needed for proactive refresh timing)
-      const { data: sessionData } = await supabase.auth.getSession()
-      
-      // If we have a session, proactively refresh the token to prevent staleness
-      if (sessionData?.session) {
-        // Check if token is expiring soon (within 30 minutes for maximum safety)
-        const expiresAt = sessionData.session.expires_at
-        const now = Math.floor(Date.now() / 1000)
-        const expiresIn = expiresAt - now
-        
-        console.log(`[Auth] Token expires in ${Math.round(expiresIn / 60)} minutes`)
-        
-        if (expiresIn < 1800) { // Less than 30 minutes until expiry - refresh early
-          console.log(`[Auth] Token expiring in ${expiresIn}s, refreshing proactively...`)
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (refreshError) {
-            console.warn('[Auth] Proactive token refresh failed:', refreshError.message)
-            // If refresh token is also expired, force re-login
-            if (refreshError.message?.includes('refresh_token') || refreshError.message?.includes('expired')) {
-              console.warn('[Auth] Refresh token expired, clearing session')
-              setUser(null)
-              setProfile(null)
-              setAuthError('Session expired. Please log in again.')
-              return
-            }
-          } else if (refreshData?.session) {
-            console.log('[Auth] Token refreshed successfully, new expiry:', new Date(refreshData.session.expires_at * 1000).toLocaleTimeString())
-            setUser(refreshData.session.user)
-          }
-        }
-      }
-
-      // User is validated - update state
-      setUser(validatedUser)
-      const profileRes = await Promise.race([
-        getProfile(validatedUser.id),
-        timeout,
-      ])
-      if (profileRes?.data) {
-        setProfile(profileRes.data)
+      // Just refresh profile data - don't make auth API calls
+      // Supabase handles token refresh automatically via autoRefreshToken
+      const { data: profileData } = await getProfile(user.id)
+      if (profileData) {
+        setProfile(profileData)
       }
     } catch (error) {
-      console.warn(`Session refresh failed (${source}):`, error?.message || error)
+      console.warn(`Profile refresh failed (${source}):`, error?.message || error)
     } finally {
       refreshInFlightRef.current = false
     }
-  }, [])
+  }, [user])
 
+  // Minimal event listeners - Supabase's autoRefreshToken handles token refresh
+  // We only refresh profile data, not auth, to avoid hammering Supabase
   useEffect(() => {
-    const maybeRefresh = (source) => {
-      const now = Date.now()
-      // Reduce debounce to 10 seconds for more responsive auth
-      if (now - lastRefreshRef.current < 10000) return
-      lastRefreshRef.current = now
-      refreshSessionAndProfile(source)
+    // Only refresh profile when user comes back online after being offline
+    const handleOnline = () => {
+      console.log('[Auth] Back online')
+      refreshSessionAndProfile('online')
     }
 
-    const handleFocus = () => maybeRefresh('focus')
-    const handleOnline = () => maybeRefresh('online')
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        maybeRefresh('visible')
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
     window.addEventListener('online', handleOnline)
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    // Periodic background refresh every 5 minutes to prevent token expiry
-    // Less aggressive to avoid performance issues
-    const backgroundRefreshInterval = setInterval(() => {
-      console.log('[Auth] Periodic background session check...')
-      refreshSessionAndProfile('periodic')
-    }, 5 * 60 * 1000) // Every 5 minutes
-    
-    // Refresh on page load if we have a session (simple check, no health API call)
-    if (typeof window !== 'undefined') {
-      const storedSession = localStorage.getItem('brandastic-auth')
-      if (storedSession) {
-        console.log('[Auth] Found stored session, refreshing on load...')
-        // Small delay to let the app initialize first
-        setTimeout(() => {
-          refreshSessionAndProfile('pageload')
-        }, 1000)
-      }
-    }
 
     return () => {
-      window.removeEventListener('focus', handleFocus)
       window.removeEventListener('online', handleOnline)
-      document.removeEventListener('visibilitychange', handleVisibility)
-      clearInterval(backgroundRefreshInterval)
     }
   }, [refreshSessionAndProfile])
 
-  // Retry auth (for when stuck on loading)
+  // Retry auth (for when stuck on loading) - refreshes session and reloads
   const retryAuth = useCallback(async () => {
     setLoading(true)
     setAuthError(null)
     try {
-      // Use getUser() for secure server-side validation (recommended by Supabase)
-      const { data: { user: validatedUser }, error } = await supabase.auth.getUser()
-      if (error) {
-        // AuthSessionMissingError is expected when not logged in
-        if (error.name !== 'AuthSessionMissingError') {
-          setAuthError(error.message)
-        }
-      } else if (validatedUser) {
-        setUser(validatedUser)
-        const { data: profileData } = await getProfile(validatedUser.id)
+      // Simple refresh using local session
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session?.user) {
+        setUser(session.user)
+        const { data: profileData } = await getProfile(session.user.id)
         setProfile(profileData)
+        setSessionHealthy(true)
       }
     } catch (error) {
       setAuthError(error.message)
