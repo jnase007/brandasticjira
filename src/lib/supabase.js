@@ -7,12 +7,42 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.')
 }
 
+// ============================================
+// COOKIE-BASED STORAGE FOR iOS RELIABILITY
+// ============================================
+// localStorage can be flaky on iOS due to browser suspensions/privacy behaviors
+// Cookies are more resilient and sent with every request, making sessions more stable
+
+class CookieStorage {
+  getItem(key) {
+    if (typeof document === 'undefined') return null
+    const cookies = document.cookie.split('; ')
+    const found = cookies.find(row => row.startsWith(`${key}=`))
+    return found ? decodeURIComponent(found.split('=')[1]) : null
+  }
+
+  setItem(key, value) {
+    if (typeof document === 'undefined') return
+    const maxAge = 60 * 60 * 24 * 365 // 1 year
+    const isSecure = location.protocol === 'https:'
+    document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax${isSecure ? '; Secure' : ''}`
+  }
+
+  removeItem(key) {
+    if (typeof document === 'undefined') return
+    document.cookie = `${key}=; path=/; max-age=0`
+  }
+}
+
+// Use cookie storage for better iOS reliability
+const cookieStorage = new CookieStorage()
+
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storage: localStorage, // Explicitly use localStorage for persistence
+    storage: cookieStorage, // Use cookies instead of localStorage for iOS reliability
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'pkce', // More secure flow
     debug: false, // Set to true temporarily to debug iOS issues in Safari Web Inspector

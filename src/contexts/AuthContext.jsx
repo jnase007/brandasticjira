@@ -474,58 +474,79 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  // Handle mobile resume - SIMPLE & RELIABLE: if session is stale, reload immediately
-  // The problem with in-place recovery is that users can interact before it completes
+  // Handle mobile resume - uses getUser() to force server check, then getSession()
+  // This is the recommended approach from Supabase bug reports for iOS
   useEffect(() => {
     let lastHiddenTime = 0
+    let isRefreshing = false
+    
+    // Robust refresh: getUser() hits the server directly, bypassing local glitches
+    // This primes the session for subsequent getSession() calls
+    const refreshSession = async () => {
+      if (isRefreshing) return null
+      isRefreshing = true
+      
+      try {
+        console.log('[Auth] Forcing full session refresh via getUser()')
+        
+        // Step 1: getUser() forces a server check and triggers token refresh
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !userData.user) {
+          console.error('[Auth] getUser() failed:', userError?.message)
+          isRefreshing = false
+          return null
+        }
+        
+        // Step 2: Now getSession() should have the refreshed session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('[Auth] getSession() failed:', sessionError.message)
+          isRefreshing = false
+          return null
+        }
+        
+        const session = sessionData.session
+        if (session?.user) {
+          console.log('[Auth] Session refreshed successfully')
+          setUser(session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
+          
+          // Also refresh profile if needed
+          if (!profile) {
+            const { data: profileData } = await getProfile(session.user.id)
+            if (profileData) setProfile(profileData)
+          }
+        }
+        
+        isRefreshing = false
+        return session
+      } catch (err) {
+        console.error('[Auth] Refresh error:', err)
+        isRefreshing = false
+        return null
+      }
+    }
     
     const handleResume = async () => {
-      if (document.visibilityState !== 'visible') return
+      if (document.visibilityState !== 'visible' && !document.hasFocus()) return
       
       const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
       
       // Only check if we were hidden for 5+ seconds
       if (timeSinceHidden < 5000) return
       
-      console.log('[Auth] Resume after', Math.round(timeSinceHidden / 1000), 's - checking session')
+      console.log('[Auth] Resume after', Math.round(timeSinceHidden / 1000), 's')
       
-      // Check if session is available
-      const { data: { session } } = await supabase.auth.getSession()
+      // Use the robust refresh that hits the server
+      const session = await refreshSession()
       
       if (!session) {
-        // Session is null - this is the iOS glitch
-        // Try ONE quick refresh
-        console.log('[Auth] Session null on resume - attempting refresh')
-        const { error } = await supabase.auth.refreshSession()
-        
-        if (error) {
-          // Refresh failed - reload the page for clean state
-          console.log('[Auth] Refresh failed - reloading page')
-          window.location.reload()
-          return
-        }
-        
-        // Check again after refresh
-        const { data: { session: newSession } } = await supabase.auth.getSession()
-        if (!newSession) {
-          // Still null - reload is the only option
-          console.log('[Auth] Session still null after refresh - reloading page')
-          window.location.reload()
-          return
-        }
-        
-        console.log('[Auth] Session recovered after refresh')
-      } else {
-        console.log('[Auth] Session OK on resume')
-      }
-      
-      // If we get here, session is valid - make sure React state is in sync
-      const currentSession = (await supabase.auth.getSession()).data.session
-      if (currentSession?.user) {
-        if (!user || user.id !== currentSession.user.id) {
-          setUser(currentSession.user)
-        }
-        setSessionHealthy(true)
+        // Refresh failed completely - reload the page as last resort
+        console.warn('[Auth] Session refresh failed - reloading page')
+        window.location.reload()
       }
     }
     
@@ -540,7 +561,6 @@ export function AuthProvider({ children }) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleResume)
     window.addEventListener('pageshow', (e) => {
-      // pageshow fires on bfcache restore
       if (e.persisted) {
         console.log('[Auth] Page restored from bfcache')
         handleResume()
@@ -551,7 +571,7 @@ export function AuthProvider({ children }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleResume)
     }
-  }, [user])
+  }, [user, profile])
   
   // Periodic "heartbeat" check - keeps session fresh during long idle periods
   useEffect(() => {
