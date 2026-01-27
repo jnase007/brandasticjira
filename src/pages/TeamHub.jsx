@@ -148,6 +148,7 @@ export default function TeamHub() {
     client_id: '',
     platform: 'facebook',
     year: new Date().getFullYear(),
+    applyToYear: true, // Apply budget to entire year by default
     month: new Date().getMonth() + 1,
     budget: '',
   })
@@ -1891,6 +1892,88 @@ export default function TeamHub() {
                         ))
                       })}
                     </tbody>
+                    {/* Totals Footer */}
+                    <tfoot>
+                      <tr className="bg-slate-100 dark:bg-slate-800 font-medium border-t-2 border-brand-teal">
+                        <td className="py-3 px-4 sticky left-0 bg-slate-100 dark:bg-slate-800 z-10">
+                          <span className="font-bold text-brand-teal">TOTALS</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-muted-foreground">All Platforms</span>
+                        </td>
+                        {MONTHS.map((_, monthIndex) => {
+                          const month = monthIndex + 1
+                          // Calculate totals for this month across all clients/platforms
+                          const monthActualsTotal = adSpend
+                            .filter(a => a.year === selectedYear && a.month === month)
+                            .reduce((sum, a) => sum + (parseFloat(a.actuals) || 0), 0)
+                          const monthBudgetTotal = adSpend
+                            .filter(a => a.year === selectedYear && a.month === month)
+                            .reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0)
+                          
+                          return (
+                            <>
+                              <td key={`total-${month}-actuals`} className="py-2 px-1 text-right text-xs border-l border-muted font-medium">
+                                {monthActualsTotal > 0 ? (
+                                  <span className={monthActualsTotal > monthBudgetTotal ? 'text-red-600' : 'text-green-600'}>
+                                    {formatCurrency(monthActualsTotal)}
+                                  </span>
+                                ) : '-'}
+                              </td>
+                              <td key={`total-${month}-budget`} className="py-2 px-1 text-right text-xs font-medium text-brand-teal">
+                                {monthBudgetTotal > 0 ? formatCurrency(monthBudgetTotal) : '-'}
+                              </td>
+                            </>
+                          )
+                        })}
+                      </tr>
+                      {/* Yearly Total Row */}
+                      <tr className="bg-brand-teal/10 font-bold">
+                        <td className="py-3 px-4 sticky left-0 bg-brand-teal/10 z-10" colSpan={2}>
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-brand-teal" />
+                            <span className="text-brand-teal">YEARLY TOTAL ({selectedYear})</span>
+                          </div>
+                        </td>
+                        <td colSpan={24} className="py-3 px-4">
+                          <div className="flex items-center gap-6 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Total Actuals: </span>
+                              <span className="font-bold text-lg">
+                                {formatCurrency(
+                                  adSpend
+                                    .filter(a => a.year === selectedYear)
+                                    .reduce((sum, a) => sum + (parseFloat(a.actuals) || 0), 0)
+                                )}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Total Budget: </span>
+                              <span className="font-bold text-lg text-brand-teal">
+                                {formatCurrency(
+                                  adSpend
+                                    .filter(a => a.year === selectedYear)
+                                    .reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0)
+                                )}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Variance: </span>
+                              {(() => {
+                                const yearActuals = adSpend.filter(a => a.year === selectedYear).reduce((sum, a) => sum + (parseFloat(a.actuals) || 0), 0)
+                                const yearBudget = adSpend.filter(a => a.year === selectedYear).reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0)
+                                const variance = yearBudget - yearActuals
+                                return (
+                                  <span className={cn("font-bold text-lg", variance >= 0 ? "text-green-600" : "text-red-600")}>
+                                    {variance >= 0 ? '+' : ''}{formatCurrency(variance)}
+                                  </span>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </CardContent>
@@ -2027,16 +2110,34 @@ export default function TeamHub() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Year</Label>
-                <Input
-                  type="number"
-                  value={newSpend.year}
-                  onChange={(e) => setNewSpend(s => ({ ...s, year: parseInt(e.target.value) }))}
-                  className="mt-1.5"
-                />
-              </div>
+            <div>
+              <Label>Year</Label>
+              <Input
+                type="number"
+                value={newSpend.year}
+                onChange={(e) => setNewSpend(s => ({ ...s, year: parseInt(e.target.value) }))}
+                className="mt-1.5"
+              />
+            </div>
+            
+            {/* Apply to year toggle */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-brand-teal/10 border border-brand-teal/20">
+              <input
+                type="checkbox"
+                id="applyToYear"
+                checked={newSpend.applyToYear}
+                onChange={(e) => setNewSpend(s => ({ ...s, applyToYear: e.target.checked }))}
+                className="rounded border-brand-teal text-brand-teal focus:ring-brand-teal"
+              />
+              <Label htmlFor="applyToYear" className="text-sm cursor-pointer flex-1">
+                <span className="font-medium">Apply to entire year</span>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Set this budget for all 12 months of {newSpend.year}
+                </p>
+              </Label>
+            </div>
+            
+            {!newSpend.applyToYear && (
               <div>
                 <Label>Starting Month</Label>
                 <Select
@@ -2053,7 +2154,8 @@ export default function TeamHub() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            )}
+            
             <div>
               <Label>Monthly Budget</Label>
               <Input
@@ -2063,6 +2165,11 @@ export default function TeamHub() {
                 onChange={(e) => setNewSpend(s => ({ ...s, budget: e.target.value }))}
                 className="mt-1.5"
               />
+              {newSpend.applyToYear && newSpend.budget && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Yearly total: <span className="font-medium text-brand-teal">${(parseFloat(newSpend.budget) * 12).toLocaleString()}</span>
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -2076,27 +2183,75 @@ export default function TeamHub() {
                   return
                 }
                 try {
-                  const { data, error } = await supabase.from('ad_spend').insert({
-                    client_id: newSpend.client_id,
-                    platform: newSpend.platform,
-                    year: newSpend.year,
-                    month: newSpend.month,
-                    budget: parseFloat(newSpend.budget) || 0,
-                    actuals: 0,
-                  }).select()
+                  const budgetAmount = parseFloat(newSpend.budget) || 0
                   
-                  if (error) {
-                    console.error('[TeamHub] Error adding budget:', error)
+                  if (newSpend.applyToYear) {
+                    // Create entries for all 12 months
+                    const entries = []
+                    for (let month = 1; month <= 12; month++) {
+                      entries.push({
+                        client_id: newSpend.client_id,
+                        platform: newSpend.platform,
+                        year: newSpend.year,
+                        month,
+                        budget: budgetAmount,
+                        actuals: 0,
+                      })
+                    }
+                    
+                    // Use upsert to update existing or insert new
+                    const { data, error } = await supabase
+                      .from('ad_spend')
+                      .upsert(entries, { 
+                        onConflict: 'client_id,platform,year,month',
+                        ignoreDuplicates: false 
+                      })
+                      .select()
+                    
+                    if (error) {
+                      console.error('[TeamHub] Error adding yearly budget:', error)
+                      toast({ 
+                        title: 'Error adding budget', 
+                        description: error.message,
+                        variant: 'destructive' 
+                      })
+                      return
+                    }
+                    
+                    console.log('[TeamHub] Yearly budget added successfully:', data)
                     toast({ 
-                      title: 'Error adding budget', 
-                      description: error.message || 'Check if the ad_spend table exists',
-                      variant: 'destructive' 
+                      title: '✅ Yearly budget added', 
+                      description: `$${budgetAmount.toLocaleString()}/month × 12 = $${(budgetAmount * 12).toLocaleString()}/year`,
+                      variant: 'success' 
                     })
-                    return
+                  } else {
+                    // Single month entry
+                    const { data, error } = await supabase.from('ad_spend').upsert({
+                      client_id: newSpend.client_id,
+                      platform: newSpend.platform,
+                      year: newSpend.year,
+                      month: newSpend.month,
+                      budget: budgetAmount,
+                      actuals: 0,
+                    }, { 
+                      onConflict: 'client_id,platform,year,month',
+                      ignoreDuplicates: false 
+                    }).select()
+                    
+                    if (error) {
+                      console.error('[TeamHub] Error adding budget:', error)
+                      toast({ 
+                        title: 'Error adding budget', 
+                        description: error.message || 'Check if the ad_spend table exists',
+                        variant: 'destructive' 
+                      })
+                      return
+                    }
+                    
+                    console.log('[TeamHub] Budget added successfully:', data)
+                    toast({ title: '✅ Budget added', variant: 'success' })
                   }
                   
-                  console.log('[TeamHub] Budget added successfully:', data)
-                  toast({ title: '✅ Budget added', variant: 'success' })
                   setAddSpendDialogOpen(false)
                   setNewSpend({
                     client_id: '',
@@ -2104,6 +2259,7 @@ export default function TeamHub() {
                     year: new Date().getFullYear(),
                     month: new Date().getMonth() + 1,
                     budget: '',
+                    applyToYear: true,
                   })
                   fetchData(true)
                 } catch (error) {
@@ -2112,7 +2268,7 @@ export default function TeamHub() {
                 }
               }}
             >
-              Add Budget
+              {newSpend.applyToYear ? 'Add Yearly Budget' : 'Add Budget'}
             </Button>
           </DialogFooter>
         </DialogContent>
