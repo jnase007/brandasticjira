@@ -6,7 +6,7 @@ import {
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
   ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
-  Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play
+  Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play, Target
 } from 'lucide-react'
 import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -458,14 +458,17 @@ export default function ClientManagement() {
   }
 
   // Filter by status
-  const activeClients = clients.filter((c) => c.is_active !== false)
+  const activeClients = clients.filter((c) => c.is_active !== false && c.client_status !== 'prospect')
   const inactiveClients = clients.filter((c) => c.is_active === false)
+  const prospectClients = clients.filter((c) => c.client_status === 'prospect')
   
   const clientsByStatus = statusFilter === 'active' 
     ? activeClients 
     : statusFilter === 'inactive' 
       ? inactiveClients 
-      : clients
+      : statusFilter === 'prospect'
+        ? prospectClients
+        : clients
 
   const filteredClients = clientsByStatus
     .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -812,6 +815,12 @@ export default function ClientManagement() {
                           Active ({activeClients.length})
                         </div>
                       </SelectItem>
+                      <SelectItem value="prospect">
+                        <div className="flex items-center gap-2">
+                          <Target className="h-3 w-3 text-purple-500" />
+                          Prospects ({prospectClients.length})
+                        </div>
+                      </SelectItem>
                       <SelectItem value="inactive">
                         <div className="flex items-center gap-2">
                           <Pause className="h-3 w-3 text-amber-500" />
@@ -859,6 +868,8 @@ export default function ClientManagement() {
                       <Pause className="h-8 w-8 text-amber-500" />
                     ) : statusFilter === 'active' ? (
                       <Play className="h-8 w-8 text-green-500" />
+                    ) : statusFilter === 'prospect' ? (
+                      <Target className="h-8 w-8 text-purple-500" />
                     ) : (
                       <Building2 className="h-8 w-8 text-muted-foreground" />
                     )}
@@ -870,7 +881,9 @@ export default function ClientManagement() {
                         ? 'No inactive clients' 
                         : statusFilter === 'active'
                           ? 'No active clients'
-                          : 'No clients found'
+                          : statusFilter === 'prospect'
+                            ? 'No prospects yet'
+                            : 'No clients found'
                     }
                   </h3>
                   <p className="text-muted-foreground text-sm mb-4">
@@ -879,8 +892,10 @@ export default function ClientManagement() {
                       : statusFilter === 'inactive'
                         ? 'All your clients are currently active.'
                         : statusFilter === 'active'
-                          ? 'Try switching to "All" or "Inactive" to see other clients.'
-                          : 'Import clients to get started.'
+                          ? 'Try switching to "All" or "Prospects" to see other clients.'
+                          : statusFilter === 'prospect'
+                            ? 'Add a prospect to start your sales pipeline.'
+                            : 'Import clients to get started.'
                     }
                   </p>
                   {(statusFilter !== 'all' || searchQuery) && (
