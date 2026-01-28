@@ -9,7 +9,7 @@ import {
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus,
-  Kanban, Circle, Upload, X
+  Kanban, Circle, Upload, X, Trash2, MoreVertical, Pencil
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -127,6 +127,9 @@ export default function ClientDetail() {
   // Client wins state
   const [clientWins, setClientWins] = useState([])
   const [addWinOpen, setAddWinOpen] = useState(false)
+  const [editWinOpen, setEditWinOpen] = useState(false)
+  const [editingWin, setEditingWin] = useState(null)
+  const [deletingWinId, setDeletingWinId] = useState(null)
   const [newWin, setNewWin] = useState({
     title: '',
     description: '',
@@ -710,6 +713,106 @@ export default function ClientDetail() {
     } finally {
       setSavingWin(false)
     }
+  }
+
+  // Edit an existing win
+  const handleEditWin = async () => {
+    if (!editingWin?.id) return
+    if (!editingWin.title?.trim()) {
+      toast({ title: 'Please enter a title for the win', variant: 'destructive' })
+      return
+    }
+    
+    setSavingWin(true)
+    try {
+      const updateData = {
+        title: editingWin.title,
+        description: editingWin.description || null,
+        category: editingWin.category,
+      }
+      
+      if (editingWin.image_url !== undefined) {
+        updateData.image_url = editingWin.image_url || null
+      }
+      
+      const { data, error } = await supabase
+        .from('client_wins')
+        .update(updateData)
+        .eq('id', editingWin.id)
+        .select('*')
+        .single()
+      
+      if (error) throw error
+      
+      // Update local state with user data preserved
+      setClientWins(prev => prev.map(win => 
+        win.id === editingWin.id 
+          ? { ...data, user: win.user }
+          : win
+      ))
+      
+      setEditWinOpen(false)
+      setEditingWin(null)
+      
+      toast({
+        title: '✏️ Win updated!',
+        description: 'Your changes have been saved.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error updating win:', error)
+      toast({
+        title: 'Error updating win',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingWin(false)
+    }
+  }
+
+  // Delete a win
+  const handleDeleteWin = async (winId) => {
+    if (!winId) return
+    
+    setDeletingWinId(winId)
+    try {
+      const { error } = await supabase
+        .from('client_wins')
+        .delete()
+        .eq('id', winId)
+      
+      if (error) throw error
+      
+      setClientWins(prev => prev.filter(win => win.id !== winId))
+      
+      toast({
+        title: 'Win deleted',
+        description: 'The win has been removed.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error deleting win:', error)
+      toast({
+        title: 'Error deleting win',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingWinId(null)
+    }
+  }
+
+  // Open edit dialog with win data
+  const openEditWin = (win) => {
+    setEditingWin({
+      id: win.id,
+      title: win.title,
+      description: win.description || '',
+      category: win.category || 'general',
+      image_url: win.image_url || '',
+    })
+    setEditWinOpen(true)
   }
 
   const handleAddReply = async (parentId) => {
@@ -2486,8 +2589,31 @@ export default function ClientDetail() {
                         key={win.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="relative p-4 rounded-xl border bg-gradient-to-br from-yellow-500/10 to-orange-500/10 hover:shadow-lg hover:border-yellow-500/30 transition-all"
+                        className="relative p-4 rounded-xl border bg-gradient-to-br from-yellow-500/10 to-orange-500/10 hover:shadow-lg hover:border-yellow-500/30 transition-all group"
                       >
+                        {/* Edit/Delete buttons - visible on hover */}
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditWin(win)}
+                            className="p-1.5 rounded-lg bg-background/80 hover:bg-background border shadow-sm text-muted-foreground hover:text-foreground transition-colors"
+                            title="Edit win"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteWin(win.id)}
+                            disabled={deletingWinId === win.id}
+                            className="p-1.5 rounded-lg bg-background/80 hover:bg-red-50 dark:hover:bg-red-950 border shadow-sm text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50"
+                            title="Delete win"
+                          >
+                            {deletingWinId === win.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
+                        
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Trophy className="h-5 w-5 text-yellow-500" />
@@ -2498,6 +2624,13 @@ export default function ClientDetail() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">{win.description}</p>
+                        {win.image_url && (
+                          <img 
+                            src={win.image_url} 
+                            alt={win.title}
+                            className="w-full h-32 object-cover rounded-lg mb-3 border"
+                          />
+                        )}
                         {win.category && win.category !== 'general' && (
                           <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 border-yellow-500/30">
                             {win.category.replace('_', ' ')}
@@ -2848,6 +2981,91 @@ export default function ClientDetail() {
                 <>
                   <Trophy className="h-4 w-4 mr-2" />
                   Add Win
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Win Dialog */}
+      <Dialog open={editWinOpen} onOpenChange={(open) => {
+        setEditWinOpen(open)
+        if (!open) setEditingWin(null)
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-yellow-500" />
+              Edit Win
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>What's the win? *</Label>
+              <Input
+                placeholder="e.g., Hit 10K followers on Instagram"
+                value={editingWin?.title || ''}
+                onChange={(e) => setEditingWin(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Details (optional)</Label>
+              <Textarea
+                placeholder="Tell us more about this achievement..."
+                value={editingWin?.description || ''}
+                onChange={(e) => setEditingWin(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select 
+                value={editingWin?.category || 'general'}
+                onValueChange={(val) => setEditingWin(prev => ({ ...prev, category: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General Win</SelectItem>
+                  <SelectItem value="milestone">Milestone</SelectItem>
+                  <SelectItem value="growth">Growth</SelectItem>
+                  <SelectItem value="award">Award</SelectItem>
+                  <SelectItem value="launch">Launch</SelectItem>
+                  <SelectItem value="revenue">Revenue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setEditWinOpen(false)
+                setEditingWin(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditWin} 
+              disabled={savingWin || !editingWin?.title?.trim()}
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              {savingWin ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
                 </>
               )}
             </Button>
