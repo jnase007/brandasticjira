@@ -9,7 +9,7 @@ import {
   Download, RefreshCw, Mail, Phone, MessageSquare, Plus,
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus,
-  Kanban, Circle, Upload, X, Trash2, MoreVertical, Pencil
+  Kanban, Circle, Upload, X, Trash2, MoreVertical, Pencil, Repeat, CalendarDays
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -160,7 +160,11 @@ export default function ClientDetail() {
     board_id: '', 
     assignee_id: '',
     service_category: '',
-    priority: 'medium'
+    priority: 'medium',
+    is_recurring: false,
+    recurrence_pattern: '',
+    due_date: '',
+    recurrence_end_date: '',
   })
   const [savingTask, setSavingTask] = useState(false)
   
@@ -1189,26 +1193,44 @@ export default function ClientDetail() {
         }
       }
       
+      const taskData = {
+        title: newTask.title,
+        description: newTask.description,
+        board_id: boardId,
+        client_id: resolvedClientId,
+        assigned_to: newTask.assignee_id || user.id, // Default to current user
+        status: 'todo',
+        priority: newTask.priority || 'medium',
+        created_by: user.id,
+      }
+      
+      // Add due date if provided
+      if (newTask.due_date) {
+        taskData.due_date = newTask.due_date
+      }
+      
+      // Add recurring fields if enabled
+      if (newTask.is_recurring && newTask.recurrence_pattern) {
+        taskData.is_recurring = true
+        taskData.recurrence_pattern = newTask.recurrence_pattern
+        if (newTask.recurrence_end_date) {
+          taskData.recurrence_end_date = newTask.recurrence_end_date
+        }
+      }
+      
       const { data: createdTicket, error } = await supabase
         .from('tickets')
-        .insert({
-          title: newTask.title,
-          description: newTask.description,
-          board_id: boardId,
-          client_id: resolvedClientId,
-          assigned_to: newTask.assignee_id || user.id, // Default to current user
-          status: 'todo',
-          priority: newTask.priority || 'medium',
-          created_by: user.id,
-        })
+        .insert(taskData)
         .select()
         .single()
       
       if (error) throw error
       
       toast({
-        title: '✅ Task created',
-        description: `"${newTask.title}" has been assigned`,
+        title: newTask.is_recurring ? '🔄 Recurring task created' : '✅ Task created',
+        description: newTask.is_recurring 
+          ? `"${newTask.title}" will repeat ${newTask.recurrence_pattern}`
+          : `"${newTask.title}" has been assigned`,
         variant: 'success',
       })
 
@@ -3316,12 +3338,90 @@ export default function ClientDetail() {
                 Leave empty to add to "General Tasks" board
               </p>
             </div>
+            
+            {/* Due Date */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Due Date
+                <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                type="date"
+                value={newTask.due_date}
+                onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
+              />
+            </div>
+            
+            {/* Recurring Task Toggle */}
+            <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 cursor-pointer">
+                  <Repeat className="h-4 w-4 text-blue-500" />
+                  Recurring Task
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setNewTask(prev => ({ ...prev, is_recurring: !prev.is_recurring }))}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                    newTask.is_recurring ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                      newTask.is_recurring ? "translate-x-6" : "translate-x-1"
+                    )}
+                  />
+                </button>
+              </div>
+              
+              {newTask.is_recurring && (
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Repeat Every</Label>
+                    <Select 
+                      value={newTask.recurrence_pattern} 
+                      onValueChange={(value) => setNewTask(prev => ({ ...prev, recurrence_pattern: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Every 2 Weeks</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm flex items-center gap-2">
+                      End Date
+                      <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      value={newTask.recurrence_end_date}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, recurrence_end_date: e.target.value }))}
+                      placeholder="Leave empty for no end date"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty to repeat indefinitely
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
           <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => {
               setCreateTaskOpen(false)
-              setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium' })
+              setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium', is_recurring: false, recurrence_pattern: '', due_date: '', recurrence_end_date: '' })
             }}>
               Cancel
             </Button>

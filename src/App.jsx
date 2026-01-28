@@ -20,6 +20,7 @@ const JiraImport = lazy(() => import('./pages/JiraImport'))
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
 const TimeTracking = lazy(() => import('./pages/TimeTracking'))
 const Reports = lazy(() => import('./pages/Reports'))
+const Calendar = lazy(() => import('./pages/Calendar'))
 const ClientManagement = lazy(() => import('./pages/ClientManagement'))
 const ClientDetail = lazy(() => import('./pages/ClientDetail'))
 const TeamMemberDetail = lazy(() => import('./pages/TeamMemberDetail'))
@@ -40,6 +41,7 @@ import Confetti, { useConfetti } from './components/Confetti'
 import EasterEggs from './components/EasterEggs'
 import SessionStatus from './components/SessionStatus'
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
+import InstallPrompt from './components/InstallPrompt'
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
 import { Badge } from './components/ui/badge'
 import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
@@ -681,6 +683,7 @@ function App() {
       {confetti}
       <EasterEggs />
       <SessionStatus />
+      <InstallPrompt />
       
       {/* Update available notification - appears when a new deployment is detected */}
       <AnimatePresence>
@@ -794,6 +797,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <Reports />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/calendar"
+                element={
+                  <TeamRoute>
+                    <Calendar />
                   </TeamRoute>
                 }
               />

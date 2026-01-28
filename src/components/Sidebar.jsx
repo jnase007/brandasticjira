@@ -27,6 +27,7 @@ import {
   ChevronDown,
   Target,
   Flame,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -45,6 +46,7 @@ const navItems = [
   { path: '/time', icon: Clock, label: 'Time Tracking', shortcut: 'G T' },
   { path: '/clients', icon: Building2, label: 'Clients', shortcut: 'G C' },
   { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },
+  { path: '/calendar', icon: CalendarDays, label: 'Calendar', shortcut: 'G E' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/boards', icon: Kanban, label: 'Boards', shortcut: 'G B' },

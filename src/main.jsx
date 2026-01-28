@@ -6,6 +6,19 @@ import { AuthProvider } from './contexts/AuthContext'
 import { Toaster } from './components/ui/toaster'
 import './index.css'
 
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('SW registered:', registration.scope)
+      })
+      .catch((error) => {
+        console.log('SW registration failed:', error)
+      })
+  })
+}
+
 // Global Error Boundary to catch any crashes
 class GlobalErrorBoundary extends Component {
   constructor(props) {
