@@ -33,6 +33,13 @@ import {
   Receipt,
   Circle,
   PlayCircle,
+  Hash,
+  Briefcase,
+  Phone,
+  GripVertical,
+  Smartphone,
+  Building2,
+  User,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -336,6 +343,179 @@ export default function WorkflowGuide() {
               <ul className="list-disc pl-5 text-muted-foreground mt-2 space-y-1">
                 <li>When status changes to <strong>"Closed"</strong> → Resolution = <Badge variant="outline" className="text-green-600 bg-green-50">Resolved</Badge></li>
                 <li>When reopened → Resolution = <Badge variant="outline" className="text-slate-600 bg-slate-50">Unresolved</Badge></li>
+              </ul>
+            </div>
+
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* NEW: Latest Features - Ticket IDs, Sales Pipeline, Task Board */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-purple-500" />
+              <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                NEW: Sales Pipeline & Ticket IDs
+              </span>
+              <Badge className="ml-2 bg-purple-500 text-white">Latest!</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+            
+            {/* Ticket IDs */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Hash className="h-5 w-5 text-blue-500" />
+                <h4 className="font-semibold">Jira-Style Ticket IDs</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Every ticket now has a unique ID based on the client name - just like Jira!
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Badge variant="outline" className="font-mono bg-blue-50 dark:bg-blue-900/30">BRA-1</Badge>
+                <Badge variant="outline" className="font-mono bg-green-50 dark:bg-green-900/30">ADO-5</Badge>
+                <Badge variant="outline" className="font-mono bg-purple-50 dark:bg-purple-900/30">CAL-12</Badge>
+              </div>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li>IDs auto-generate when you create a ticket</li>
+                <li>Reference tickets by ID in conversations</li>
+                <li>IDs appear on task cards and detail pages</li>
+              </ul>
+            </div>
+
+            {/* Sales Pipeline */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Briefcase className="h-5 w-5 text-purple-500" />
+                <h4 className="font-semibold">Sales Pipeline & Prospects</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Track potential clients through your sales process with a visual Kanban board:
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800">
+                  <Target className="h-3 w-3 mr-1" /> Lead
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30">
+                  <Phone className="h-3 w-3 mr-1" /> Kickoff
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30">
+                  <FileText className="h-3 w-3 mr-1" /> Proposal
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30">
+                  <Briefcase className="h-3 w-3 mr-1" /> Contract
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30">
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Won
+                </Badge>
+              </div>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li><strong>Add Prospects:</strong> Create clients as "Prospect" status with pipeline info</li>
+                <li><strong>Drag & Drop:</strong> Move prospects between stages on desktop</li>
+                <li><strong>Mobile Dropdown:</strong> Change stages via dropdown on mobile</li>
+                <li><strong>Track Value:</strong> See estimated budget and expected close dates</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-3">
+                💡 Access from <strong>Clients → Sales Pipeline</strong> tab
+              </p>
+            </div>
+
+            {/* Task Board */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Kanban className="h-5 w-5 text-brand-orange" />
+                <h4 className="font-semibold">Personal & Company Task Boards</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                View all your tasks across clients in one unified Kanban board:
+              </p>
+              <div className="flex gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium">My Board</span>
+                  <span className="text-xs text-muted-foreground">- Tasks assigned to you</span>
+                </div>
+              </div>
+              <div className="flex gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-purple-500" />
+                  <span className="font-medium">Company Board</span>
+                  <span className="text-xs text-muted-foreground">- All team tasks with filtering</span>
+                </div>
+              </div>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li>Drag tasks between all 7 workflow stages</li>
+                <li>Filter by client or team member</li>
+                <li>Search across all tasks</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-3">
+                💡 Access from sidebar: <strong>Task Board</strong>
+              </p>
+            </div>
+
+            {/* Calendar View */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="h-5 w-5 text-teal-500" />
+                <h4 className="font-semibold">Calendar View</h4>
+              </div>
+              <p className="text-muted-foreground mb-2">
+                See your tasks and time entries on a monthly calendar:
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li>Tasks shown by due date with priority colors</li>
+                <li>Daily hours logged displayed per day</li>
+                <li>Navigate between months easily</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-3">
+                💡 Access from sidebar: <strong>Calendar</strong>
+              </p>
+            </div>
+
+            {/* Mobile Features */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Smartphone className="h-5 w-5 text-green-500" />
+                <h4 className="font-semibold">Mobile-Friendly Features</h4>
+              </div>
+              <p className="text-muted-foreground mb-2">
+                Brandastic PM works great on mobile devices:
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li><strong>Install as App:</strong> Add to home screen for app-like experience</li>
+                <li><strong>Pipeline Dropdown:</strong> Change prospect stages without dragging</li>
+                <li><strong>Responsive Navigation:</strong> Bottom nav on mobile, sidebar on desktop</li>
+                <li><strong>Touch-Optimized:</strong> Larger tap targets and swipe gestures</li>
+              </ul>
+            </div>
+
+            {/* Engagement Types */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                <h4 className="font-semibold">Client Engagement Types</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Track different types of client relationships:
+              </p>
+              <div className="flex gap-3 mb-3">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  📅 Retainer
+                </Badge>
+                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                  🎯 Project
+                </Badge>
+              </div>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li><strong>Retainers:</strong> Monthly recurring hours with budget tracking</li>
+                <li><strong>Projects:</strong> One-time engagements with fixed scope</li>
+                <li>Revenue displayed by type on client detail pages</li>
               </ul>
             </div>
 
