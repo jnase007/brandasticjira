@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Building2, Palette, Clock, Mail, User, FileText, 
   Upload, X, Image as ImageIcon, Check, ChevronRight, ChevronLeft,
-  Sparkles, Plus, Kanban, ArrowRight, Zap
+  Sparkles, Plus, Kanban, ArrowRight, Zap, Target, DollarSign,
+  Calendar, Briefcase, MessageSquare
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, slugify } from '../lib/utils'
@@ -61,7 +62,34 @@ const HOUR_OPTIONS = [
 const STEPS = [
   { id: 1, title: 'Basics', icon: Building2 },
   { id: 2, title: 'Details', icon: User },
-  { id: 3, title: 'Branding', icon: Palette },
+  { id: 3, title: 'Engagement', icon: Briefcase },
+  { id: 4, title: 'Branding', icon: Palette },
+]
+
+const ENGAGEMENT_TYPES = [
+  { value: 'retainer', label: 'Monthly Retainer', description: 'Ongoing monthly hours' },
+  { value: 'one_time', label: 'One-Time Project', description: 'Fixed scope project' },
+  { value: 'hourly', label: 'Hourly', description: 'Bill by the hour' },
+  { value: 'discovery', label: 'Discovery', description: 'Exploring scope' },
+]
+
+const PIPELINE_STAGES = [
+  { value: 'lead', label: 'Lead', color: 'bg-gray-500' },
+  { value: 'qualified', label: 'Qualified', color: 'bg-blue-500' },
+  { value: 'proposal', label: 'Proposal Sent', color: 'bg-purple-500' },
+  { value: 'negotiation', label: 'Negotiation', color: 'bg-yellow-500' },
+  { value: 'closed_won', label: 'Closed Won', color: 'bg-green-500' },
+  { value: 'closed_lost', label: 'Closed Lost', color: 'bg-red-500' },
+]
+
+const LEAD_SOURCES = [
+  'Referral',
+  'Website',
+  'LinkedIn',
+  'Cold Outreach',
+  'Event/Conference',
+  'Partner',
+  'Other',
 ]
 
 export default function ClientDialog({ 
@@ -95,6 +123,16 @@ export default function ClientDialog({
     is_active: true,
     logo_url: '',
     banner_url: '',
+    // New pipeline/engagement fields
+    client_status: 'active', // prospect, active, inactive
+    engagement_type: 'retainer', // retainer, one_time, hourly, discovery
+    estimated_monthly_hours: null,
+    estimated_project_hours: null,
+    estimated_budget: null,
+    pipeline_stage: 'lead',
+    lead_source: '',
+    expected_close_date: '',
+    notes: '',
   })
 
   const [errors, setErrors] = useState({})
@@ -127,6 +165,16 @@ export default function ClientDialog({
           is_active: client.is_active !== false,
           logo_url: client.logo_url || '',
           banner_url: client.banner_url || '',
+          // New fields
+          client_status: client.client_status || 'active',
+          engagement_type: client.engagement_type || 'retainer',
+          estimated_monthly_hours: client.estimated_monthly_hours || null,
+          estimated_project_hours: client.estimated_project_hours || null,
+          estimated_budget: client.estimated_budget || null,
+          pipeline_stage: client.pipeline_stage || 'lead',
+          lead_source: client.lead_source || '',
+          expected_close_date: client.expected_close_date || '',
+          notes: client.notes || '',
         })
         setStep(1)
       } else {
@@ -142,6 +190,16 @@ export default function ClientDialog({
           is_active: true,
           logo_url: '',
           banner_url: '',
+          // New fields default
+          client_status: 'active',
+          engagement_type: 'retainer',
+          estimated_monthly_hours: null,
+          estimated_project_hours: null,
+          estimated_budget: null,
+          pipeline_stage: 'lead',
+          lead_source: '',
+          expected_close_date: '',
+          notes: '',
         })
         setStep(1)
         setShowSuccess(false)
@@ -188,7 +246,7 @@ export default function ClientDialog({
   // Next step
   const handleNext = () => {
     if (validateStep()) {
-      if (step < 3) {
+      if (step < 4) {
         setStep(step + 1)
       } else {
         handleSubmit()
@@ -353,9 +411,19 @@ export default function ClientDialog({
         account_services: formData.account_services 
           ? formData.account_services.split(',').map(s => s.trim()).filter(Boolean)
           : [],
-        is_active: formData.is_active,
+        is_active: formData.client_status === 'active',
         logo_url: formData.logo_url || null,
         banner_url: formData.banner_url || null,
+        // New pipeline/engagement fields
+        client_status: formData.client_status,
+        engagement_type: formData.engagement_type,
+        estimated_monthly_hours: formData.estimated_monthly_hours || null,
+        estimated_project_hours: formData.estimated_project_hours || null,
+        estimated_budget: formData.estimated_budget || null,
+        pipeline_stage: formData.client_status === 'prospect' ? formData.pipeline_stage : null,
+        lead_source: formData.lead_source || null,
+        expected_close_date: formData.expected_close_date || null,
+        notes: formData.notes || null,
       }
 
       console.log('Saving client data:', dataToSave)
@@ -669,6 +737,59 @@ export default function ClientDialog({
                             Comma-separated list of services
                           </p>
                         </div>
+
+                        {/* Client Type Toggle */}
+                        <div className="pt-2">
+                          <Label className="text-sm font-medium mb-2 block">Client Type</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ 
+                                ...prev, 
+                                client_status: 'prospect',
+                                is_active: false 
+                              }))}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
+                                formData.client_status === 'prospect'
+                                  ? "border-purple-500 bg-purple-500/10"
+                                  : "border-muted hover:border-purple-500/50"
+                              )}
+                            >
+                              <Target className={cn(
+                                "h-5 w-5",
+                                formData.client_status === 'prospect' ? "text-purple-500" : "text-muted-foreground"
+                              )} />
+                              <div>
+                                <p className="font-semibold text-sm">Prospect</p>
+                                <p className="text-xs text-muted-foreground">In sales pipeline</p>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ 
+                                ...prev, 
+                                client_status: 'active',
+                                is_active: true 
+                              }))}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
+                                formData.client_status === 'active'
+                                  ? "border-green-500 bg-green-500/10"
+                                  : "border-muted hover:border-green-500/50"
+                              )}
+                            >
+                              <Check className={cn(
+                                "h-5 w-5",
+                                formData.client_status === 'active' ? "text-green-500" : "text-muted-foreground"
+                              )} />
+                              <div>
+                                <p className="font-semibold text-sm">Active Client</p>
+                                <p className="text-xs text-muted-foreground">Ready to work</p>
+                              </div>
+                            </button>
+                          </div>
+                        </div>
                       </motion.div>
                     )}
 
@@ -744,56 +865,179 @@ export default function ClientDialog({
                           </p>
                         </div>
 
+                      </motion.div>
+                    )}
+
+                    {/* Step 3: Engagement */}
+                    {step === 3 && (
+                      <motion.div
+                        key="step3"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="space-y-4"
+                      >
+                        {/* Engagement Type */}
                         <div>
-                          <Label className="text-sm font-medium mb-3 block">
-                            Monthly Hours
-                            <span className="ml-2 text-brand-orange font-bold">{formData.monthly_hours}h</span>
-                          </Label>
-                          <div className="space-y-3">
-                            {/* Quick Select Grid */}
+                          <Label className="text-sm font-medium mb-2 block">Engagement Type</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {ENGAGEMENT_TYPES.map((type) => (
+                              <button
+                                key={type.value}
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, engagement_type: type.value }))}
+                                className={cn(
+                                  "p-3 rounded-xl border-2 transition-all text-left",
+                                  formData.engagement_type === type.value
+                                    ? "border-brand-orange bg-brand-orange/10"
+                                    : "border-muted hover:border-brand-orange/50"
+                                )}
+                              >
+                                <p className="font-semibold text-sm">{type.label}</p>
+                                <p className="text-xs text-muted-foreground">{type.description}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Hours based on engagement type */}
+                        {formData.engagement_type === 'retainer' && (
+                          <div>
+                            <Label className="text-sm font-medium mb-3 block">
+                              {formData.client_status === 'prospect' ? 'Estimated' : ''} Monthly Hours
+                              <span className="ml-2 text-brand-orange font-bold">{formData.monthly_hours || formData.estimated_monthly_hours || 0}h</span>
+                            </Label>
                             <div className="grid grid-cols-6 gap-1.5">
                               {HOUR_OPTIONS.map((opt) => (
                                 <button
                                   key={opt.value}
                                   type="button"
-                                  onClick={() => setFormData(prev => ({ ...prev, monthly_hours: opt.value }))}
+                                  onClick={() => setFormData(prev => ({ 
+                                    ...prev, 
+                                    monthly_hours: opt.value,
+                                    estimated_monthly_hours: opt.value 
+                                  }))}
                                   className={cn(
-                                    "relative py-2 px-1 rounded-lg border-2 transition-all text-center font-semibold",
-                                    formData.monthly_hours === opt.value
+                                    "relative py-2 px-1 rounded-lg border-2 transition-all text-center font-semibold text-sm",
+                                    (formData.monthly_hours === opt.value || formData.estimated_monthly_hours === opt.value)
                                       ? "border-brand-orange bg-brand-orange text-white"
                                       : "border-muted hover:border-brand-orange/50 hover:bg-brand-orange/5"
                                   )}
                                 >
-                                  {opt.popular && (
-                                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-brand-orange rounded-full" />
-                                  )}
                                   {opt.value}
                                 </button>
                               ))}
                             </div>
-                            
-                            {/* Custom Input */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Or custom:</span>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={200}
-                                value={formData.monthly_hours}
-                                onChange={(e) => setFormData(prev => ({ ...prev, monthly_hours: parseInt(e.target.value) || 0 }))}
-                                className="w-24 h-9 text-center font-bold"
-                              />
-                              <span className="text-sm text-muted-foreground">hours/month</span>
-                            </div>
+                          </div>
+                        )}
+
+                        {formData.engagement_type === 'one_time' && (
+                          <div>
+                            <Label className="text-sm font-medium">Estimated Project Hours</Label>
+                            <Input
+                              type="number"
+                              placeholder="e.g., 100"
+                              value={formData.estimated_project_hours || ''}
+                              onChange={(e) => setFormData(prev => ({ 
+                                ...prev, 
+                                estimated_project_hours: parseFloat(e.target.value) || null 
+                              }))}
+                              className="mt-1.5 h-11"
+                            />
+                          </div>
+                        )}
+
+                        {/* Estimated Budget */}
+                        <div>
+                          <Label className="text-sm font-medium">
+                            {formData.client_status === 'prospect' ? 'Estimated Budget' : 'Monthly Budget'}
+                          </Label>
+                          <div className="relative mt-1.5">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              placeholder="5000"
+                              value={formData.estimated_budget || ''}
+                              onChange={(e) => setFormData(prev => ({ 
+                                ...prev, 
+                                estimated_budget: parseFloat(e.target.value) || null 
+                              }))}
+                              className="pl-9 h-11"
+                            />
                           </div>
                         </div>
+
+                        {/* Pipeline fields for prospects */}
+                        {formData.client_status === 'prospect' && (
+                          <>
+                            <div>
+                              <Label className="text-sm font-medium mb-2 block">Pipeline Stage</Label>
+                              <div className="flex flex-wrap gap-2">
+                                {PIPELINE_STAGES.slice(0, 4).map((stage) => (
+                                  <button
+                                    key={stage.value}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, pipeline_stage: stage.value }))}
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
+                                      formData.pipeline_stage === stage.value
+                                        ? "border-brand-orange bg-brand-orange text-white"
+                                        : "border-muted hover:border-brand-orange/50"
+                                    )}
+                                  >
+                                    {stage.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label className="text-sm font-medium">Lead Source</Label>
+                                <Select 
+                                  value={formData.lead_source || ''} 
+                                  onValueChange={(val) => setFormData(prev => ({ ...prev, lead_source: val }))}
+                                >
+                                  <SelectTrigger className="mt-1.5 h-11">
+                                    <SelectValue placeholder="How did they find us?" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {LEAD_SOURCES.map((source) => (
+                                      <SelectItem key={source} value={source}>{source}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">Expected Close Date</Label>
+                                <Input
+                                  type="date"
+                                  value={formData.expected_close_date || ''}
+                                  onChange={(e) => setFormData(prev => ({ ...prev, expected_close_date: e.target.value }))}
+                                  className="mt-1.5 h-11"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label className="text-sm font-medium">Notes</Label>
+                              <textarea
+                                placeholder="Initial discussions, requirements, next steps..."
+                                value={formData.notes || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                                className="mt-1.5 w-full min-h-[80px] px-3 py-2 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand-orange"
+                                rows={3}
+                              />
+                            </div>
+                          </>
+                        )}
                       </motion.div>
                     )}
 
-                    {/* Step 3: Branding */}
-                    {step === 3 && (
+                    {/* Step 4: Branding */}
+                    {step === 4 && (
                       <motion.div
-                        key="step3"
+                        key="step4"
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
@@ -990,10 +1234,10 @@ export default function ClientDialog({
                   >
                     {saving ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : step === 3 ? (
+                    ) : step === 4 ? (
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        {client ? 'Save Changes' : 'Create Client'}
+                        {client ? 'Save Changes' : formData.client_status === 'prospect' ? 'Add to Pipeline' : 'Create Client'}
                       </>
                     ) : (
                       <>

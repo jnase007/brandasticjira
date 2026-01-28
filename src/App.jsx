@@ -10,6 +10,7 @@ const Login = lazy(() => import('./pages/Login'))
 const Demo = lazy(() => import('./pages/Demo'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Boards = lazy(() => import('./pages/Boards'))
+const TaskBoard = lazy(() => import('./pages/TaskBoard'))
 const BoardDetail = lazy(() => import('./pages/BoardDetail'))
 const TicketDetail = lazy(() => import('./pages/TicketDetail'))
 const ClientPortal = lazy(() => import('./pages/ClientPortal'))
@@ -733,6 +734,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <Boards />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/taskboard"
+                element={
+                  <TeamRoute>
+                    <TaskBoard />
                   </TeamRoute>
                 }
               />
