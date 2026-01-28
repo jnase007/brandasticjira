@@ -685,44 +685,42 @@ export default function Dashboard({ onConfetti }) {
                     </Link>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-2">
+                <CardContent className="p-0">
+                  <div className="divide-y">
                     {myTasks.map((task) => (
                       <Link
                         key={task.id}
                         to={task.board_id ? `/boards/${task.board_id}` : '#'}
                         className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-sm",
-                          task.status === 'inprogress' 
-                            ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800" 
-                            : "hover:border-brand-orange/30"
+                          "flex items-center gap-3 px-6 py-4 transition-all hover:bg-muted/50 group",
+                          task.status === 'inprogress' && "bg-blue-50/30 dark:bg-blue-900/10"
                         )}
                       >
-                        {/* Status Icon */}
-                        <div className={cn(
-                          "p-1.5 rounded-full flex-shrink-0",
-                          task.status === 'inprogress' ? "bg-blue-100 dark:bg-blue-900/30" : "bg-gray-100 dark:bg-gray-800"
-                        )}>
-                          {task.status === 'inprogress' ? (
-                            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                          ) : (
-                            <Circle className="h-4 w-4 text-gray-400" />
-                          )}
-                        </div>
+                        {/* Client Logo */}
+                        {task.client_logo ? (
+                          <img 
+                            src={task.client_logo} 
+                            alt={task.client_name} 
+                            className="w-10 h-10 rounded-lg object-cover border flex-shrink-0"
+                          />
+                        ) : (
+                          <div 
+                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                            style={{ backgroundColor: task.client_color || '#F7931E' }}
+                          >
+                            {task.client_name?.charAt(0) || '?'}
+                          </div>
+                        )}
                         
                         {/* Task Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{task.title}</p>
+                            <p className="font-medium truncate group-hover:text-brand-orange transition-colors">{task.title}</p>
                             {task.priority === 'high' || task.priority === 'urgent' ? (
                               <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{task.priority}</Badge>
                             ) : null}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                            <div 
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: task.client_color || '#F7931E' }}
-                            />
                             <span className="truncate">{task.client_name}</span>
                             {task.due_date && (
                               <>
@@ -745,6 +743,8 @@ export default function Dashboard({ onConfetti }) {
                         >
                           {task.status === 'inprogress' ? 'In Progress' : 'To Do'}
                         </Badge>
+                        
+                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       </Link>
                     ))}
                   </div>
@@ -1075,47 +1075,71 @@ export default function Dashboard({ onConfetti }) {
                 {completedTickets}/{recentTickets.length} done
               </Badge>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentTickets.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
-                      <Award className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">No tasks yet</p>
+            <CardContent className="p-0">
+              {recentTickets.length === 0 ? (
+                <div className="text-center py-8 px-6">
+                  <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                    <Award className="h-6 w-6 text-muted-foreground" />
                   </div>
-                ) : (
-                  recentTickets.map((ticket, index) => (
+                  <p className="text-sm text-muted-foreground">No tasks yet</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {recentTickets.map((ticket, index) => (
                     <motion.div
                       key={ticket.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: index * 0.05 }}
                     >
                       <Link
                         to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
-                        className="flex items-start gap-3 p-3 -mx-2 rounded-xl hover:bg-muted/50 transition-colors group"
+                        className="flex items-center gap-3 px-6 py-4 hover:bg-muted/50 transition-colors group"
                       >
+                        {/* Client Logo */}
+                        {ticket.client?.logo_url ? (
+                          <img 
+                            src={ticket.client.logo_url} 
+                            alt={ticket.client.name} 
+                            className="w-10 h-10 rounded-lg object-cover border flex-shrink-0"
+                          />
+                        ) : (
+                          <div 
+                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                            style={{ backgroundColor: ticket.client?.color || '#F7931E' }}
+                          >
+                            {ticket.client?.name?.charAt(0) || '?'}
+                          </div>
+                        )}
+                        
+                        {/* Task Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-medium truncate group-hover:text-brand-orange transition-colors">
+                              {ticket.title}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono text-blue-600 dark:text-blue-400">{ticket.ticket_id}</span>
+                            <span>•</span>
+                            <span className="truncate">{ticket.client?.name || 'Unknown Client'}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Status Badge */}
                         <Badge 
                           variant={ticket.status} 
-                          className="mt-0.5 text-[10px] uppercase tracking-wide"
+                          className="text-[10px] uppercase tracking-wide flex-shrink-0"
                         >
-                          {ticket.status === 'inprogress' ? 'WIP' : ticket.status}
+                          {ticket.status?.replace('_', ' ') || 'new'}
                         </Badge>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate group-hover:text-brand-orange transition-colors">
-                            {ticket.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {ticket.ticket_id}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        
+                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       </Link>
                     </motion.div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -1240,17 +1264,17 @@ export default function Dashboard({ onConfetti }) {
                     {myTickets.filter(t => t.status === 'done').length}/{myTickets.length} done
                   </Badge>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {myTickets.length === 0 ? (
-                      <div className="text-center py-8">
-                        <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
-                          <Award className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                        <p className="text-sm text-muted-foreground">No tasks assigned yet</p>
+                <CardContent className="p-0">
+                  {myTickets.length === 0 ? (
+                    <div className="text-center py-8 px-6">
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                        <Award className="h-6 w-6 text-muted-foreground" />
                       </div>
-                    ) : (
-                      myTickets.slice(0, 6).map((ticket, index) => (
+                      <p className="text-sm text-muted-foreground">No tasks assigned yet</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {myTickets.slice(0, 6).map((ticket, index) => (
                         <motion.div
                           key={ticket.id}
                           initial={{ opacity: 0, x: -10 }}
@@ -1259,28 +1283,50 @@ export default function Dashboard({ onConfetti }) {
                         >
                           <Link
                             to={`/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
-                            className="flex items-start gap-3 p-3 -mx-2 rounded-xl hover:bg-muted/50 transition-colors group"
+                            className="flex items-center gap-3 px-6 py-4 hover:bg-muted/50 transition-colors group"
                           >
-                            <Badge 
-                              variant={ticket.status} 
-                              className="mt-0.5 text-[10px] uppercase tracking-wide"
-                            >
-                              {ticket.status === 'inprogress' ? 'WIP' : ticket.status}
-                            </Badge>
+                            {/* Client Logo */}
+                            {ticket.client?.logo_url ? (
+                              <img 
+                                src={ticket.client.logo_url} 
+                                alt={ticket.client.name} 
+                                className="w-10 h-10 rounded-lg object-cover border flex-shrink-0"
+                              />
+                            ) : (
+                              <div 
+                                className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                                style={{ backgroundColor: ticket.client?.color || '#F7931E' }}
+                              >
+                                {ticket.client?.name?.charAt(0) || '?'}
+                              </div>
+                            )}
+                            
+                            {/* Task Info */}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate group-hover:text-brand-orange transition-colors">
                                 {ticket.title}
                               </p>
-                              <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                                {ticket.ticket_id}
-                              </p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                <span className="font-mono text-blue-600 dark:text-blue-400">{ticket.ticket_id}</span>
+                                <span>•</span>
+                                <span className="truncate">{ticket.client?.name || 'Unknown Client'}</span>
+                              </div>
                             </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            
+                            {/* Status Badge */}
+                            <Badge 
+                              variant={ticket.status} 
+                              className="text-[10px] uppercase tracking-wide flex-shrink-0"
+                            >
+                              {ticket.status?.replace('_', ' ') || 'new'}
+                            </Badge>
+                            
+                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                           </Link>
                         </motion.div>
-                      ))
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
