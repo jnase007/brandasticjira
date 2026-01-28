@@ -5,7 +5,8 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
   Kanban, User, Users, Building2, Clock, AlertCircle,
   ChevronDown, Filter, RefreshCw, CheckCircle, Circle, 
-  PlayCircle, Eye, Plus, Search, Calendar, ArrowRight
+  PlayCircle, Eye, Plus, Search, Calendar, ArrowRight,
+  UserCheck, ThumbsUp, Receipt, CheckCircle2
 } from 'lucide-react'
 import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -26,10 +27,13 @@ import { Skeleton } from '../components/ui/skeleton'
 import { useToast } from '../hooks/useToast'
 
 const COLUMNS = [
-  { id: 'todo', title: 'To Do', icon: Circle, color: 'bg-gray-500' },
-  { id: 'in_progress', title: 'In Progress', icon: PlayCircle, color: 'bg-blue-500' },
-  { id: 'review', title: 'Review', icon: Eye, color: 'bg-purple-500' },
-  { id: 'done', title: 'Done', icon: CheckCircle, color: 'bg-green-500' },
+  { id: 'new', title: 'New', icon: Circle, color: 'bg-green-500' },
+  { id: 'in_progress', title: 'In Progress', icon: PlayCircle, color: 'bg-brand-orange' },
+  { id: 'internal_review', title: 'Internal Review', icon: Eye, color: 'bg-gray-400' },
+  { id: 'client_review', title: 'Client Review', icon: UserCheck, color: 'bg-gray-400' },
+  { id: 'approved', title: 'Approved', icon: ThumbsUp, color: 'bg-gray-400' },
+  { id: 'ready_for_billing', title: 'Ready for Billing', icon: Receipt, color: 'bg-gray-400' },
+  { id: 'closed', title: 'Closed', icon: CheckCircle2, color: 'bg-gray-400' },
 ]
 
 const PRIORITY_COLORS = {
@@ -178,7 +182,7 @@ export default function TaskBoard() {
       total: filteredTickets.length,
       myTotal: myTasks.length,
       inProgress: myTasks.filter(t => t.status === 'in_progress').length,
-      overdue: myTasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done').length,
+      overdue: myTasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'closed').length,
     }
   }, [tickets, filteredTickets, user])
 
@@ -323,9 +327,9 @@ export default function TaskBoard() {
 
       {/* Kanban Board */}
       {loading ? (
-        <div className="grid grid-cols-4 gap-4 flex-1">
+        <div className="grid grid-cols-7 gap-3 flex-1 overflow-x-auto">
           {COLUMNS.map(col => (
-            <div key={col.id} className="space-y-3">
+            <div key={col.id} className="space-y-3 min-w-[160px]">
               <Skeleton className="h-10 w-full rounded-lg" />
               <Skeleton className="h-32 w-full rounded-lg" />
               <Skeleton className="h-24 w-full rounded-lg" />
@@ -334,9 +338,9 @@ export default function TaskBoard() {
         </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 overflow-x-auto">
+          <div className="flex gap-3 flex-1 overflow-x-auto pb-4">
             {COLUMNS.map(column => (
-              <div key={column.id} className="flex flex-col min-w-[280px]">
+              <div key={column.id} className="flex flex-col min-w-[180px] w-[180px] flex-shrink-0">
                 {/* Column Header */}
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-2">
@@ -422,7 +426,7 @@ export default function TaskBoard() {
                                 {ticket.due_date && (
                                   <div className={cn(
                                     "flex items-center gap-1 mt-2 text-xs",
-                                    new Date(ticket.due_date) < new Date() && ticket.status !== 'done'
+                                    new Date(ticket.due_date) < new Date() && ticket.status !== 'closed'
                                       ? "text-red-600"
                                       : "text-muted-foreground"
                                   )}>
