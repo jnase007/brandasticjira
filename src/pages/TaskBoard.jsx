@@ -36,6 +36,25 @@ const COLUMNS = [
   { id: 'closed', title: 'Closed', icon: CheckCircle2, color: 'bg-gray-400' },
 ]
 
+// Map legacy statuses to new workflow statuses
+const normalizeStatus = (status) => {
+  const statusMap = {
+    // Legacy statuses
+    'todo': 'new',
+    'review': 'internal_review',
+    'done': 'closed',
+    // Keep existing ones as-is
+    'new': 'new',
+    'in_progress': 'in_progress',
+    'internal_review': 'internal_review',
+    'client_review': 'client_review',
+    'approved': 'approved',
+    'ready_for_billing': 'ready_for_billing',
+    'closed': 'closed',
+  }
+  return statusMap[status] || 'new' // Default to 'new' if unknown
+}
+
 const PRIORITY_COLORS = {
   urgent: 'border-l-red-500 bg-red-500/5',
   high: 'border-l-orange-500 bg-orange-500/5',
@@ -95,7 +114,11 @@ export default function TaskBoard() {
           .order('name')
       ])
       
-      setTickets(ticketsRes.data || [])
+      const allTickets = ticketsRes.data || []
+      console.log('TaskBoard: Fetched tickets:', allTickets.length)
+      console.log('TaskBoard: Current user ID:', user?.id)
+      console.log('TaskBoard: User tickets:', allTickets.filter(t => t.assigned_to === user?.id))
+      setTickets(allTickets)
       setTeamMembers(membersRes.data || [])
       setClients(clientsRes.data || [])
     } catch (error) {
@@ -135,11 +158,11 @@ export default function TaskBoard() {
     return filtered
   }, [tickets, viewMode, selectedMember, selectedClient, searchQuery, user])
 
-  // Group tickets by status
+  // Group tickets by status (with legacy status mapping)
   const ticketsByStatus = useMemo(() => {
     const grouped = {}
     COLUMNS.forEach(col => {
-      grouped[col.id] = filteredTickets.filter(t => t.status === col.id)
+      grouped[col.id] = filteredTickets.filter(t => normalizeStatus(t.status) === col.id)
     })
     return grouped
   }, [filteredTickets])
@@ -304,10 +327,15 @@ export default function TaskBoard() {
       </div>
 
       {/* Stats Bar */}
-      <div className="flex items-center gap-6 mb-4 text-sm">
+      <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Showing:</span>
           <Badge variant="outline" className="font-bold">{filteredTickets.length} tasks</Badge>
+          {viewMode === 'personal' && tickets.length > 0 && (
+            <span className="text-muted-foreground">
+              (of {tickets.length} total)
+            </span>
+          )}
         </div>
         {viewMode === 'personal' && (
           <>
@@ -322,6 +350,16 @@ export default function TaskBoard() {
               </div>
             )}
           </>
+        )}
+        {viewMode === 'personal' && filteredTickets.length === 0 && tickets.length > 0 && (
+          <Button 
+            variant="link" 
+            size="sm" 
+            className="text-purple-600 p-0 h-auto"
+            onClick={() => setViewMode('company')}
+          >
+            View all {tickets.length} company tasks →
+          </Button>
         )}
       </div>
 
