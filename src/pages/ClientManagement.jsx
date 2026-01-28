@@ -6,7 +6,8 @@ import {
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
   ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
-  Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play, Target
+  Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play, Target,
+  DollarSign, Briefcase, ArrowRightCircle, Phone, GripVertical
 } from 'lucide-react'
 import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -623,7 +624,7 @@ export default function ClientManagement() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={containerVariants} className="grid gap-4 md:grid-cols-4 mb-8">
+      <motion.div variants={containerVariants} className="grid gap-4 grid-cols-2 md:grid-cols-5 mb-8">
         <motion.div variants={itemVariants}>
           <Card>
             <CardContent className="p-4">
@@ -643,16 +644,34 @@ export default function ClientManagement() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className={cn(pendingRequests.length > 0 && "border-brand-orange/30 bg-brand-orange/5")}>
+          <Card className={cn(prospectClients.length > 0 && "border-purple-500/30 bg-purple-500/5")}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-orange-500/10">
-                  <Bell className="h-5 w-5 text-orange-500" />
+                <div className="p-2 rounded-xl bg-purple-500/10">
+                  <Target className="h-5 w-5 text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Pending Requests</p>
-                  <p className="text-2xl font-bold text-orange-500">
-                    {pendingRequests.length}
+                  <p className="text-sm text-muted-foreground">Prospects</p>
+                  <p className="text-2xl font-bold text-purple-500">
+                    {prospectClients.length}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-green-500/10">
+                  <DollarSign className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Pipeline Value</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ${prospectClients.reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -679,16 +698,16 @@ export default function ClientManagement() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card>
+          <Card className={cn(pendingRequests.length > 0 && "border-brand-orange/30 bg-brand-orange/5")}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-green-500/10">
-                  <Users className="h-5 w-5 text-green-500" />
+                <div className="p-2 rounded-xl bg-orange-500/10">
+                  <Bell className="h-5 w-5 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Client Users</p>
-                  <p className="text-2xl font-bold">
-                    {clientUsers.length}
+                  <p className="text-sm text-muted-foreground">Pending Requests</p>
+                  <p className="text-2xl font-bold text-orange-500">
+                    {pendingRequests.length}
                   </p>
                 </div>
               </div>
@@ -780,6 +799,15 @@ export default function ClientManagement() {
           <TabsTrigger value="wins" className="gap-2">
             <Trophy className="h-4 w-4" />
             Client Wins
+          </TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-2">
+            <Target className="h-4 w-4" />
+            Sales Pipeline
+            {prospectClients.length > 0 && (
+              <Badge className="ml-1 h-5 px-1.5 bg-purple-500 text-white">
+                {prospectClients.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -1254,6 +1282,164 @@ export default function ClientManagement() {
                       </div>
                     </motion.div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Sales Pipeline Tab */}
+        <TabsContent value="pipeline">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-purple-500" />
+                    Sales Pipeline
+                  </CardTitle>
+                  <CardDescription>Track prospects through your sales process</CardDescription>
+                </div>
+                <Button onClick={() => setClientDialogOpen(true)} className="bg-purple-500 hover:bg-purple-600">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Prospect
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {prospectClients.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Target className="h-12 w-12 mx-auto mb-4 opacity-30 text-purple-500" />
+                  <p className="text-lg font-medium mb-1">No prospects yet</p>
+                  <p className="text-sm mb-4">Start building your sales pipeline</p>
+                  <Button className="bg-purple-500 hover:bg-purple-600" onClick={() => setClientDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Prospect
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-4 overflow-x-auto pb-4">
+                  {/* Pipeline Columns */}
+                  {[
+                    { id: 'lead', title: 'Lead', color: 'bg-gray-400', icon: Target },
+                    { id: 'kickoff', title: 'Kickoff', color: 'bg-blue-500', icon: Phone },
+                    { id: 'proposal', title: 'Proposal', color: 'bg-purple-500', icon: FileText },
+                    { id: 'contract', title: 'Contract', color: 'bg-orange-500', icon: Briefcase },
+                    { id: 'won', title: 'Won', color: 'bg-green-500', icon: CheckCircle },
+                    { id: 'lost', title: 'Lost', color: 'bg-red-500', icon: X },
+                  ].map(stage => {
+                    const stageClients = prospectClients.filter(c => c.pipeline_stage === stage.id)
+                    return (
+                      <div key={stage.id} className="flex flex-col min-w-[220px] w-[220px] flex-shrink-0">
+                        {/* Column Header */}
+                        <div className="flex items-center justify-between mb-3 px-1">
+                          <div className="flex items-center gap-2">
+                            <div className={cn("w-2 h-2 rounded-full", stage.color)} />
+                            <h3 className="font-semibold text-sm">{stage.title}</h3>
+                            <Badge variant="secondary" className="text-xs">
+                              {stageClients.length}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        {/* Column Content */}
+                        <div className="flex-1 p-2 rounded-xl border-2 border-dashed border-transparent bg-muted/30 min-h-[300px]">
+                          {stageClients.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground text-sm">
+                              <stage.icon className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                              <p className="text-xs">No prospects</p>
+                            </div>
+                          ) : (
+                            stageClients.map(client => (
+                              <motion.div
+                                key={client.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mb-2 p-3 rounded-lg bg-card border shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                              >
+                                <Link to={`/clients/${client.id}`} className="block">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    {client.logo_url ? (
+                                      <img src={client.logo_url} alt={client.name} className="w-8 h-8 rounded-lg object-cover" />
+                                    ) : (
+                                      <div 
+                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                                        style={{ backgroundColor: client.color || '#8B5CF6' }}
+                                      >
+                                        {getInitials(client.name)}
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-medium text-sm truncate group-hover:text-purple-600 transition-colors">
+                                        {client.name}
+                                      </h4>
+                                      {client.lead_source && (
+                                        <p className="text-[10px] text-muted-foreground truncate">{client.lead_source}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between text-xs">
+                                    {client.estimated_budget && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">
+                                        <DollarSign className="h-2.5 w-2.5 mr-0.5" />
+                                        {Number(client.estimated_budget).toLocaleString()}
+                                      </Badge>
+                                    )}
+                                    {client.expected_close_date && (
+                                      <span className="text-muted-foreground text-[10px]">
+                                        {formatDate(client.expected_close_date)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {client.engagement_type && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "mt-2 text-[10px] px-1.5 py-0",
+                                        client.engagement_type === 'retainer' 
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : "bg-orange-50 text-orange-700 border-orange-200"
+                                      )}
+                                    >
+                                      {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
+                                    </Badge>
+                                  )}
+                                </Link>
+                              </motion.div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              
+              {/* Pipeline Summary */}
+              {prospectClients.length > 0 && (
+                <div className="mt-6 pt-4 border-t">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm">
+                        <strong>{prospectClients.length}</strong> prospects in pipeline
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-green-500" />
+                      <span className="text-sm">
+                        <strong>${prospectClients.reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0).toLocaleString()}</strong> potential value
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-sm">
+                        <strong>{prospectClients.filter(c => c.pipeline_stage === 'won').length}</strong> won
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

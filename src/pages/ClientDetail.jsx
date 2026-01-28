@@ -1677,9 +1677,20 @@ export default function ClientDetail() {
                 </div>
 
                 {/* Quick Summary */}
-                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
+                  <div className={cn(
+                    "rounded-xl border px-3 py-2",
+                    client.engagement_type === 'retainer' 
+                      ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" 
+                      : "bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800"
+                  )}>
+                    <p className="text-xs text-muted-foreground">Engagement</p>
+                    <p className="font-semibold flex items-center gap-1">
+                      {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
+                    </p>
+                  </div>
                   <div className="rounded-xl border bg-muted/40 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">Monthly Hours</p>
+                    <p className="text-xs text-muted-foreground">{client.engagement_type === 'retainer' ? 'Monthly Hours' : 'Project Hours'}</p>
                     <p className="font-semibold">{monthlyBudget}h</p>
                   </div>
                   <div className="rounded-xl border bg-muted/40 px-3 py-2">
@@ -1725,21 +1736,37 @@ export default function ClientDetail() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card>
+          <Card className={cn(
+            client.engagement_type === 'retainer' 
+              ? "border-blue-200 dark:border-blue-800" 
+              : "border-orange-200 dark:border-orange-800"
+          )}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-green-500/10">
-                  <DollarSign className="h-5 w-5 text-green-500" />
+                <div className={cn(
+                  "p-2 rounded-xl",
+                  client.engagement_type === 'retainer' ? "bg-blue-500/10" : "bg-orange-500/10"
+                )}>
+                  <DollarSign className={cn(
+                    "h-5 w-5",
+                    client.engagement_type === 'retainer' ? "text-blue-500" : "text-orange-500"
+                  )} />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-sm text-muted-foreground">
+                    {client.engagement_type === 'retainer' ? 'Retainer Revenue' : 'Project Revenue'}
+                  </p>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    client.engagement_type === 'retainer' ? "text-blue-600" : "text-orange-600"
+                  )}>
                     ${Math.round(totalRevenue).toLocaleString()}
                   </p>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
                 {billableHours}h billable @ $175/hr
+                {client.engagement_type === 'retainer' && ' • Monthly'}
               </p>
             </CardContent>
           </Card>
