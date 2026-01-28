@@ -125,6 +125,7 @@ export default function ClientManagement() {
   const [requests, setRequests] = useState([])
   const [projects, setProjects] = useState([])
   const [clientUsers, setClientUsers] = useState([])
+  const [clientWins, setClientWins] = useState([])
   
   // Pinned/favorite clients (stored in database for persistence)
   const [pinnedClients, setPinnedClients] = useState([])
@@ -308,13 +309,19 @@ export default function ClientManagement() {
           supabase
             .from('client_team_assignments')
             .select('id, client_id, user_id'),
+          // Client wins
+          supabase
+            .from('client_wins')
+            .select('*, client:client_id(id, name), user:user_id(id, full_name, avatar_url)')
+            .order('created_at', { ascending: false }),
         ])
 
-        const [ticketsRes, boardsRes, teamAssignmentsRes] = await Promise.race([additionalDataPromise, timeout])
+        const [ticketsRes, boardsRes, teamAssignmentsRes, winsRes] = await Promise.race([additionalDataPromise, timeout])
 
         setRequests(ticketsRes.data || []) // Use tickets as "Requests"
         setProjects(boardsRes.data || []) // Use boards as "Projects"
         setClientUsers(teamAssignmentsRes.data || []) // Use team assignments as "Users"
+        setClientWins(winsRes.data || []) // Client wins
       } catch (err) {
         console.log('Optional tables not ready:', err)
       }
@@ -660,7 +667,7 @@ export default function ClientManagement() {
                 <div>
                   <p className="text-sm text-muted-foreground">Client Wins 🎉</p>
                   <p className="text-2xl font-bold">
-                    {projects.length}
+                    {clientWins.length}
                   </p>
                 </div>
               </div>
@@ -1153,7 +1160,7 @@ export default function ClientManagement() {
               </div>
             </CardHeader>
             <CardContent>
-              {projects.length === 0 ? (
+              {clientWins.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Trophy className="h-12 w-12 mx-auto mb-4 opacity-30 text-yellow-500" />
                   <p className="text-lg font-medium mb-1">No wins shared yet</p>
@@ -1165,9 +1172,9 @@ export default function ClientManagement() {
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {projects.map((project) => (
+                  {clientWins.map((win) => (
                     <motion.div
-                      key={project.id}
+                      key={win.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="p-5 rounded-xl border-2 border-yellow-200 dark:border-yellow-900/30 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10 hover:shadow-lg transition-all group"
@@ -1178,11 +1185,11 @@ export default function ClientManagement() {
                             <Trophy className="h-5 w-5 text-yellow-600" />
                           </div>
                           <div>
-                            <h3 className="font-bold text-lg">{project.title}</h3>
-                            <p className="text-sm text-muted-foreground">{project.client?.name}</p>
+                            <h3 className="font-bold text-lg">{win.title}</h3>
+                            <p className="text-sm text-muted-foreground">{win.client?.name}</p>
                           </div>
                         </div>
-                        {project.is_featured && (
+                        {win.is_featured && (
                           <Badge className="bg-yellow-500 text-white">
                             <Star className="h-3 w-3 mr-1 fill-current" />
                             Featured
@@ -1190,27 +1197,43 @@ export default function ClientManagement() {
                         )}
                       </div>
                       
-                      {project.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                      {win.description && (
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{win.description}</p>
                       )}
                       
-                      {project.category && (
+                      {win.image_url && (
+                        <img 
+                          src={win.image_url} 
+                          alt={win.title}
+                          className="w-full h-32 object-cover rounded-lg mb-3 border"
+                        />
+                      )}
+                      
+                      {win.category && win.category !== 'general' && (
                         <Badge variant="outline" className="mb-3 bg-white/50 dark:bg-white/10">
                           <TrendingUp className="h-3 w-3 mr-1" />
-                          {project.category}
+                          {win.category.replace('_', ' ')}
                         </Badge>
                       )}
                       
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-yellow-200 dark:border-yellow-800/30">
-                        <span className="text-xs text-muted-foreground">
-                          {project.created_at ? formatRelativeDate(new Date(project.created_at)) : 'Recently'}
-                        </span>
-                        {project.url && (
+                        <div className="flex items-center gap-2">
+                          {win.user && (
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={win.user.avatar_url} />
+                              <AvatarFallback className="text-[10px]">{win.user.full_name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {win.user?.full_name} • {win.created_at ? formatRelativeDate(new Date(win.created_at)) : 'Recently'}
+                          </span>
+                        </div>
+                        {win.client?.id && (
                           <Button variant="ghost" size="sm" asChild className="text-yellow-600 hover:text-yellow-700">
-                            <a href={project.url} target="_blank" rel="noopener noreferrer">
-                              View Details
+                            <Link to={`/clients/${win.client.id}`}>
+                              View Client
                               <ExternalLink className="h-3 w-3 ml-1" />
-                            </a>
+                            </Link>
                           </Button>
                         )}
                       </div>
