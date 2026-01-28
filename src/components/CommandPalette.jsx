@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -25,8 +25,12 @@ import {
   Keyboard,
   Activity,
   Users2,
+  Hash,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { supabase } from '../lib/supabase'
+import { Badge } from './ui/badge'
 
 const COMMANDS = [
   // Navigation
@@ -61,6 +65,88 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
   const inputRef = useRef(null)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const searchTimeoutRef = useRef(null)
+
+  // Search tickets when query changes
+  useEffect(() => {
+    if (!query.trim() || query.length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    // Debounce search
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        // Search by ticket_id or title
+        const { data: tickets } = await supabase
+          .from('tickets')
+          .select('id, ticket_id, title, client_id, client:client_id(name)')
+          .or(`ticket_id.ilike.%${query}%,title.ilike.%${query}%`)
+          .limit(5)
+
+        // Also search clients
+        const { data: clients } = await supabase
+          .from('clients')
+          .select('id, name')
+          .ilike('name', `%${query}%`)
+          .limit(3)
+
+        const results = []
+        
+        // Add ticket results
+        if (tickets?.length) {
+          tickets.forEach(t => {
+            results.push({
+              id: `ticket-${t.id}`,
+              type: 'ticket',
+              label: t.title,
+              sublabel: `${t.ticket_id || 'No ID'} • ${t.client?.name || 'Unknown Client'}`,
+              ticketId: t.ticket_id,
+              icon: Hash,
+              action: 'navigate',
+              path: `/clients/${t.client_id}/tickets/${t.id}`,
+              category: 'Tickets',
+            })
+          })
+        }
+
+        // Add client results
+        if (clients?.length) {
+          clients.forEach(c => {
+            results.push({
+              id: `client-${c.id}`,
+              type: 'client',
+              label: c.name,
+              sublabel: 'Client',
+              icon: Building2,
+              action: 'navigate',
+              path: `/clients/${c.id}`,
+              category: 'Clients',
+            })
+          })
+        }
+
+        setSearchResults(results)
+      } catch (error) {
+        console.error('Search error:', error)
+      } finally {
+        setSearching(false)
+      }
+    }, 200)
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [query])
 
   // Filter commands based on query
   const filteredCommands = COMMANDS.filter(cmd =>
@@ -68,12 +154,24 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
     cmd.category.toLowerCase().includes(query.toLowerCase())
   )
 
-  // Group by category
-  const groupedCommands = filteredCommands.reduce((acc, cmd) => {
-    if (!acc[cmd.category]) acc[cmd.category] = []
-    acc[cmd.category].push(cmd)
-    return acc
-  }, {})
+  // Group by category (including search results)
+  const groupedCommands = useMemo(() => {
+    const grouped = {}
+    
+    // Add search results first
+    searchResults.forEach(result => {
+      if (!grouped[result.category]) grouped[result.category] = []
+      grouped[result.category].push(result)
+    })
+    
+    // Add filtered commands
+    filteredCommands.forEach(cmd => {
+      if (!grouped[cmd.category]) grouped[cmd.category] = []
+      grouped[cmd.category].push(cmd)
+    })
+    
+    return grouped
+  }, [filteredCommands, searchResults])
 
   // Flatten for keyboard navigation
   const flatCommands = Object.values(groupedCommands).flat()
@@ -170,11 +268,15 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
             <div className="mx-4 overflow-hidden rounded-2xl border bg-background shadow-2xl">
               {/* Search Input */}
               <div className="flex items-center gap-3 border-b px-4 py-3">
-                <Search className="h-5 w-5 text-muted-foreground" />
+                {searching ? (
+                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                ) : (
+                  <Search className="h-5 w-5 text-muted-foreground" />
+                )}
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search commands, pages, tasks..."
+                  placeholder="Search tickets (BRA-1), clients, commands..."
                   value={query}
                   onChange={(e) => {
                     setQuery(e.target.value)
@@ -214,8 +316,29 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
                                 : "hover:bg-muted"
                             )}
                           >
-                            <cmd.icon className={cn("h-5 w-5", isSelected ? "text-white" : "text-muted-foreground")} />
-                            <span className="flex-1 font-medium">{cmd.label}</span>
+                            <cmd.icon className={cn("h-5 w-5 flex-shrink-0", isSelected ? "text-white" : "text-muted-foreground")} />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium block truncate">{cmd.label}</span>
+                              {cmd.sublabel && (
+                                <span className={cn(
+                                  "text-xs block truncate",
+                                  isSelected ? "text-white/80" : "text-muted-foreground"
+                                )}>
+                                  {cmd.sublabel}
+                                </span>
+                              )}
+                            </div>
+                            {cmd.ticketId && (
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "font-mono text-xs flex-shrink-0",
+                                  isSelected ? "bg-white/20 text-white border-white/30" : "bg-blue-50 text-blue-700 border-blue-200"
+                                )}
+                              >
+                                {cmd.ticketId}
+                              </Badge>
+                            )}
                             {cmd.shortcut && (
                               <kbd className={cn(
                                 "hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-mono",
