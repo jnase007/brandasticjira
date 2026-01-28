@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
   Building2, Users, Plus, Search, Bell, MessageSquare, Calendar,
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
@@ -518,6 +519,41 @@ export default function ClientManagement() {
       })
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  // Handle pipeline drag and drop
+  const handlePipelineDragEnd = async (result) => {
+    if (!result.destination) return
+    
+    const { draggableId, source, destination } = result
+    if (source.droppableId === destination.droppableId) return
+    
+    const newStage = destination.droppableId
+    const clientId = draggableId
+    
+    // Optimistic update
+    setClients(prev => prev.map(c => 
+      c.id === clientId ? { ...c, pipeline_stage: newStage } : c
+    ))
+    
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ pipeline_stage: newStage })
+        .eq('id', clientId)
+      
+      if (error) throw error
+      
+      toast({ 
+        title: 'Pipeline updated', 
+        description: `Moved to ${newStage.charAt(0).toUpperCase() + newStage.slice(1)}`,
+        variant: 'success' 
+      })
+    } catch (error) {
+      console.error('Error updating pipeline:', error)
+      toast({ title: 'Failed to update pipeline', variant: 'destructive' })
+      fetchData() // Revert on error
     }
   }
 
@@ -1318,103 +1354,131 @@ export default function ClientManagement() {
                   </Button>
                 </div>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-4">
-                  {/* Pipeline Columns */}
-                  {[
-                    { id: 'lead', title: 'Lead', color: 'bg-gray-400', icon: Target },
-                    { id: 'kickoff', title: 'Kickoff', color: 'bg-blue-500', icon: Phone },
-                    { id: 'proposal', title: 'Proposal', color: 'bg-purple-500', icon: FileText },
-                    { id: 'contract', title: 'Contract', color: 'bg-orange-500', icon: Briefcase },
-                    { id: 'won', title: 'Won', color: 'bg-green-500', icon: CheckCircle },
-                    { id: 'lost', title: 'Lost', color: 'bg-red-500', icon: X },
-                  ].map(stage => {
-                    const stageClients = prospectClients.filter(c => c.pipeline_stage === stage.id)
-                    return (
-                      <div key={stage.id} className="flex flex-col min-w-[220px] w-[220px] flex-shrink-0">
-                        {/* Column Header */}
-                        <div className="flex items-center justify-between mb-3 px-1">
-                          <div className="flex items-center gap-2">
-                            <div className={cn("w-2 h-2 rounded-full", stage.color)} />
-                            <h3 className="font-semibold text-sm">{stage.title}</h3>
-                            <Badge variant="secondary" className="text-xs">
-                              {stageClients.length}
-                            </Badge>
-                          </div>
-                        </div>
-                        
-                        {/* Column Content */}
-                        <div className="flex-1 p-2 rounded-xl border-2 border-dashed border-transparent bg-muted/30 min-h-[300px]">
-                          {stageClients.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground text-sm">
-                              <stage.icon className="h-6 w-6 mx-auto mb-2 opacity-30" />
-                              <p className="text-xs">No prospects</p>
+                <DragDropContext onDragEnd={handlePipelineDragEnd}>
+                  <div className="flex gap-4 overflow-x-auto pb-4">
+                    {/* Pipeline Columns */}
+                    {[
+                      { id: 'lead', title: 'Lead', color: 'bg-gray-400', icon: Target },
+                      { id: 'kickoff', title: 'Kickoff', color: 'bg-blue-500', icon: Phone },
+                      { id: 'proposal', title: 'Proposal', color: 'bg-purple-500', icon: FileText },
+                      { id: 'contract', title: 'Contract', color: 'bg-orange-500', icon: Briefcase },
+                      { id: 'won', title: 'Won', color: 'bg-green-500', icon: CheckCircle },
+                      { id: 'lost', title: 'Lost', color: 'bg-red-500', icon: X },
+                    ].map(stage => {
+                      const stageClients = prospectClients.filter(c => c.pipeline_stage === stage.id)
+                      return (
+                        <div key={stage.id} className="flex flex-col min-w-[220px] w-[220px] flex-shrink-0">
+                          {/* Column Header */}
+                          <div className="flex items-center justify-between mb-3 px-1">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("w-2 h-2 rounded-full", stage.color)} />
+                              <h3 className="font-semibold text-sm">{stage.title}</h3>
+                              <Badge variant="secondary" className="text-xs">
+                                {stageClients.length}
+                              </Badge>
                             </div>
-                          ) : (
-                            stageClients.map(client => (
-                              <motion.div
-                                key={client.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="mb-2 p-3 rounded-lg bg-card border shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                          </div>
+                          
+                          {/* Column Content - Droppable */}
+                          <Droppable droppableId={stage.id}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={cn(
+                                  "flex-1 p-2 rounded-xl border-2 border-dashed transition-colors min-h-[300px]",
+                                  snapshot.isDraggingOver 
+                                    ? "border-purple-500 bg-purple-500/10" 
+                                    : "border-transparent bg-muted/30"
+                                )}
                               >
-                                <Link to={`/clients/${client.id}`} className="block">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    {client.logo_url ? (
-                                      <img src={client.logo_url} alt={client.name} className="w-8 h-8 rounded-lg object-cover" />
-                                    ) : (
-                                      <div 
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                                        style={{ backgroundColor: client.color || '#8B5CF6' }}
-                                      >
-                                        {getInitials(client.name)}
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="font-medium text-sm truncate group-hover:text-purple-600 transition-colors">
-                                        {client.name}
-                                      </h4>
-                                      {client.lead_source && (
-                                        <p className="text-[10px] text-muted-foreground truncate">{client.lead_source}</p>
-                                      )}
-                                    </div>
+                                {stageClients.length === 0 && !snapshot.isDraggingOver ? (
+                                  <div className="text-center py-8 text-muted-foreground text-sm">
+                                    <stage.icon className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                                    <p className="text-xs">No prospects</p>
                                   </div>
-                                  
-                                  <div className="flex items-center justify-between text-xs">
-                                    {client.estimated_budget && (
-                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">
-                                        <DollarSign className="h-2.5 w-2.5 mr-0.5" />
-                                        {Number(client.estimated_budget).toLocaleString()}
-                                      </Badge>
-                                    )}
-                                    {client.expected_close_date && (
-                                      <span className="text-muted-foreground text-[10px]">
-                                        {formatDate(client.expected_close_date)}
-                                      </span>
-                                    )}
-                                  </div>
-                                  
-                                  {client.engagement_type && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className={cn(
-                                        "mt-2 text-[10px] px-1.5 py-0",
-                                        client.engagement_type === 'retainer' 
-                                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                                          : "bg-orange-50 text-orange-700 border-orange-200"
+                                ) : (
+                                  stageClients.map((client, index) => (
+                                    <Draggable key={client.id} draggableId={client.id} index={index}>
+                                      {(provided, snapshot) => (
+                                        <div
+                                          ref={provided.innerRef}
+                                          {...provided.draggableProps}
+                                          {...provided.dragHandleProps}
+                                          className={cn(
+                                            "mb-2 p-3 rounded-lg bg-card border shadow-sm transition-all group",
+                                            snapshot.isDragging 
+                                              ? "shadow-lg ring-2 ring-purple-500 rotate-2" 
+                                              : "hover:shadow-md cursor-grab"
+                                          )}
+                                        >
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                                            {client.logo_url ? (
+                                              <img src={client.logo_url} alt={client.name} className="w-8 h-8 rounded-lg object-cover" />
+                                            ) : (
+                                              <div 
+                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                                                style={{ backgroundColor: client.color || '#8B5CF6' }}
+                                              >
+                                                {getInitials(client.name)}
+                                              </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <Link 
+                                                to={`/clients/${client.id}`}
+                                                className="font-medium text-sm truncate block hover:text-purple-600 transition-colors"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                {client.name}
+                                              </Link>
+                                              {client.lead_source && (
+                                                <p className="text-[10px] text-muted-foreground truncate">{client.lead_source}</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="flex items-center justify-between text-xs">
+                                            {client.estimated_budget && (
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">
+                                                <DollarSign className="h-2.5 w-2.5 mr-0.5" />
+                                                {Number(client.estimated_budget).toLocaleString()}
+                                              </Badge>
+                                            )}
+                                            {client.expected_close_date && (
+                                              <span className="text-muted-foreground text-[10px]">
+                                                {formatDate(client.expected_close_date)}
+                                              </span>
+                                            )}
+                                          </div>
+                                          
+                                          {client.engagement_type && (
+                                            <Badge 
+                                              variant="outline" 
+                                              className={cn(
+                                                "mt-2 text-[10px] px-1.5 py-0",
+                                                client.engagement_type === 'retainer' 
+                                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                                  : "bg-orange-50 text-orange-700 border-orange-200"
+                                              )}
+                                            >
+                                              {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
+                                            </Badge>
+                                          )}
+                                        </div>
                                       )}
-                                    >
-                                      {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
-                                    </Badge>
-                                  )}
-                                </Link>
-                              </motion.div>
-                            ))
-                          )}
+                                    </Draggable>
+                                  ))
+                                )}
+                                {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                </DragDropContext>
               )}
               
               {/* Pipeline Summary */}
