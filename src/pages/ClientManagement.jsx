@@ -1465,6 +1465,48 @@ export default function ClientManagement() {
                                               {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
                                             </Badge>
                                           )}
+                                          
+                                          {/* Mobile: Stage dropdown (visible on small screens) */}
+                                          <div className="mt-2 md:hidden">
+                                            <Select 
+                                              value={client.pipeline_stage || 'lead'}
+                                              onValueChange={(newStage) => {
+                                                // Update optimistically
+                                                setClients(prev => prev.map(c => 
+                                                  c.id === client.id ? { ...c, pipeline_stage: newStage } : c
+                                                ))
+                                                // Save to database
+                                                supabase
+                                                  .from('clients')
+                                                  .update({ pipeline_stage: newStage })
+                                                  .eq('id', client.id)
+                                                  .then(({ error }) => {
+                                                    if (error) {
+                                                      toast({ title: 'Failed to update', variant: 'destructive' })
+                                                      fetchData()
+                                                    } else {
+                                                      toast({ 
+                                                        title: 'Stage updated', 
+                                                        description: `Moved to ${newStage}`,
+                                                        variant: 'success' 
+                                                      })
+                                                    }
+                                                  })
+                                              }}
+                                            >
+                                              <SelectTrigger className="h-7 text-xs">
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="lead">Lead</SelectItem>
+                                                <SelectItem value="kickoff">Kickoff</SelectItem>
+                                                <SelectItem value="proposal">Proposal</SelectItem>
+                                                <SelectItem value="contract">Contract</SelectItem>
+                                                <SelectItem value="won">Won ✅</SelectItem>
+                                                <SelectItem value="lost">Lost</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
                                         </div>
                                       )}
                                     </Draggable>
