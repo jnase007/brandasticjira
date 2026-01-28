@@ -458,7 +458,7 @@ export async function getBoards(clientId = null) {
     .from('boards')
     .select(`
       *,
-      client:clients(id, name, color)
+      client:clients(id, name, color, logo_url, slug)
     `)
     .eq('is_archived', false)
     .order('created_at', { ascending: false })
@@ -476,7 +476,7 @@ export async function getBoard(boardId) {
     .from('boards')
     .select(`
       *,
-      client:clients(id, name, color, monthly_hours)
+      client:clients(id, name, color, logo_url, slug, monthly_hours)
     `)
     .eq('id', boardId)
     .single()
@@ -509,7 +509,7 @@ export async function updateBoard(boardId, updates) {
 export async function getTickets(boardId = null, clientId = null) {
   let query = supabase
     .from('tickets')
-    .select('*, client:clients(id, name, slug)')
+    .select('*, client:clients(id, name, slug, logo_url, color)')
     .order('position')
 
   if (boardId) {
@@ -554,7 +554,7 @@ export async function getTicket(ticketId) {
     .select(`
       *,
       board:boards(id, name, client_id),
-      client:clients(id, name, color, slug)
+      client:clients(id, name, color, logo_url, slug)
     `)
     .eq('id', ticketId)
     .maybeSingle()
@@ -598,7 +598,7 @@ export async function getTicketByTicketId(ticketIdString) {
     .select(`
       *,
       board:boards(id, name, client_id),
-      client:clients(id, name, color, slug)
+      client:clients(id, name, color, logo_url, slug)
     `)
     .eq('ticket_id', ticketIdString)
     .maybeSingle()
@@ -1168,7 +1168,7 @@ export async function searchTickets(query) {
     .select(`
       *,
       board:boards(id, name),
-      client:clients(id, name, color, slug)
+      client:clients(id, name, color, logo_url, slug)
     `)
     .or(`title.ilike.%${query}%,ticket_id.ilike.%${query}%,description.ilike.%${query}%`)
     .limit(20)
@@ -1186,7 +1186,7 @@ export async function globalSearch(query) {
       .select(`
         id, title, ticket_id, status, priority,
         board:boards(id, name),
-        client:clients(id, name, color, slug)
+        client:clients(id, name, color, logo_url, slug)
       `)
       .or(`title.ilike.${searchTerm},ticket_id.ilike.${searchTerm},description.ilike.${searchTerm}`)
       .limit(10),
@@ -1194,7 +1194,7 @@ export async function globalSearch(query) {
     // Search clients
     supabase
       .from('clients')
-      .select('id, name, color, slug, contact_email, contact_name')
+      .select('id, name, color, logo_url, slug, contact_email, contact_name')
       .or(`name.ilike.${searchTerm},contact_email.ilike.${searchTerm},contact_name.ilike.${searchTerm}`)
       .neq('is_active', false)
       .limit(10),
