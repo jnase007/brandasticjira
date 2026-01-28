@@ -1343,19 +1343,27 @@ export default function Dashboard({ onConfetti }) {
                         <Link
                           key={client.id}
                           to={`/clients/${client.slug || client.id}`}
-                          className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm hover:border-brand-orange/30 transition-all"
+                          className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-md hover:border-brand-orange/30 transition-all group"
                         >
-                          <div
-                            className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                            style={{ backgroundColor: client.color || '#F7931E' }}
-                          >
-                            {client.name?.charAt(0)}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium">{client.name}</p>
+                          {client.logo_url ? (
+                            <img 
+                              src={client.logo_url} 
+                              alt={client.name} 
+                              className="h-10 w-10 rounded-xl object-cover border"
+                            />
+                          ) : (
+                            <div
+                              className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+                              style={{ backgroundColor: client.color || '#F7931E' }}
+                            >
+                              {client.name?.charAt(0)}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate group-hover:text-brand-orange transition-colors">{client.name}</p>
                             <p className="text-xs text-muted-foreground">Assigned client</p>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-brand-orange transition-colors" />
                         </Link>
                       ))}
                     </div>
