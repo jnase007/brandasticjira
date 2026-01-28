@@ -75,11 +75,11 @@ const ENGAGEMENT_TYPES = [
 
 const PIPELINE_STAGES = [
   { value: 'lead', label: 'Lead', color: 'bg-gray-500' },
-  { value: 'qualified', label: 'Qualified', color: 'bg-blue-500' },
-  { value: 'proposal', label: 'Proposal Sent', color: 'bg-purple-500' },
-  { value: 'negotiation', label: 'Negotiation', color: 'bg-yellow-500' },
-  { value: 'closed_won', label: 'Closed Won', color: 'bg-green-500' },
-  { value: 'closed_lost', label: 'Closed Lost', color: 'bg-red-500' },
+  { value: 'kickoff', label: 'Kickoff', color: 'bg-blue-500' },
+  { value: 'proposal', label: 'Proposal', color: 'bg-purple-500' },
+  { value: 'contract', label: 'Contract', color: 'bg-yellow-500' },
+  { value: 'won', label: 'Won', color: 'bg-green-500' },
+  { value: 'lost', label: 'Lost', color: 'bg-red-500' },
 ]
 
 const LEAD_SOURCES = [
@@ -973,7 +973,7 @@ export default function ClientDialog({
                             <div>
                               <Label className="text-sm font-medium mb-2 block">Pipeline Stage</Label>
                               <div className="flex flex-wrap gap-2">
-                                {PIPELINE_STAGES.slice(0, 4).map((stage) => (
+                                {PIPELINE_STAGES.map((stage) => (
                                   <button
                                     key={stage.value}
                                     type="button"
@@ -981,7 +981,9 @@ export default function ClientDialog({
                                     className={cn(
                                       "px-3 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
                                       formData.pipeline_stage === stage.value
-                                        ? "border-brand-orange bg-brand-orange text-white"
+                                        ? stage.value === 'won' ? "border-green-500 bg-green-500 text-white"
+                                        : stage.value === 'lost' ? "border-red-500 bg-red-500 text-white"
+                                        : "border-brand-orange bg-brand-orange text-white"
                                         : "border-muted hover:border-brand-orange/50"
                                     )}
                                   >

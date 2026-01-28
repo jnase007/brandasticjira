@@ -40,7 +40,7 @@ ADD COLUMN IF NOT EXISTS estimated_budget NUMERIC(12,2);
 -- Pipeline stage for prospects
 ALTER TABLE public.clients 
 ADD COLUMN IF NOT EXISTS pipeline_stage TEXT DEFAULT 'lead'
-  CHECK (pipeline_stage IN ('lead', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'));
+  CHECK (pipeline_stage IN ('lead', 'kickoff', 'proposal', 'contract', 'won', 'lost'));
 
 -- Probability of closing (for forecasting)
 ALTER TABLE public.clients 
