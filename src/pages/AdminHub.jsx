@@ -200,20 +200,30 @@ export default function AdminHub() {
 
       // Fetch all data
       const [clientsRes, teamRes, ticketsRes, completedRes, timeThisMonthRes, timeLastMonthRes, missionRes, settingsRes, notesRes, announcementsRes] = await Promise.all([
-        supabase.from('clients').select('id, name, monthly_hours, is_active, color, created_at'),
+        supabase.from('clients').select('id, name, monthly_hours, estimated_monthly_hours, contract_value, is_active, color, created_at'),
         supabase.from('profiles').select('id, full_name, avatar_url, role, is_active, hourly_cost'),
-        supabase.from('tickets').select('id, status, priority, assigned_to, due_date').neq('status', 'done'),
-        supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'done').gte('updated_at', startOfMonth.toISOString()),
+        supabase.from('tickets').select('id, status, priority, assigned_to, due_date').neq('status', 'closed'),
+        supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'closed').gte('updated_at', startOfMonth.toISOString()),
         supabase.from('time_entries').select('minutes, billable, user_id').gte('date', startOfMonth.toISOString().split('T')[0]),
         supabase.from('time_entries').select('minutes, billable').gte('date', startOfLastMonth.toISOString().split('T')[0]).lte('date', endOfLastMonth.toISOString().split('T')[0]),
-        supabase.from('company_mission').select('revenue_target, current_revenue').single().catch(() => ({ data: null })),
-        supabase.from('company_settings').select('*').single().catch(() => ({ data: null })),
-        supabase.from('admin_notes').select('*').order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(5).catch(() => ({ data: [] })),
-        supabase.from('team_announcements').select('*').eq('is_active', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(3).catch(() => ({ data: [] })),
+        supabase.from('company_mission').select('revenue_target, current_revenue').maybeSingle(),
+        supabase.from('company_settings').select('*').maybeSingle(),
+        supabase.from('admin_notes').select('*').order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(5),
+        supabase.from('team_announcements').select('*').eq('is_active', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(3),
       ])
+
+      // Debug logging
+      console.log('=== AdminHub Data Fetch ===')
+      console.log('Clients:', clientsRes.error ? `ERROR: ${clientsRes.error.message}` : `${clientsRes.data?.length || 0} found`)
+      console.log('Team:', teamRes.error ? `ERROR: ${teamRes.error.message}` : `${teamRes.data?.length || 0} found`)
+      console.log('Tickets:', ticketsRes.error ? `ERROR: ${ticketsRes.error.message}` : `${ticketsRes.data?.length || 0} found`)
+      console.log('Settings:', settingsRes.error ? `ERROR: ${settingsRes.error.message}` : settingsRes.data)
+      console.log('Mission:', missionRes.error ? `ERROR: ${missionRes.error.message}` : missionRes.data)
 
       const allClients = clientsRes.data || []
       const activeClients = allClients.filter(c => c.is_active !== false)
+      
+      console.log('All clients:', allClients.length, 'Active clients:', activeClients.length)
       const allTeamMembers = teamRes.data || []
       const teamMembers = allTeamMembers.filter(t => t.is_active !== false)
       const tickets = ticketsRes.data || []
@@ -223,7 +233,16 @@ export default function AdminHub() {
       // Calculate metrics
       const hourlyRate = settingsRes.data?.hourly_rate || 175
       const monthlyOverhead = settingsRes.data?.monthly_overhead || 37500
-      const monthlyRevenue = activeClients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * hourlyRate), 0)
+      
+      // Calculate monthly revenue - use monthly_hours, estimated_monthly_hours, or derive from contract_value
+      const getClientMonthlyRevenue = (c) => {
+        const hours = c.monthly_hours || c.estimated_monthly_hours || 0
+        if (hours > 0) return hours * hourlyRate
+        // If no hours but has contract_value, use that as monthly revenue estimate
+        if (c.contract_value) return c.contract_value / 12
+        return 0
+      }
+      const monthlyRevenue = activeClients.reduce((sum, c) => sum + getClientMonthlyRevenue(c), 0)
       const annualRevenue = monthlyRevenue * 12
       const revenueTarget = missionRes.data?.revenue_target || 3000000
       const revenueProgress = revenueTarget > 0 ? (annualRevenue / revenueTarget) * 100 : 0
@@ -253,10 +272,10 @@ export default function AdminHub() {
       const grossMargin = monthlyRevenue > 0 ? Math.round(((monthlyRevenue - teamCosts) / monthlyRevenue) * 100) : 0
       const netMargin = monthlyRevenue > 0 ? Math.round(((monthlyRevenue - teamCosts - monthlyOverhead) / monthlyRevenue) * 100) : 0
       
-      // Client concentration
-      const sortedClients = [...activeClients].sort((a, b) => (b.monthly_hours || 0) - (a.monthly_hours || 0))
+      // Client concentration - sort by revenue
+      const sortedClients = [...activeClients].sort((a, b) => getClientMonthlyRevenue(b) - getClientMonthlyRevenue(a))
       const top3 = sortedClients.slice(0, 3)
-      const top3Revenue = top3.reduce((sum, c) => sum + ((c.monthly_hours || 0) * hourlyRate), 0)
+      const top3Revenue = top3.reduce((sum, c) => sum + getClientMonthlyRevenue(c), 0)
       const clientConcentrationRisk = monthlyRevenue > 0 ? Math.round((top3Revenue / monthlyRevenue) * 100) : 0
       
       // Overdue & new clients
@@ -798,16 +817,20 @@ export default function AdminHub() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {topClients.map((client, idx) => (
-                      <div key={client.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-white/5">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: client.color || '#6366f1' }}>{idx + 1}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{client.name}</p>
-                          <p className="text-xs text-slate-500 dark:text-white/50">{client.monthly_hours || 0}h/mo</p>
+                    {topClients.map((client, idx) => {
+                      const hours = client.monthly_hours || client.estimated_monthly_hours || 0
+                      const revenue = hours > 0 ? hours * stats.targetHourlyRate : (client.contract_value ? client.contract_value / 12 : 0)
+                      return (
+                        <div key={client.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-white/5">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: client.color || '#6366f1' }}>{idx + 1}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{client.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-white/50">{hours > 0 ? `${hours}h/mo` : 'Contract'}</p>
+                          </div>
+                          <span className="text-sm font-medium text-green-500">{formatCurrency(revenue)}</span>
                         </div>
-                        <span className="text-sm font-medium text-green-500">{formatCurrency((client.monthly_hours || 0) * stats.targetHourlyRate)}</span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </CardContent>
                 </Card>
               </motion.div>
