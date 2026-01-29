@@ -32,6 +32,7 @@ const ClientPublic = lazy(() => import('./pages/ClientPublic'))
 const ClientLogin = lazy(() => import('./pages/ClientLogin'))
 const ClientDashboard = lazy(() => import('./pages/ClientDashboard'))
 const Mission = lazy(() => import('./pages/Mission'))
+const Financials = lazy(() => import('./pages/Financials'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -909,6 +910,16 @@ function App() {
                 element={
                   <AdminRoute>
                     <Mission />
+                  </AdminRoute>
+                }
+              />
+
+              {/* Financials Dashboard */}
+              <Route
+                path="/financials"
+                element={
+                  <AdminRoute>
+                    <Financials />
                   </AdminRoute>
                 }
               />
