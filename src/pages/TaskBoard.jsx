@@ -40,25 +40,33 @@ const COLUMNS = [
 const normalizeStatus = (status) => {
   if (!status) return 'new'
   
-  // Convert to lowercase for consistent matching
-  const lowerStatus = status.toLowerCase()
+  // Normalize: lowercase, replace spaces with underscores, trim
+  const normalized = status.toLowerCase().trim().replace(/\s+/g, '_')
   
   const statusMap = {
     // Legacy statuses
     'todo': 'new',
+    'to_do': 'new',
     'review': 'internal_review',
     'done': 'closed',
-    'inprogress': 'in_progress', // Handle no underscore version
-    // Keep existing ones as-is
+    'complete': 'closed',
+    'completed': 'closed',
+    'inprogress': 'in_progress',
+    'in-progress': 'in_progress',
+    // Standard statuses
     'new': 'new',
     'in_progress': 'in_progress',
     'internal_review': 'internal_review',
     'client_review': 'client_review',
     'approved': 'approved',
     'ready_for_billing': 'ready_for_billing',
+    'ready_for__billing': 'ready_for_billing', // Handle double underscore
     'closed': 'closed',
   }
-  return statusMap[lowerStatus] || 'new' // Default to 'new' if unknown
+  
+  const result = statusMap[normalized] || 'new'
+  console.log(`normalizeStatus: "${status}" → "${normalized}" → "${result}"`)
+  return result
 }
 
 const PRIORITY_COLORS = {

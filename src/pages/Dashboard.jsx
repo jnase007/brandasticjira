@@ -172,7 +172,15 @@ export default function Dashboard({ onConfetti }) {
       setBoards(boardsData)
       setHoursSummary(hoursData)
       setAllTickets(ticketsData)
-      setRecentTickets(ticketsData.slice(0, 5))
+      
+      // Filter to show only user's assigned tickets in "My Tasks"
+      const userTickets = ticketsData.filter(t => t.assigned_to === profile?.id)
+      console.log('[Dashboard] User tickets found:', userTickets.length, 'out of', ticketsData.length)
+      console.log('[Dashboard] Profile ID:', profile?.id)
+      if (userTickets.length === 0 && ticketsData.length > 0) {
+        console.log('[Dashboard] Sample assigned_to values:', ticketsData.slice(0, 5).map(t => ({ title: t.title, assigned_to: t.assigned_to })))
+      }
+      setRecentTickets(userTickets.slice(0, 10))
 
       // Fetch personal activity and time stats if available
       if (profile?.id) {
