@@ -45,12 +45,12 @@ const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
   { path: '/time', icon: Clock, label: 'Time Tracking', shortcut: 'G T' },
   { path: '/clients', icon: Building2, label: 'Clients', shortcut: 'G C' },
+  { path: '/taskboard', icon: Kanban, label: 'Task Board', shortcut: 'G K' },
   { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },
   { path: '/calendar', icon: CalendarDays, label: 'Calendar', shortcut: 'G E' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
-  { path: '/taskboard', icon: Kanban, label: 'Task Board', shortcut: 'G K', beta: true },
 ]
 
 const adminNavItems = [
