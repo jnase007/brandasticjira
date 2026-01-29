@@ -311,21 +311,58 @@ export default function ClientManagement() {
           supabase
             .from('client_team_assignments')
             .select('id, client_id, user_id'),
-          // Client wins
+          // Client wins - use simpler query first
           supabase
             .from('client_wins')
-            .select('*, client:client_id(id, name), user:user_id(id, full_name, avatar_url)')
+            .select('*')
             .order('created_at', { ascending: false }),
         ])
 
         const [ticketsRes, boardsRes, teamAssignmentsRes, winsRes] = await Promise.race([additionalDataPromise, timeout])
 
+        console.log('[ClientManagement] Wins query result:', winsRes)
+        
         setRequests(ticketsRes.data || []) // Use tickets as "Requests"
         setProjects(boardsRes.data || []) // Use boards as "Projects"
         setClientUsers(teamAssignmentsRes.data || []) // Use team assignments as "Users"
-        setClientWins(winsRes.data || []) // Client wins
+        
+        // If wins data exists, enrich it with client/user info
+        if (winsRes.data && winsRes.data.length > 0) {
+          // Get client names for each win
+          const enrichedWins = await Promise.all(winsRes.data.map(async (win) => {
+            let clientName = 'Unknown Client'
+            let userName = 'Unknown User'
+            let userAvatar = null
+            
+            if (win.client_id) {
+              const client = clients.find(c => c.id === win.client_id)
+              if (client) clientName = client.name
+            }
+            
+            if (win.user_id) {
+              const { data: userData } = await supabase
+                .from('profiles')
+                .select('full_name, avatar_url')
+                .eq('id', win.user_id)
+                .single()
+              if (userData) {
+                userName = userData.full_name
+                userAvatar = userData.avatar_url
+              }
+            }
+            
+            return {
+              ...win,
+              client: { id: win.client_id, name: clientName },
+              user: { id: win.user_id, full_name: userName, avatar_url: userAvatar }
+            }
+          }))
+          setClientWins(enrichedWins)
+        } else {
+          setClientWins([])
+        }
       } catch (err) {
-        console.log('Optional tables not ready:', err)
+        console.error('[ClientManagement] Error fetching client wins:', err)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
