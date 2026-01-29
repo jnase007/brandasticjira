@@ -38,11 +38,17 @@ const COLUMNS = [
 
 // Map legacy statuses to new workflow statuses
 const normalizeStatus = (status) => {
+  if (!status) return 'new'
+  
+  // Convert to lowercase for consistent matching
+  const lowerStatus = status.toLowerCase()
+  
   const statusMap = {
     // Legacy statuses
     'todo': 'new',
     'review': 'internal_review',
     'done': 'closed',
+    'inprogress': 'in_progress', // Handle no underscore version
     // Keep existing ones as-is
     'new': 'new',
     'in_progress': 'in_progress',
@@ -52,7 +58,7 @@ const normalizeStatus = (status) => {
     'ready_for_billing': 'ready_for_billing',
     'closed': 'closed',
   }
-  return statusMap[status] || 'new' // Default to 'new' if unknown
+  return statusMap[lowerStatus] || 'new' // Default to 'new' if unknown
 }
 
 const PRIORITY_COLORS = {
@@ -101,7 +107,7 @@ export default function TaskBoard() {
       const [ticketsRes, membersRes, clientsRes] = await Promise.all([
         supabase
           .from('tickets')
-          .select('*, client:client_id(id, name, color), assignee:assigned_to(id, full_name, avatar_url)')
+          .select('*, client:client_id(id, name, color, logo_url), assignee:assigned_to(id, full_name, avatar_url)')
           .order('updated_at', { ascending: false }),
         supabase
           .from('profiles')
@@ -109,15 +115,17 @@ export default function TaskBoard() {
           .eq('is_active', true),
         supabase
           .from('clients')
-          .select('id, name, color')
+          .select('id, name, color, logo_url')
           .eq('is_active', true)
           .order('name')
       ])
       
       const allTickets = ticketsRes.data || []
+      const userTickets = allTickets.filter(t => t.assigned_to === user?.id)
       console.log('TaskBoard: Fetched tickets:', allTickets.length)
       console.log('TaskBoard: Current user ID:', user?.id)
-      console.log('TaskBoard: User tickets:', allTickets.filter(t => t.assigned_to === user?.id))
+      console.log('TaskBoard: User tickets count:', userTickets.length)
+      console.log('TaskBoard: User ticket statuses:', userTickets.map(t => ({ id: t.ticket_id, status: t.status, normalized: normalizeStatus(t.status) })))
       setTickets(allTickets)
       setTeamMembers(membersRes.data || [])
       setClients(clientsRes.data || [])
