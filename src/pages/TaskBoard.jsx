@@ -122,7 +122,7 @@ export default function TaskBoard() {
           .order('updated_at', { ascending: false }),
         supabase
           .from('profiles')
-          .select('id, full_name, avatar_url, role')
+          .select('id, full_name, avatar_url, role, email')
           .eq('is_active', true),
         supabase
           .from('clients')
@@ -156,14 +156,21 @@ export default function TaskBoard() {
       const currentUserId = profile?.id || user?.id
       const userTickets = allTickets.filter(t => t.assigned_to === currentUserId)
       
+      // Also check by email as fallback (for OAuth users)
+      const currentUserEmail = profile?.email || user?.email
+      const userTicketsByEmail = allTickets.filter(t => 
+        t.assignee?.email && t.assignee.email === currentUserEmail
+      )
+      
       // Detailed debugging
       console.log('========== TASK BOARD DEBUG ==========')
       console.log('Total tickets in DB:', allTickets.length)
       console.log('user.id:', user?.id)
       console.log('profile.id:', profile?.id)
       console.log('Using ID for filtering:', currentUserId)
-      console.log('Current user email:', user?.email)
-      console.log('Tickets assigned to current user:', userTickets.length)
+      console.log('Current user email:', currentUserEmail)
+      console.log('Tickets assigned to current user (by ID):', userTickets.length)
+      console.log('Tickets assigned to current user (by email):', userTicketsByEmail.length)
       
       if (userTickets.length > 0) {
         console.log('User ticket details:', userTickets.map(t => ({
@@ -201,10 +208,15 @@ export default function TaskBoard() {
     
     // Use profile.id (same as Dashboard) for consistent filtering
     const currentUserId = profile?.id || user?.id
+    const currentUserEmail = profile?.email || user?.email
 
     // View mode filter
     if (viewMode === 'personal') {
-      filtered = filtered.filter(t => t.assigned_to === currentUserId)
+      // Match by ID OR by assignee email (more robust for OAuth users)
+      filtered = filtered.filter(t => 
+        t.assigned_to === currentUserId || 
+        (t.assignee?.email && t.assignee.email === currentUserEmail)
+      )
     } else if (viewMode === 'company' && selectedMember !== 'all') {
       filtered = filtered.filter(t => t.assigned_to === selectedMember)
     }
@@ -269,14 +281,19 @@ export default function TaskBoard() {
 
   // Stats
   const stats = useMemo(() => {
-    const myTasks = tickets.filter(t => t.assigned_to === user?.id)
+    const currentUserId = profile?.id || user?.id
+    const currentUserEmail = profile?.email || user?.email
+    const myTasks = tickets.filter(t => 
+      t.assigned_to === currentUserId || 
+      (t.assignee?.email && t.assignee.email === currentUserEmail)
+    )
     return {
       total: filteredTickets.length,
       myTotal: myTasks.length,
-      inProgress: myTasks.filter(t => t.status === 'in_progress').length,
-      overdue: myTasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'closed').length,
+      inProgress: myTasks.filter(t => normalizeStatus(t.status) === 'in_progress').length,
+      overdue: myTasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && normalizeStatus(t.status) !== 'closed').length,
     }
-  }, [tickets, filteredTickets, user])
+  }, [tickets, filteredTickets, user, profile])
 
   return (
     <motion.div
