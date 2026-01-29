@@ -85,8 +85,10 @@ export default function TaskBoard() {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    fetchData()
-  }, [user])
+    if (user && profile) {
+      fetchData()
+    }
+  }, [user, profile])
 
   useEffect(() => {
     // Update URL params
@@ -121,11 +123,39 @@ export default function TaskBoard() {
       ])
       
       const allTickets = ticketsRes.data || []
-      const userTickets = allTickets.filter(t => t.assigned_to === user?.id)
-      console.log('TaskBoard: Fetched tickets:', allTickets.length)
-      console.log('TaskBoard: Current user ID:', user?.id)
-      console.log('TaskBoard: User tickets count:', userTickets.length)
-      console.log('TaskBoard: User ticket statuses:', userTickets.map(t => ({ id: t.ticket_id, status: t.status, normalized: normalizeStatus(t.status) })))
+      
+      // Use profile.id (same as Dashboard) - this is the correct ID for filtering
+      const currentUserId = profile?.id || user?.id
+      const userTickets = allTickets.filter(t => t.assigned_to === currentUserId)
+      
+      // Detailed debugging
+      console.log('========== TASK BOARD DEBUG ==========')
+      console.log('Total tickets in DB:', allTickets.length)
+      console.log('user.id:', user?.id)
+      console.log('profile.id:', profile?.id)
+      console.log('Using ID for filtering:', currentUserId)
+      console.log('Current user email:', user?.email)
+      console.log('Tickets assigned to current user:', userTickets.length)
+      
+      if (userTickets.length > 0) {
+        console.log('User ticket details:', userTickets.map(t => ({
+          id: t.id,
+          ticket_id: t.ticket_id,
+          title: t.title,
+          status: t.status,
+          normalized: normalizeStatus(t.status),
+          assigned_to: t.assigned_to
+        })))
+      } else {
+        console.log('No tickets assigned to this user.')
+        console.log('Sample ticket assigned_to values:', allTickets.slice(0, 5).map(t => ({
+          title: t.title,
+          assigned_to: t.assigned_to,
+          assignee_name: t.assignee?.full_name
+        })))
+      }
+      console.log('=======================================')
+      
       setTickets(allTickets)
       setTeamMembers(membersRes.data || [])
       setClients(clientsRes.data || [])
@@ -140,10 +170,13 @@ export default function TaskBoard() {
   // Filter tickets based on view mode and filters
   const filteredTickets = useMemo(() => {
     let filtered = tickets
+    
+    // Use profile.id (same as Dashboard) for consistent filtering
+    const currentUserId = profile?.id || user?.id
 
     // View mode filter
     if (viewMode === 'personal') {
-      filtered = filtered.filter(t => t.assigned_to === user?.id)
+      filtered = filtered.filter(t => t.assigned_to === currentUserId)
     } else if (viewMode === 'company' && selectedMember !== 'all') {
       filtered = filtered.filter(t => t.assigned_to === selectedMember)
     }
@@ -164,7 +197,7 @@ export default function TaskBoard() {
     }
 
     return filtered
-  }, [tickets, viewMode, selectedMember, selectedClient, searchQuery, user])
+  }, [tickets, viewMode, selectedMember, selectedClient, searchQuery, user, profile])
 
   // Group tickets by status (with legacy status mapping)
   const ticketsByStatus = useMemo(() => {
