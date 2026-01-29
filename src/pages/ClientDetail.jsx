@@ -1878,6 +1878,10 @@ export default function ClientDetail() {
               <BarChart3 className="h-4 w-4" />
               <span>Reports</span>
             </TabsTrigger>
+            <TabsTrigger value="financials" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
+              <DollarSign className="h-4 w-4" />
+              <span>Financials</span>
+            </TabsTrigger>
             <TabsTrigger value="team" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Users className="h-4 w-4" />
               <span>Team</span>
@@ -2455,6 +2459,283 @@ export default function ClientDetail() {
                   </Button>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* Financials Tab */}
+          <TabsContent value="financials">
+            <div className="space-y-6">
+              {/* Progress Overview - Like the Kantata screenshot */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Financial Stats */}
+                <div className="lg:col-span-2 space-y-4">
+                  {/* Budget Overview Cards */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 text-orange-500 mb-1">
+                          <DollarSign className="h-4 w-4" />
+                          <span className="text-xs font-medium uppercase">Budget</span>
+                        </div>
+                        <p className="text-2xl font-bold">
+                          ${(client.project_budget || (client.monthly_hours || 0) * 175).toLocaleString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 text-blue-500 mb-1">
+                          <TrendingUp className="h-4 w-4" />
+                          <span className="text-xs font-medium uppercase">Actual Cost</span>
+                        </div>
+                        <p className="text-2xl font-bold">
+                          ${Math.round(
+                            (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 
+                            (client.overhead_percentage ? 50 * (1 + (client.overhead_percentage / 100)) : 60)
+                          ).toLocaleString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 text-green-500 mb-1">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="text-xs font-medium uppercase">Budget Remaining</span>
+                        </div>
+                        <p className="text-2xl font-bold">
+                          ${Math.max(0, (client.project_budget || (client.monthly_hours || 0) * 175) - 
+                            Math.round(
+                              (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 
+                              (client.overhead_percentage ? 50 * (1 + (client.overhead_percentage / 100)) : 60)
+                            )).toLocaleString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Cost Breakdown */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <PieChart className="h-5 w-5 text-brand-orange" />
+                        Cost Breakdown
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-blue-500" />
+                            <span className="font-medium">Labor</span>
+                          </div>
+                          <span className="font-bold">
+                            ${Math.round((timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 50).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-purple-500" />
+                            <span className="font-medium">Overhead ({client.overhead_percentage || 20}%)</span>
+                          </div>
+                          <span className="font-bold">
+                            ${Math.round((timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 50 * ((client.overhead_percentage || 20) / 100)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted border border-border">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-cyan-500" />
+                            <span className="font-medium">Expenses</span>
+                          </div>
+                          <span className="font-bold text-muted-foreground">$0</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Monthly Burn Chart Placeholder */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-brand-orange" />
+                        Monthly Burn Rate
+                      </CardTitle>
+                      <CardDescription>Budget vs actual spending over time</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {monthlyStats.slice(-6).map((stat, idx) => {
+                          const budgetLine = (client.project_budget || (client.monthly_hours || 0) * 175) / 6
+                          const percentage = budgetLine > 0 ? Math.min((stat.revenue / budgetLine) * 100, 150) : 0
+                          return (
+                            <div key={idx} className="space-y-1">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium">{stat.month}</span>
+                                <span className="text-muted-foreground">
+                                  ${stat.revenue.toLocaleString()} / ${Math.round(budgetLine).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    percentage > 100 ? "bg-red-500" : percentage > 80 ? "bg-yellow-500" : "bg-green-500"
+                                  )}
+                                  style={{ width: `${Math.min(percentage, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Progress Sidebar */}
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Progress</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Schedule Progress */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Schedule</span>
+                        </div>
+                        <Progress 
+                          value={client.project_end_date 
+                            ? Math.min(
+                                ((new Date() - new Date(client.project_start_date || new Date())) / 
+                                (new Date(client.project_end_date) - new Date(client.project_start_date || new Date()))) * 100,
+                                100
+                              )
+                            : budgetUsed
+                          } 
+                          className="h-3" 
+                        />
+                        <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+                          <span>
+                            {client.project_start_date 
+                              ? `${Math.round((new Date() - new Date(client.project_start_date)) / (1000 * 60 * 60 * 24))} days elapsed`
+                              : `${currentMonthHours}h used`
+                            }
+                          </span>
+                          <span>
+                            {client.project_end_date 
+                              ? `${Math.max(0, Math.round((new Date(client.project_end_date) - new Date()) / (1000 * 60 * 60 * 24)))} remaining`
+                              : `${Math.max(0, monthlyBudget - currentMonthHours)}h remaining`
+                            }
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Scope Progress */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Scope</span>
+                        </div>
+                        <Progress 
+                          value={tickets.length > 0 
+                            ? (ticketsByStatus.done / tickets.length) * 100 
+                            : 0
+                          } 
+                          className="h-3" 
+                        />
+                        <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+                          <span>{ticketsByStatus.done}/{tickets.length} Completed</span>
+                          <span>{tickets.length - ticketsByStatus.done} Remaining</span>
+                        </div>
+                      </div>
+
+                      {/* Cost Progress */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Cost</span>
+                        </div>
+                        <Progress 
+                          value={Math.min(budgetUsed, 100)} 
+                          className={cn("h-3", budgetUsed > 100 && "[&>div]:bg-red-500")}
+                        />
+                        <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+                          <span>
+                            ${Math.round(
+                              (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 
+                              (client.overhead_percentage ? 50 * (1 + (client.overhead_percentage / 100)) : 60)
+                            ).toLocaleString()} spent
+                          </span>
+                          <span>
+                            ${Math.max(0, (client.project_budget || (client.monthly_hours || 0) * 175) - 
+                              Math.round(
+                                (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60
+                              )).toLocaleString()} remaining
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Break-even Status */}
+                  <Card className={cn(
+                    "border-2",
+                    totalRevenue > (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60
+                      ? "border-green-500/50 bg-green-500/5"
+                      : "border-yellow-500/50 bg-yellow-500/5"
+                  )}>
+                    <CardContent className="p-4">
+                      <div className="text-center">
+                        <div className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2",
+                          totalRevenue > (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60
+                            ? "bg-green-500/20 text-green-600"
+                            : "bg-yellow-500/20 text-yellow-600"
+                        )}>
+                          {totalRevenue > (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60 ? (
+                            <TrendingUp className="h-6 w-6" />
+                          ) : (
+                            <AlertTriangle className="h-6 w-6" />
+                          )}
+                        </div>
+                        <p className="font-bold text-lg">
+                          {totalRevenue > (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60
+                            ? "Profitable"
+                            : "Below Break-even"
+                          }
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {totalRevenue > (timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60
+                            ? `+$${Math.round(totalRevenue - ((timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60)).toLocaleString()} profit`
+                            : `$${Math.round(((timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60) * 60) - totalRevenue).toLocaleString()} to break-even`
+                          }
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Settings */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Financial Settings</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Billing Rate</span>
+                        <span className="font-medium">$175/hr</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Overhead</span>
+                        <span className="font-medium">{client.overhead_percentage || 20}%</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Avg Employee Cost</span>
+                        <span className="font-medium">$50/hr</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
           </TabsContent>
 
