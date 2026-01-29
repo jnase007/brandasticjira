@@ -114,10 +114,11 @@ export default function TaskBoard() {
     try {
       await ensureValidSession()
       
+      // Try simple query first, then enrich with client/assignee data
       const [ticketsRes, membersRes, clientsRes] = await Promise.all([
         supabase
           .from('tickets')
-          .select('*, client:client_id(id, name, color, logo_url), assignee:assigned_to(id, full_name, avatar_url)')
+          .select('*')
           .order('updated_at', { ascending: false }),
         supabase
           .from('profiles')
@@ -130,7 +131,26 @@ export default function TaskBoard() {
           .order('name')
       ])
       
-      const allTickets = ticketsRes.data || []
+      // Log any errors
+      if (ticketsRes.error) {
+        console.error('[TaskBoard] Tickets query error:', ticketsRes.error)
+      }
+      console.log('[TaskBoard] Tickets response:', { 
+        data: ticketsRes.data?.length, 
+        error: ticketsRes.error,
+        status: ticketsRes.status 
+      })
+      
+      // Enrich tickets with client and assignee info
+      const rawTickets = ticketsRes.data || []
+      const allClients = clientsRes.data || []
+      const allMembers = membersRes.data || []
+      
+      const allTickets = rawTickets.map(ticket => ({
+        ...ticket,
+        client: allClients.find(c => c.id === ticket.client_id) || null,
+        assignee: allMembers.find(m => m.id === ticket.assigned_to) || null,
+      }))
       
       // Use profile.id (same as Dashboard) - this is the correct ID for filtering
       const currentUserId = profile?.id || user?.id
