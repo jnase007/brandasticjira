@@ -386,7 +386,7 @@ export default function TaskBoard() {
             </span>
           )}
         </div>
-        {viewMode === 'personal' && (
+        {viewMode === 'personal' ? (
           <>
             <div className="flex items-center gap-2 text-blue-600">
               <PlayCircle className="h-4 w-4" />
@@ -399,16 +399,30 @@ export default function TaskBoard() {
               </div>
             )}
           </>
+        ) : (
+          <Badge variant="outline" className="text-green-600 border-green-300">
+            Showing all {tickets.length} company tickets
+          </Badge>
         )}
         {viewMode === 'personal' && filteredTickets.length === 0 && tickets.length > 0 && (
-          <Button 
-            variant="link" 
-            size="sm" 
-            className="text-purple-600 p-0 h-auto"
-            onClick={() => setViewMode('company')}
-          >
-            View all {tickets.length} company tasks →
-          </Button>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-amber-600 border-amber-300">
+              ⚠️ {tickets.length} tasks exist but none assigned to you
+            </Badge>
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="text-purple-600 p-0 h-auto"
+              onClick={() => setViewMode('company')}
+            >
+              View Company Board →
+            </Button>
+          </div>
+        )}
+        {viewMode === 'personal' && filteredTickets.length === 0 && tickets.length === 0 && !loading && (
+          <Badge variant="outline" className="text-red-600 border-red-300">
+            ⚠️ No tickets found in database
+          </Badge>
         )}
       </div>
 
