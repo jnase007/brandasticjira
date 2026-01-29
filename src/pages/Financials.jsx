@@ -548,16 +548,16 @@ export default function Financials() {
 
         {/* Clients Table */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-brand-orange/20 flex items-center justify-center">
                     <Building2 className="h-5 w-5 text-brand-orange" />
                   </div>
-                  <CardTitle className="text-white">Clients</CardTitle>
+                  <CardTitle className="text-slate-900 dark:text-white">Clients</CardTitle>
                 </div>
-                <Button variant="outline" size="sm" className="border-white/20">
+                <Button variant="outline" size="sm" className="border-slate-300 dark:border-white/20">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
@@ -567,20 +567,20 @@ export default function Financials() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/10 bg-white/5">
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Name</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Monthly Retainer</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Scope Hours</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Start Date</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Status</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Actions</th>
+                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Name</th>
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Monthly Retainer</th>
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Scope Hours</th>
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Start Date</th>
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Status</th>
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {clients.slice(0, 15).map((client) => {
                       const monthlyRevenue = (client.monthly_hours || 0) * settings.hourlyRate
                       return (
-                        <tr key={client.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <tr key={client.id} className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               {client.logo_url ? (
@@ -593,26 +593,26 @@ export default function Financials() {
                                   {client.name?.charAt(0)}
                                 </div>
                               )}
-                              <span className="text-white font-medium">{client.name}</span>
+                              <span className="text-slate-900 dark:text-white font-medium">{client.name}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-white">{formatCurrency(monthlyRevenue)}</td>
-                          <td className="py-3 px-4 text-white/70">{client.monthly_hours || 0}h/month</td>
-                          <td className="py-3 px-4 text-white/50">
+                          <td className="py-3 px-4 text-slate-900 dark:text-white">{formatCurrency(monthlyRevenue)}</td>
+                          <td className="py-3 px-4 text-slate-600 dark:text-white/70">{client.monthly_hours || 0}h/month</td>
+                          <td className="py-3 px-4 text-slate-500 dark:text-white/50">
                             {client.created_at ? new Date(client.created_at).toLocaleDateString() : '—'}
                           </td>
                           <td className="py-3 px-4">
                             <Badge className={cn(
                               "text-xs",
                               client.is_active === false 
-                                ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                                : "bg-green-500/20 text-green-400 border-green-500/30"
+                                ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                                : "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30"
                             )}>
                               {client.is_active === false ? 'Paused' : 'Active'}
                             </Badge>
                           </td>
                           <td className="py-3 px-4">
-                            <Button variant="ghost" size="sm" className="text-white/50 hover:text-white">
+                            <Button variant="ghost" size="sm" className="text-slate-400 dark:text-white/50 hover:text-slate-900 dark:hover:text-white">
                               <Eye className="h-4 w-4" />
                             </Button>
                           </td>
@@ -621,9 +621,9 @@ export default function Financials() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-white/5 border-t border-white/10">
-                      <td className="py-3 px-4 font-bold text-white">Total Active Revenue</td>
-                      <td className="py-3 px-4 font-bold text-green-400" colSpan={5}>
+                    <tr className="bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10">
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Total Active Revenue</td>
+                      <td className="py-3 px-4 font-bold text-green-600 dark:text-green-400" colSpan={5}>
                         {formatCurrency(financials.monthlyRetainerRevenue)}/month
                       </td>
                     </tr>
@@ -636,16 +636,16 @@ export default function Financials() {
 
         {/* Revenue & Costs Projection Chart */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
-                    <BarChart3 className="h-5 w-5 text-cyan-400" />
+                    <BarChart3 className="h-5 w-5 text-cyan-500 dark:text-cyan-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-white">Revenue & Costs Projection (12 Months)</CardTitle>
-                    <p className="text-white/40 text-sm">Estimated gross revenue versus total operating costs</p>
+                    <CardTitle className="text-slate-900 dark:text-white">Revenue & Costs Projection (12 Months)</CardTitle>
+                    <p className="text-slate-500 dark:text-white/40 text-sm">Estimated gross revenue versus total operating costs</p>
                   </div>
                 </div>
               </div>
@@ -653,7 +653,7 @@ export default function Financials() {
             <CardContent>
               <div className="h-64 relative">
                 {/* Y-axis */}
-                <div className="absolute left-0 top-0 bottom-8 w-16 flex flex-col justify-between text-white/40 text-xs text-right pr-2">
+                <div className="absolute left-0 top-0 bottom-8 w-16 flex flex-col justify-between text-slate-400 dark:text-white/40 text-xs text-right pr-2">
                   <span>{formatCurrency(chartMax, true)}</span>
                   <span>{formatCurrency(chartMax * 0.75, true)}</span>
                   <span>{formatCurrency(chartMax * 0.5, true)}</span>
@@ -666,7 +666,7 @@ export default function Financials() {
                   <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
                     {/* Grid */}
                     {[0.25, 0.5, 0.75, 1].map((p, i) => (
-                      <line key={i} x1="0" y1={200 - p * 200} x2="400" y2={200 - p * 200} stroke="rgba(255,255,255,0.1)" strokeDasharray="4" />
+                      <line key={i} x1="0" y1={200 - p * 200} x2="400" y2={200 - p * 200} className="stroke-slate-200 dark:stroke-white/10" strokeDasharray="4" />
                     ))}
                     
                     {/* Revenue line */}
@@ -705,7 +705,7 @@ export default function Financials() {
                 </div>
                 
                 {/* X-axis */}
-                <div className="absolute left-16 right-0 bottom-0 flex justify-between text-white/40 text-xs">
+                <div className="absolute left-16 right-0 bottom-0 flex justify-between text-slate-400 dark:text-white/40 text-xs">
                   {MONTHS.map(m => <span key={m}>{m}</span>)}
                 </div>
               </div>
@@ -713,11 +713,11 @@ export default function Financials() {
               <div className="flex items-center justify-center gap-8 mt-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-1 bg-green-500 rounded" />
-                  <span className="text-white/60">Revenue</span>
+                  <span className="text-slate-500 dark:text-white/60">Revenue</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-1 bg-purple-500 rounded border-dashed" style={{ borderTop: '2px dashed #a855f7', height: 0 }} />
-                  <span className="text-white/60">Costs</span>
+                  <span className="text-slate-500 dark:text-white/60">Costs</span>
                 </div>
               </div>
             </CardContent>
@@ -726,15 +726,15 @@ export default function Financials() {
 
         {/* Cumulative Profit/Loss */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-green-400" />
+                  <TrendingUp className="h-5 w-5 text-green-500 dark:text-green-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-white">Cumulative Profit/Loss (Running Balance)</CardTitle>
-                  <p className="text-white/40 text-sm">Running total of monthly profits throughout the year</p>
+                  <CardTitle className="text-slate-900 dark:text-white">Cumulative Profit/Loss (Running Balance)</CardTitle>
+                  <p className="text-slate-500 dark:text-white/40 text-sm">Running total of monthly profits throughout the year</p>
                 </div>
               </div>
             </CardHeader>
@@ -756,14 +756,14 @@ export default function Financials() {
                         animate={{ height: `${height}%` }}
                         transition={{ delay: i * 0.05, duration: 0.5 }}
                       />
-                      <span className="text-[10px] text-white/40 mt-2">{m.month}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-white/40 mt-2">{m.month}</span>
                     </div>
                   )
                 })}
               </div>
-              <div className="flex justify-between text-xs text-white/50 mt-4 px-2">
+              <div className="flex justify-between text-xs text-slate-500 dark:text-white/50 mt-4 px-2">
                 <span>Start: $0</span>
-                <span className={cn("font-bold", financials.annualProfit >= 0 ? "text-green-400" : "text-red-400")}>
+                <span className={cn("font-bold", financials.annualProfit >= 0 ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400")}>
                   End: {formatCurrency(financials.annualProfit)}
                 </span>
               </div>
@@ -773,42 +773,42 @@ export default function Financials() {
 
         {/* Month-by-Month Breakdown Table */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Month-by-Month Breakdown</CardTitle>
+              <CardTitle className="text-slate-900 dark:text-white">Month-by-Month Breakdown</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/10 bg-white/5">
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Month</th>
-                      <th className="text-right py-3 px-4 text-white/50 font-medium text-sm">Revenue</th>
-                      <th className="text-right py-3 px-4 text-white/50 font-medium text-sm">Staff</th>
-                      <th className="text-right py-3 px-4 text-white/50 font-medium text-sm">Ops</th>
-                      <th className="text-right py-3 px-4 text-white/50 font-medium text-sm">Cumulative</th>
-                      <th className="text-right py-3 px-4 text-white/50 font-medium text-sm">Surplus</th>
+                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                      <th className="text-left py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Month</th>
+                      <th className="text-right py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Revenue</th>
+                      <th className="text-right py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Staff</th>
+                      <th className="text-right py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Ops</th>
+                      <th className="text-right py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Cumulative</th>
+                      <th className="text-right py-3 px-4 text-slate-500 dark:text-white/50 font-medium text-sm">Surplus</th>
                     </tr>
                   </thead>
                   <tbody>
                     {financials.monthlyBreakdown.map((m, i) => (
-                      <tr key={m.month} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <tr key={m.month} className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-medium">{m.month}</span>
+                            <span className="text-slate-900 dark:text-white font-medium">{m.month}</span>
                             {i === selectedMonth && <Badge className="bg-cyan-600 text-white text-[10px]">Now</Badge>}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-right text-green-400 font-mono">{formatCurrency(m.revenue)}</td>
-                        <td className="py-3 px-4 text-right text-white/70 font-mono">{formatCurrency(m.payroll)}</td>
-                        <td className="py-3 px-4 text-right text-white/70 font-mono">{formatCurrency(m.overhead)}</td>
+                        <td className="py-3 px-4 text-right text-green-600 dark:text-green-400 font-mono">{formatCurrency(m.revenue)}</td>
+                        <td className="py-3 px-4 text-right text-slate-600 dark:text-white/70 font-mono">{formatCurrency(m.payroll)}</td>
+                        <td className="py-3 px-4 text-right text-slate-600 dark:text-white/70 font-mono">{formatCurrency(m.overhead)}</td>
                         <td className="py-3 px-4 text-right font-mono">
-                          <span className={m.cumulative >= 0 ? "text-green-400" : "text-red-400"}>
+                          <span className={m.cumulative >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}>
                             {formatCurrency(m.cumulative)}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono">
-                          <span className={m.profit >= 0 ? "text-green-400" : "text-red-400"}>
+                          <span className={m.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}>
                             {m.profit >= 0 ? '+' : ''}{formatCurrency(m.profit)}
                           </span>
                         </td>

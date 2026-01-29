@@ -34,6 +34,7 @@ const ClientDashboard = lazy(() => import('./pages/ClientDashboard'))
 const Mission = lazy(() => import('./pages/Mission'))
 const Financials = lazy(() => import('./pages/Financials'))
 const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
+const AdminHub = lazy(() => import('./pages/AdminHub'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -931,6 +932,16 @@ function App() {
                 element={
                   <AdminRoute>
                     <WorkingNotWorking />
+                  </AdminRoute>
+                }
+              />
+
+              {/* Admin Hub */}
+              <Route
+                path="/admin-hub"
+                element={
+                  <AdminRoute>
+                    <AdminHub />
                   </AdminRoute>
                 }
               />

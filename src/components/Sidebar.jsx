@@ -29,6 +29,7 @@ import {
   Flame,
   CalendarDays,
   CheckCircle,
+  Crown,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -55,10 +56,11 @@ const navItems = [
 ]
 
 const adminNavItems = [
+  { path: '/admin-hub', icon: Crown, label: 'Admin Hub', shortcut: 'G H' },
   { path: '/mission', icon: Target, label: 'Mission', shortcut: 'G M' },
   { path: '/financials', icon: BarChart3, label: 'Financials', shortcut: 'G F' },
   { path: '/working', icon: CheckCircle, label: 'Working/Not', shortcut: 'G W' },
-  { path: '/admin', icon: Shield, label: 'Admin', shortcut: 'G A' },
+  { path: '/admin', icon: Shield, label: 'Users', shortcut: 'G A' },
   { path: '/import', icon: Upload, label: 'JIRA Import', shortcut: 'G I' },
   { path: '/diagnostics', icon: Activity, label: 'Diagnostics', shortcut: 'G X' },
 ]
