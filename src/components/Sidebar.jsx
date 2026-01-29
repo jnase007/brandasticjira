@@ -43,7 +43,6 @@ const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/pu
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: 'G D' },
-  { path: '/taskboard', icon: Kanban, label: 'Task Board', shortcut: 'G K' },
   { path: '/time', icon: Clock, label: 'Time Tracking', shortcut: 'G T' },
   { path: '/clients', icon: Building2, label: 'Clients', shortcut: 'G C' },
   { path: '/reports', icon: BarChart3, label: 'Reports', shortcut: 'G R' },
@@ -51,6 +50,7 @@ const navItems = [
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
+  { path: '/taskboard', icon: Kanban, label: 'Task Board', shortcut: 'G K', beta: true },
 ]
 
 const adminNavItems = [
@@ -234,7 +234,16 @@ export default function Sidebar({
               )}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <span className="flex items-center gap-2">
+                  {item.label}
+                  {item.beta && (
+                    <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/20 text-amber-600 rounded-full font-medium">
+                      BETA
+                    </span>
+                  )}
+                </span>
+              )}
               
               {/* Active indicator */}
               {isActive && (
