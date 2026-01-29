@@ -86,26 +86,33 @@ export default function TaskBoard() {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   
-  // View mode: 'personal' or 'company'
-  const [viewMode, setViewMode] = useState(searchParams.get('view') || 'personal')
-  const [selectedMember, setSelectedMember] = useState(searchParams.get('member') || 'all')
+  // Selected member filter - default to current user
+  const [selectedMember, setSelectedMember] = useState(searchParams.get('member') || 'me')
   const [selectedClient, setSelectedClient] = useState(searchParams.get('client') || 'all')
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (user && profile) {
       fetchData()
+      // Auto-select current user if 'me' placeholder
+      if (selectedMember === 'me') {
+        setSelectedMember(profile.id)
+      }
     }
   }, [user, profile])
 
   useEffect(() => {
-    // Update URL params
+    // Update URL params - only set non-defaults
     const params = new URLSearchParams()
-    if (viewMode !== 'personal') params.set('view', viewMode)
-    if (selectedMember !== 'all') params.set('member', selectedMember)
+    // Only put member in URL if it's NOT the current user (since that's the default)
+    if (selectedMember !== 'all' && selectedMember !== 'me' && selectedMember !== profile?.id) {
+      params.set('member', selectedMember)
+    } else if (selectedMember === 'all') {
+      params.set('member', 'all')
+    }
     if (selectedClient !== 'all') params.set('client', selectedClient)
-    setSearchParams(params)
-  }, [viewMode, selectedMember, selectedClient])
+    setSearchParams(params, { replace: true })
+  }, [selectedMember, selectedClient, profile?.id])
 
   const fetchData = async () => {
     if (!user) return
@@ -202,22 +209,12 @@ export default function TaskBoard() {
     }
   }
 
-  // Filter tickets based on view mode and filters
+  // Filter tickets based on selected filters
   const filteredTickets = useMemo(() => {
     let filtered = tickets
-    
-    // Use profile.id (same as Dashboard) for consistent filtering
-    const currentUserId = profile?.id || user?.id
-    const currentUserEmail = profile?.email || user?.email
 
-    // View mode filter
-    if (viewMode === 'personal') {
-      // Match by ID OR by assignee email (more robust for OAuth users)
-      filtered = filtered.filter(t => 
-        t.assigned_to === currentUserId || 
-        (t.assignee?.email && t.assignee.email === currentUserEmail)
-      )
-    } else if (viewMode === 'company' && selectedMember !== 'all') {
+    // Team member filter
+    if (selectedMember && selectedMember !== 'all') {
       filtered = filtered.filter(t => t.assigned_to === selectedMember)
     }
 
@@ -237,7 +234,7 @@ export default function TaskBoard() {
     }
 
     return filtered
-  }, [tickets, viewMode, selectedMember, selectedClient, searchQuery, user, profile])
+  }, [tickets, selectedMember, selectedClient, searchQuery])
 
   // Group tickets by status (with legacy status mapping)
   const ticketsByStatus = useMemo(() => {
@@ -311,7 +308,9 @@ export default function TaskBoard() {
             Task Board
           </h1>
           <p className="text-muted-foreground mt-1">
-            {viewMode === 'personal' ? 'Your tasks across all clients' : 'All team tasks'}
+            {selectedMember && selectedMember !== 'all' 
+              ? `Tasks assigned to ${teamMembers.find(m => m.id === selectedMember)?.full_name || 'selected member'}`
+              : 'All team tasks'}
           </p>
         </div>
         
@@ -323,61 +322,34 @@ export default function TaskBoard() {
         </div>
       </div>
 
-      {/* View Toggle & Filters */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        {/* Personal / Company Toggle */}
-        <div className="flex bg-muted rounded-lg p-1">
-          <button
-            onClick={() => {
-              setViewMode('personal')
-              setSelectedMember('all')
-            }}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
-              viewMode === 'personal' 
-                ? "bg-background shadow-sm text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <User className="h-4 w-4" />
-            My Board
-          </button>
-          <button
-            onClick={() => setViewMode('company')}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
-              viewMode === 'company' 
-                ? "bg-background shadow-sm text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Users className="h-4 w-4" />
-            Company Board
-          </button>
-        </div>
-
-        {/* Team Member Filter (Company View) */}
-        {viewMode === 'company' && (
-          <Select value={selectedMember} onValueChange={setSelectedMember}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Team Members" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Team Members</SelectItem>
-              {teamMembers.map(member => (
-                <SelectItem key={member.id} value={member.id}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={member.avatar_url} />
-                      <AvatarFallback className="text-[10px]">{member.full_name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    {member.full_name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        {/* Team Member Filter - always visible */}
+        <Select value={selectedMember} onValueChange={setSelectedMember}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="All Team Members" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                All Team Members
+              </div>
+            </SelectItem>
+            {teamMembers.map(member => (
+              <SelectItem key={member.id} value={member.id}>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={member.avatar_url} />
+                    <AvatarFallback className="text-[10px]">{member.full_name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  {member.full_name}
+                  {member.id === profile?.id && <span className="text-xs text-muted-foreground">(you)</span>}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* Client Filter */}
         <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -417,13 +389,14 @@ export default function TaskBoard() {
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Showing:</span>
           <Badge variant="outline" className="font-bold">{filteredTickets.length} tasks</Badge>
-          {viewMode === 'personal' && tickets.length > 0 && (
+          {selectedMember && selectedMember !== 'all' && tickets.length > filteredTickets.length && (
             <span className="text-muted-foreground">
               (of {tickets.length} total)
             </span>
           )}
         </div>
-        {viewMode === 'personal' ? (
+        
+        {selectedMember && selectedMember !== 'all' && (
           <>
             <div className="flex items-center gap-2 text-blue-600">
               <PlayCircle className="h-4 w-4" />
@@ -436,29 +409,17 @@ export default function TaskBoard() {
               </div>
             )}
           </>
-        ) : (
+        )}
+        
+        {(!selectedMember || selectedMember === 'all') && (
           <Badge variant="outline" className="text-green-600 border-green-300">
-            Showing all {tickets.length} company tickets
+            Showing all company tasks
           </Badge>
         )}
-        {viewMode === 'personal' && filteredTickets.length === 0 && tickets.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-amber-600 border-amber-300">
-              ⚠️ {tickets.length} tasks exist but none assigned to you
-            </Badge>
-            <Button 
-              variant="link" 
-              size="sm" 
-              className="text-purple-600 p-0 h-auto"
-              onClick={() => setViewMode('company')}
-            >
-              View Company Board →
-            </Button>
-          </div>
-        )}
-        {viewMode === 'personal' && filteredTickets.length === 0 && tickets.length === 0 && !loading && (
-          <Badge variant="outline" className="text-red-600 border-red-300">
-            ⚠️ No tickets found in database
+        
+        {filteredTickets.length === 0 && tickets.length === 0 && !loading && (
+          <Badge variant="outline" className="text-amber-600 border-amber-300">
+            No tasks in database yet
           </Badge>
         )}
       </div>
@@ -550,7 +511,7 @@ export default function TaskBoard() {
                                     )}
                                   </div>
                                   
-                                  {ticket.assignee && viewMode === 'company' && (
+                                  {ticket.assignee && (!selectedMember || selectedMember === 'all') && (
                                     <Avatar className="h-5 w-5">
                                       <AvatarImage src={ticket.assignee.avatar_url} />
                                       <AvatarFallback className="text-[8px]">
