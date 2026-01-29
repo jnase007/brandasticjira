@@ -160,6 +160,8 @@ export default function ClientDetail() {
     board_id: '', 
     assignee_id: '',
     service_category: '',
+    billing_type: 'retainer', // retainer, alacarte, internal
+    estimated_amount: '',
     priority: 'medium',
     is_recurring: false,
     recurrence_pattern: '',
@@ -1202,6 +1204,12 @@ export default function ClientDetail() {
         status: 'todo',
         priority: newTask.priority || 'medium',
         created_by: user.id,
+        billing_type: newTask.billing_type || 'retainer',
+      }
+      
+      // Add estimated amount for a-la-carte projects
+      if (newTask.billing_type === 'alacarte' && newTask.estimated_amount) {
+        taskData.estimated_amount = parseFloat(newTask.estimated_amount)
       }
       
       // Add due date if provided
@@ -1245,7 +1253,7 @@ export default function ClientDetail() {
       })
       
       setCreateTaskOpen(false)
-      setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium' })
+      setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium', billing_type: 'retainer', estimated_amount: '' })
       fetchClientData(true)
     } catch (error) {
       console.error('Error creating task:', error)
@@ -3661,6 +3669,59 @@ export default function ClientDetail() {
               />
             </div>
             
+            {/* Billing Type - A-la-carte option */}
+            <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+              <Label className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-green-500" />
+                Billing Type
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'retainer', label: 'Retainer', desc: 'Included in monthly', color: 'bg-blue-500' },
+                  { id: 'alacarte', label: 'A-la-carte', desc: 'Billed separately', color: 'bg-green-500' },
+                  { id: 'internal', label: 'Internal', desc: 'Not billed', color: 'bg-gray-400' },
+                ].map(type => (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => setNewTask(prev => ({ ...prev, billing_type: type.id }))}
+                    className={cn(
+                      "flex-1 min-w-[100px] p-3 rounded-lg border-2 text-left transition-all",
+                      newTask.billing_type === type.id 
+                        ? "border-brand-orange bg-brand-orange/5" 
+                        : "border-transparent bg-background hover:border-muted-foreground/20"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn("w-2 h-2 rounded-full", type.color)} />
+                      <span className="font-medium text-sm">{type.label}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{type.desc}</p>
+                  </button>
+                ))}
+              </div>
+              
+              {/* Estimated Amount - only for a-la-carte */}
+              {newTask.billing_type === 'alacarte' && (
+                <div className="mt-3 space-y-2">
+                  <Label className="text-sm">Estimated Amount</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={newTask.estimated_amount}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, estimated_amount: e.target.value }))}
+                      className="pl-7"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    💡 This will be tracked as additional revenue outside the retainer
+                  </p>
+                </div>
+              )}
+            </div>
+            
             {/* Recurring Task Toggle */}
             <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
               <div className="flex items-center justify-between">
@@ -3729,7 +3790,7 @@ export default function ClientDetail() {
           <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => {
               setCreateTaskOpen(false)
-              setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium', is_recurring: false, recurrence_pattern: '', due_date: '', recurrence_end_date: '' })
+              setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium', billing_type: 'retainer', estimated_amount: '', is_recurring: false, recurrence_pattern: '', due_date: '', recurrence_end_date: '' })
             }}>
               Cancel
             </Button>
