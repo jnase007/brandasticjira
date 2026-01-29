@@ -237,9 +237,9 @@ export default function Financials() {
   const chartMax = Math.max(...financials.monthlyBreakdown.map(m => Math.max(m.revenue, m.totalCosts))) * 1.2
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a1628] text-slate-900 dark:text-white">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#0d1d35]/50 backdrop-blur-xl sticky top-0 z-10">
+      <div className="border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0d1d35]/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -249,11 +249,11 @@ export default function Financials() {
                 </div>
                 {selectedYear} Financial Projections
               </h1>
-              <p className="text-white/50 text-sm mt-1">Revenue forecasts & operating costs for financial and tax planning</p>
+              <p className="text-slate-500 dark:text-white/50 text-sm mt-1">Revenue forecasts & operating costs for financial and tax planning</p>
             </div>
             <div className="flex items-center gap-3">
               <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-24 bg-white/5 border-white/20">
+                <SelectTrigger className="w-24 bg-slate-100 dark:bg-white/5 border-slate-300 dark:border-white/20">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -265,13 +265,13 @@ export default function Financials() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-white/20"
+                className="border-slate-300 dark:border-white/20"
                 onClick={() => setShowCosts(!showCosts)}
               >
                 {showCosts ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
                 {showCosts ? 'Hide' : 'Show'} Costs
               </Button>
-              <Button onClick={fetchData} variant="outline" size="sm" className="border-white/20">
+              <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-300 dark:border-white/20">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
@@ -279,27 +279,27 @@ export default function Financials() {
           
           {/* Quick Stats Bar */}
           <div className="grid grid-cols-4 gap-4 mt-4">
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+            <div className="p-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">Revenue Per Employee</span>
-                <TrendingUp className="h-4 w-4 text-green-400" />
+                <span className="text-slate-500 dark:text-white/50 text-xs">Revenue Per Employee</span>
+                <TrendingUp className="h-4 w-4 text-green-500" />
               </div>
-              <p className="text-xl font-bold text-white mt-1">{formatCurrency(financials.revenuePerEmployee, true)}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{formatCurrency(financials.revenuePerEmployee, true)}</p>
             </div>
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+            <div className="p-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">Total Revenue</span>
+                <span className="text-slate-500 dark:text-white/50 text-xs">Total Revenue</span>
                 <DollarSign className="h-4 w-4 text-brand-orange" />
               </div>
               <p className="text-xl font-bold text-brand-orange mt-1">{formatCurrency(financials.annualRevenue, true)}</p>
             </div>
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+            <div className="p-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">Month</span>
-                <Calendar className="h-4 w-4 text-cyan-400" />
+                <span className="text-slate-500 dark:text-white/50 text-xs">Month</span>
+                <Calendar className="h-4 w-4 text-cyan-500" />
               </div>
               <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-                <SelectTrigger className="mt-1 h-8 bg-transparent border-0 p-0 text-xl font-bold">
+                <SelectTrigger className="mt-1 h-8 bg-transparent border-0 p-0 text-xl font-bold text-slate-900 dark:text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -309,12 +309,12 @@ export default function Financials() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+            <div className="p-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">Payroll vs Revenue</span>
-                <Wallet className="h-4 w-4 text-purple-400" />
+                <span className="text-slate-500 dark:text-white/50 text-xs">Payroll vs Revenue</span>
+                <Wallet className="h-4 w-4 text-purple-500" />
               </div>
-              <p className="text-xl font-bold text-purple-400 mt-1">{formatCurrency(financials.totalMonthlyPayroll)}</p>
+              <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">{formatCurrency(financials.totalMonthlyPayroll)}</p>
             </div>
           </div>
         </div>
@@ -328,45 +328,45 @@ export default function Financials() {
       >
         {/* Revenue Per Employee Section */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-400" />
+                  <Users className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-white">Revenue Per Employee (RPE)</CardTitle>
-                  <p className="text-white/40 text-sm">Track efficiency and scalability metrics</p>
+                  <CardTitle className="text-slate-900 dark:text-white">Revenue Per Employee (RPE)</CardTitle>
+                  <p className="text-slate-500 dark:text-white/40 text-sm">Track efficiency and scalability metrics</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-4 gap-6">
-                <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/20 to-transparent border border-cyan-500/30">
-                  <p className="text-cyan-400/60 text-xs mb-1">CURRENT RPE</p>
-                  <p className="text-cyan-400 text-3xl font-bold">{formatCurrency(financials.revenuePerEmployee, true)}</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30">
+                  <p className="text-cyan-600/70 dark:text-cyan-400/60 text-xs mb-1">CURRENT RPE</p>
+                  <p className="text-cyan-600 dark:text-cyan-400 text-3xl font-bold">{formatCurrency(financials.revenuePerEmployee, true)}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-transparent border border-purple-500/30">
-                  <p className="text-purple-400/60 text-xs mb-1">RPE TARGET</p>
-                  <p className="text-purple-400 text-3xl font-bold">{formatCurrency(settings.targetRPE, true)}</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30">
+                  <p className="text-purple-600/70 dark:text-purple-400/60 text-xs mb-1">RPE TARGET</p>
+                  <p className="text-purple-600 dark:text-purple-400 text-3xl font-bold">{formatCurrency(settings.targetRPE, true)}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <p className="text-white/50 text-xs mb-1">+/- ANNUAL</p>
-                  <p className={cn("text-3xl font-bold", financials.revenuePerEmployee >= settings.targetRPE ? "text-green-400" : "text-red-400")}>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-xs mb-1">+/- ANNUAL</p>
+                  <p className={cn("text-3xl font-bold", financials.revenuePerEmployee >= settings.targetRPE ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400")}>
                     {financials.revenuePerEmployee >= settings.targetRPE ? '+' : ''}{formatCurrency(financials.revenuePerEmployee - settings.targetRPE, true)}
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <p className="text-white/50 text-xs mb-1"># EMPLOYEES</p>
-                  <p className="text-white text-3xl font-bold">{financials.numEmployees}</p>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-xs mb-1"># EMPLOYEES</p>
+                  <p className="text-slate-900 dark:text-white text-3xl font-bold">{financials.numEmployees}</p>
                 </div>
               </div>
               <div className="mt-4">
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-white/50">Progress to target</span>
-                  <span className="text-white/70">{financials.rpeProgress.toFixed(1)}%</span>
+                  <span className="text-slate-500 dark:text-white/50">Progress to target</span>
+                  <span className="text-slate-700 dark:text-white/70">{financials.rpeProgress.toFixed(1)}%</span>
                 </div>
-                <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-3 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                   <motion.div 
                     className={cn("h-full rounded-full", financials.rpeProgress >= 100 ? "bg-green-500" : "bg-cyan-500")}
                     initial={{ width: 0 }}
@@ -381,33 +381,33 @@ export default function Financials() {
 
         {/* Annual Trend Cards */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-gradient-to-br from-brand-orange/20 to-transparent border-brand-orange/30">
+          <Card className="bg-gradient-to-br from-brand-orange/10 to-brand-orange/5 dark:from-brand-orange/20 dark:to-transparent border-brand-orange/30 shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-orange/30 flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-brand-orange" />
                 </div>
-                <CardTitle className="text-white">{selectedYear} Annual Trend</CardTitle>
+                <CardTitle className="text-slate-900 dark:text-white">{selectedYear} Annual Trend</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-6">
-                <div className="p-6 rounded-xl bg-[#0d1d35] border border-white/10">
-                  <p className="text-white/50 text-sm mb-2">Projected Annual Revenue</p>
-                  <p className="text-4xl font-bold text-green-400">{formatCurrency(financials.annualRevenue, true)}</p>
-                  <p className="text-white/40 text-xs mt-1">at ${settings.hourlyRate}/hr avg</p>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#0d1d35] border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-sm mb-2">Projected Annual Revenue</p>
+                  <p className="text-4xl font-bold text-green-500 dark:text-green-400">{formatCurrency(financials.annualRevenue, true)}</p>
+                  <p className="text-slate-400 dark:text-white/40 text-xs mt-1">at ${settings.hourlyRate}/hr avg</p>
                 </div>
-                <div className="p-6 rounded-xl bg-[#0d1d35] border border-white/10">
-                  <p className="text-white/50 text-sm mb-2">Projected Profit</p>
-                  <p className={cn("text-4xl font-bold", financials.annualProfit >= 0 ? "text-brand-orange" : "text-red-400")}>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#0d1d35] border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-sm mb-2">Projected Profit</p>
+                  <p className={cn("text-4xl font-bold", financials.annualProfit >= 0 ? "text-brand-orange" : "text-red-500 dark:text-red-400")}>
                     {formatCurrency(financials.annualProfit, true)}
                   </p>
-                  <p className="text-white/40 text-xs mt-1">at {financials.profitMargin.toFixed(1)}% margin</p>
+                  <p className="text-slate-400 dark:text-white/40 text-xs mt-1">at {financials.profitMargin.toFixed(1)}% margin</p>
                 </div>
-                <div className="p-6 rounded-xl bg-[#0d1d35] border border-white/10">
-                  <p className="text-white/50 text-sm mb-2">Projected Overhead</p>
-                  <p className="text-4xl font-bold text-purple-400">{formatCurrency(financials.annualOverhead, true)}</p>
-                  <p className="text-white/40 text-xs mt-1">payroll + operating costs</p>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#0d1d35] border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-sm mb-2">Projected Overhead</p>
+                  <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">{formatCurrency(financials.annualOverhead, true)}</p>
+                  <p className="text-slate-400 dark:text-white/40 text-xs mt-1">payroll + operating costs</p>
                 </div>
               </div>
               
@@ -417,26 +417,26 @@ export default function Financials() {
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div className="w-full flex gap-0.5 h-16">
                       <div 
-                        className="flex-1 bg-green-500/60 rounded-t"
+                        className="flex-1 bg-green-500/70 dark:bg-green-500/60 rounded-t"
                         style={{ height: `${(m.revenue / chartMax) * 100}%` }}
                       />
                       <div 
-                        className="flex-1 bg-purple-500/60 rounded-t"
+                        className="flex-1 bg-purple-500/70 dark:bg-purple-500/60 rounded-t"
                         style={{ height: `${(m.totalCosts / chartMax) * 100}%` }}
                       />
                     </div>
-                    <span className="text-[10px] text-white/40">{m.month}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-white/40">{m.month}</span>
                   </div>
                 ))}
               </div>
               <div className="flex items-center justify-center gap-6 mt-2 text-xs">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500/60 rounded" />
-                  <span className="text-white/50">Revenue</span>
+                  <div className="w-3 h-3 bg-green-500/70 dark:bg-green-500/60 rounded" />
+                  <span className="text-slate-500 dark:text-white/50">Revenue</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-purple-500/60 rounded" />
-                  <span className="text-white/50">Costs</span>
+                  <div className="w-3 h-3 bg-purple-500/70 dark:bg-purple-500/60 rounded" />
+                  <span className="text-slate-500 dark:text-white/50">Costs</span>
                 </div>
               </div>
             </CardContent>
@@ -445,101 +445,101 @@ export default function Financials() {
 
         {/* Monthly Overview */}
         <motion.div variants={itemVariants} className="grid grid-cols-3 gap-6">
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                  <Receipt className="h-5 w-5 text-red-400" />
+                  <Receipt className="h-5 w-5 text-red-500 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-white/50 text-sm">Monthly Overhead</p>
-                  <p className="text-2xl font-bold text-white">{formatCurrency(settings.monthlyOverhead)}</p>
+                  <p className="text-slate-500 dark:text-white/50 text-sm">Monthly Overhead</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(settings.monthlyOverhead)}</p>
                 </div>
               </div>
-              <p className="text-white/40 text-xs">Rent, utilities, software, insurance</p>
+              <p className="text-slate-400 dark:text-white/40 text-xs">Rent, utilities, software, insurance</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <Briefcase className="h-5 w-5 text-blue-400" />
+                  <Briefcase className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-white/50 text-sm">Base Monthly Invoices</p>
-                  <p className="text-2xl font-bold text-white">{formatCurrency(financials.monthlyRetainerRevenue)}</p>
+                  <p className="text-slate-500 dark:text-white/50 text-sm">Base Monthly Invoices</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(financials.monthlyRetainerRevenue)}</p>
                 </div>
               </div>
-              <p className="text-white/40 text-xs">From {financials.activeClients} active retainer clients</p>
+              <p className="text-slate-400 dark:text-white/40 text-xs">From {financials.activeClients} active retainer clients</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                  <Coins className="h-5 w-5 text-green-400" />
+                  <Coins className="h-5 w-5 text-green-500 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-white/50 text-sm">A La Carte Revenue</p>
-                  <p className="text-2xl font-bold text-white">{formatCurrency(financials.alaCarteRevenue)}</p>
+                  <p className="text-slate-500 dark:text-white/50 text-sm">A La Carte Revenue</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(financials.alaCarteRevenue)}</p>
                 </div>
               </div>
-              <p className="text-white/40 text-xs">One-time projects outside retainers</p>
+              <p className="text-slate-400 dark:text-white/40 text-xs">One-time projects outside retainers</p>
             </CardContent>
           </Card>
         </motion.div>
 
         {/* California Employer Taxes */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
-                    <Calculator className="h-5 w-5 text-yellow-400" />
+                    <Calculator className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-white">California Employer Taxes</CardTitle>
-                    <p className="text-white/40 text-sm">Estimated employer-side tax obligations</p>
+                    <CardTitle className="text-slate-900 dark:text-white">California Employer Taxes</CardTitle>
+                    <p className="text-slate-500 dark:text-white/40 text-sm">Estimated employer-side tax obligations</p>
                   </div>
                 </div>
-                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">CA</Badge>
+                <Badge className="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/30">CA</Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-6 gap-4">
-                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-transparent border border-yellow-500/30">
-                  <p className="text-yellow-400/60 text-xs mb-1">GROSS PAY</p>
-                  <p className="text-yellow-400 text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.grossPay, true)}</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-500/5 border border-yellow-500/30">
+                  <p className="text-yellow-600/70 dark:text-yellow-400/60 text-xs mb-1">GROSS PAY</p>
+                  <p className="text-yellow-600 dark:text-yellow-400 text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.grossPay, true)}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <p className="text-white/50 text-xs mb-1">FICA</p>
-                  <p className="text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.fica, true)}</p>
-                  <p className="text-white/30 text-[10px]">{(settings.ficaRate * 100).toFixed(2)}%</p>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-xs mb-1">FICA</p>
+                  <p className="text-slate-900 dark:text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.fica, true)}</p>
+                  <p className="text-slate-400 dark:text-white/30 text-[10px]">{(settings.ficaRate * 100).toFixed(2)}%</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <p className="text-white/50 text-xs mb-1">FUTA</p>
-                  <p className="text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.futa, true)}</p>
-                  <p className="text-white/30 text-[10px]">{(settings.futaRate * 100).toFixed(2)}%</p>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-xs mb-1">FUTA</p>
+                  <p className="text-slate-900 dark:text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.futa, true)}</p>
+                  <p className="text-slate-400 dark:text-white/30 text-[10px]">{(settings.futaRate * 100).toFixed(2)}%</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <p className="text-white/50 text-xs mb-1">CA SUTA</p>
-                  <p className="text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.suta, true)}</p>
-                  <p className="text-white/30 text-[10px]">{(settings.sutaRate * 100).toFixed(2)}%</p>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-xs mb-1">CA SUTA</p>
+                  <p className="text-slate-900 dark:text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.suta, true)}</p>
+                  <p className="text-slate-400 dark:text-white/30 text-[10px]">{(settings.sutaRate * 100).toFixed(2)}%</p>
                 </div>
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <p className="text-white/50 text-xs mb-1">ETT + SDI</p>
-                  <p className="text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.etl + financials.caEmployerTaxes.sdi, true)}</p>
-                  <p className="text-white/30 text-[10px]">1.2%</p>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <p className="text-slate-500 dark:text-white/50 text-xs mb-1">ETT + SDI</p>
+                  <p className="text-slate-900 dark:text-white text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.etl + financials.caEmployerTaxes.sdi, true)}</p>
+                  <p className="text-slate-400 dark:text-white/30 text-[10px]">1.2%</p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/20 to-transparent border border-red-500/30">
-                  <p className="text-red-400/60 text-xs mb-1">TOTAL TAXES</p>
-                  <p className="text-red-400 text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.total, true)}</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30">
+                  <p className="text-red-500/70 dark:text-red-400/60 text-xs mb-1">TOTAL TAXES</p>
+                  <p className="text-red-500 dark:text-red-400 text-xl font-bold">{formatCurrency(financials.caEmployerTaxes.total, true)}</p>
                 </div>
               </div>
-              <p className="text-white/40 text-xs mt-4 text-center">
+              <p className="text-slate-400 dark:text-white/40 text-xs mt-4 text-center">
                 ⚠️ Estimates based on current payroll. Consult CPA for actual tax calculations. ETT = Employment Training Tax, SDI = State Disability Insurance
               </p>
             </CardContent>

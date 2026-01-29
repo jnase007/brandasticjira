@@ -341,16 +341,16 @@ export default function Mission() {
 
         {/* Road to Target Revenue */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-slate-50 border-slate-200 shadow-lg">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                    <Rocket className="h-5 w-5 text-red-400" />
+                  <div className="w-10 h-10 rounded-xl bg-brand-orange/20 flex items-center justify-center">
+                    <Rocket className="h-5 w-5 text-brand-orange" />
                   </div>
                   <div>
-                    <CardTitle className="text-white">Road to ${(mission.revenue_target / 1000000).toFixed(1)}M</CardTitle>
-                    <p className="text-white/40 text-sm">
+                    <CardTitle className="text-slate-900">Road to ${(mission.revenue_target / 1000000).toFixed(1)}M</CardTitle>
+                    <p className="text-slate-500 text-sm">
                       {years}-Year Revenue Roadmap with {cagr}% CAGR ({mission.start_year} → {mission.target_year})
                     </p>
                   </div>
@@ -359,12 +359,12 @@ export default function Mission() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Planning Mode Controls */}
-              <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <span className="text-white/50 text-sm">Planning Mode:</span>
-                <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white">
+              <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-slate-100 border border-slate-200">
+                <span className="text-slate-500 text-sm">Planning Mode:</span>
+                <Button size="sm" className="bg-brand-orange hover:bg-brand-coral text-white">
                   Set Target Revenue
                 </Button>
-                <Button size="sm" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                <Button size="sm" variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-100">
                   Set Growth Rate
                 </Button>
               </div>
@@ -372,24 +372,24 @@ export default function Mission() {
               {/* Revenue Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-white/60 text-sm">{mission.target_year} Target Revenue ($)</Label>
+                  <Label className="text-slate-600 text-sm">{mission.target_year} Target Revenue ($)</Label>
                   <div className="flex items-center gap-2 mt-1">
                     <Input 
-                      type="number" 
-                      value={mission.revenue_target}
-                      onChange={(e) => setMission(m => ({ ...m, revenue_target: parseInt(e.target.value) || 0 }))}
-                      className="bg-white/5 border-white/20 text-white font-mono"
+                      type="text" 
+                      value={mission.revenue_target.toLocaleString()}
+                      onChange={(e) => setMission(m => ({ ...m, revenue_target: parseInt(e.target.value.replace(/,/g, '')) || 0 }))}
+                      className="bg-slate-100 border-slate-300 text-slate-900 font-mono"
                     />
-                    <span className="text-white/40">= ${(mission.revenue_target / 1000000).toFixed(1)}M</span>
+                    <span className="text-slate-500">= ${(mission.revenue_target / 1000000).toFixed(1)}M</span>
                   </div>
                   <p className="text-brand-orange text-xs mt-1">Required CAGR: {cagr}%</p>
                 </div>
                 <div>
-                  <Label className="text-white/60 text-sm">Current Annual Revenue</Label>
+                  <Label className="text-slate-600 text-sm">Current Annual Revenue</Label>
                   <div className="flex items-center gap-4 mt-1">
-                    <span className="text-2xl font-bold text-white">${(mission.current_revenue / 1000000).toFixed(2)}M</span>
-                    <span className="text-white/40 text-sm">Based on active clients</span>
-                    <Button size="sm" className="ml-auto bg-green-600 hover:bg-green-700">
+                    <span className="text-2xl font-bold text-slate-900">${(mission.current_revenue / 1000000).toFixed(2)}M</span>
+                    <span className="text-slate-500 text-sm">Based on active clients</span>
+                    <Button size="sm" className="ml-auto bg-green-600 hover:bg-green-700" onClick={handleSave}>
                       <Save className="h-4 w-4 mr-2" />
                       Save Settings
                     </Button>
@@ -399,38 +399,38 @@ export default function Mission() {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 rounded-xl bg-gradient-to-br from-brand-orange/20 to-transparent border border-brand-orange/30">
-                  <p className="text-brand-orange/60 text-xs mb-1">{mission.target_year} TARGET GOAL</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-brand-orange/20 to-brand-orange/5 border border-brand-orange/30">
+                  <p className="text-brand-orange/70 text-xs mb-1">{mission.target_year} TARGET GOAL</p>
                   <p className="text-brand-orange text-3xl font-bold">${(mission.revenue_target / 1000000).toFixed(1)}M</p>
-                  <p className="text-white/40 text-xs">At {cagr}% YoY Growth</p>
+                  <p className="text-slate-500 text-xs">At {cagr}% YoY Growth</p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-transparent border border-purple-500/30">
-                  <p className="text-purple-400/60 text-xs mb-1">STARTING REVENUE</p>
-                  <p className="text-purple-400 text-3xl font-bold">${(mission.current_revenue / 1000000).toFixed(1)}M</p>
-                  <p className="text-white/40 text-xs">{mission.start_year} Annual Revenue</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30">
+                  <p className="text-purple-500/70 text-xs mb-1">STARTING REVENUE</p>
+                  <p className="text-purple-500 text-3xl font-bold">${(mission.current_revenue / 1000000).toFixed(1)}M</p>
+                  <p className="text-slate-500 text-xs">{mission.start_year} Annual Revenue</p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/20 to-transparent border border-cyan-500/30">
-                  <p className="text-cyan-400/60 text-xs mb-1">REQUIRED CAGR</p>
-                  <p className="text-cyan-400 text-3xl font-bold">{cagr}%</p>
-                  <p className="text-white/40 text-xs">Year-over-year growth</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-500/5 border border-teal-500/30">
+                  <p className="text-teal-600/70 text-xs mb-1">REQUIRED CAGR</p>
+                  <p className="text-teal-600 text-3xl font-bold">{cagr}%</p>
+                  <p className="text-slate-500 text-xs">Year-over-year growth</p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-pink-500/20 to-transparent border border-pink-500/30">
-                  <p className="text-pink-400/60 text-xs mb-1">CLIENTS BY {mission.target_year}</p>
-                  <p className="text-pink-400 text-3xl font-bold">{mission.target_clients}</p>
-                  <p className="text-white/40 text-xs">@ ${Math.round(avgClientMonthly).toLocaleString()}/yr avg</p>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-rose-500/20 to-rose-500/5 border border-rose-500/30">
+                  <p className="text-rose-500/70 text-xs mb-1">CLIENTS BY {mission.target_year}</p>
+                  <p className="text-rose-500 text-3xl font-bold">{mission.target_clients}</p>
+                  <p className="text-slate-500 text-xs">@ ${Math.round(avgClientMonthly).toLocaleString()}/yr avg</p>
                 </div>
               </div>
 
               {/* Revenue Trajectory Chart */}
               <div>
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <h3 className="text-slate-900 font-semibold mb-4 flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-brand-orange" />
                   Revenue Trajectory at {cagr}% CAGR
                 </h3>
-                <div className="h-64 bg-white/5 rounded-xl p-4 border border-white/10">
+                <div className="h-64 bg-slate-100 rounded-xl p-4 border border-slate-200">
                   <div className="relative h-full">
                     {/* Y-axis labels */}
-                    <div className="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-white/40 text-xs">
+                    <div className="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-slate-500 text-xs">
                       <span>${(mission.revenue_target / 1000000).toFixed(0)}M</span>
                       <span>${((mission.revenue_target + mission.current_revenue) / 2 / 1000000).toFixed(0)}M</span>
                       <span>${(mission.current_revenue / 1000000).toFixed(0)}M</span>
@@ -441,15 +441,15 @@ export default function Mission() {
                     <div className="absolute left-14 right-0 top-0 bottom-8">
                       <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
                         {/* Grid lines */}
-                        <line x1="0" y1="50" x2="400" y2="50" stroke="rgba(255,255,255,0.1)" strokeDasharray="4" />
-                        <line x1="0" y1="100" x2="400" y2="100" stroke="rgba(255,255,255,0.1)" strokeDasharray="4" />
-                        <line x1="0" y1="150" x2="400" y2="150" stroke="rgba(255,255,255,0.1)" strokeDasharray="4" />
+                        <line x1="0" y1="50" x2="400" y2="50" stroke="rgba(100,116,139,0.2)" strokeDasharray="4" />
+                        <line x1="0" y1="100" x2="400" y2="100" stroke="rgba(100,116,139,0.2)" strokeDasharray="4" />
+                        <line x1="0" y1="150" x2="400" y2="150" stroke="rgba(100,116,139,0.2)" strokeDasharray="4" />
                         
                         {/* Area fill */}
                         <defs>
                           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#F7931E" stopOpacity="0.3" />
-                            <stop offset="100%" stopColor="#F7931E" stopOpacity="0" />
+                            <stop offset="0%" stopColor="#F7931E" stopOpacity="0.4" />
+                            <stop offset="100%" stopColor="#F7931E" stopOpacity="0.05" />
                           </linearGradient>
                         </defs>
                         
@@ -479,7 +479,7 @@ export default function Mission() {
                             cy={200 - (d.value / mission.revenue_target) * 180}
                             r="5"
                             fill="#F7931E"
-                            stroke="#0a1628"
+                            stroke="#f8fafc"
                             strokeWidth="2"
                           />
                         ))}
@@ -487,7 +487,7 @@ export default function Mission() {
                     </div>
                     
                     {/* X-axis labels */}
-                    <div className="absolute left-14 right-0 bottom-0 flex justify-between text-white/40 text-xs">
+                    <div className="absolute left-14 right-0 bottom-0 flex justify-between text-slate-500 text-xs">
                       {trajectoryData.map((d, i) => (
                         <span key={i}>{d.label}</span>
                       ))}

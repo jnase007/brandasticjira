@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS public.working_not_working (
   description TEXT NOT NULL,
   next_steps TEXT, -- Action items for "not working" items
   responsible TEXT, -- Who is responsible
+  priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high')),
+  
+  -- Engagement
+  votes INTEGER DEFAULT 0,
   
   -- Resolution tracking
   is_resolved BOOLEAN DEFAULT FALSE,

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckCircle, AlertCircle, Plus, Calendar, Edit2, Trash2,
-  X, Check, User, ChevronDown, Sparkles,
+  X, Check, User, ChevronDown, Sparkles, ThumbsUp, Download,
+  TrendingUp, TrendingDown, Flame, MessageSquare, Clock,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -60,7 +61,24 @@ export default function WorkingNotWorking() {
     description: '',
     responsible: '',
     next_steps: '',
+    priority: 'normal', // 'low', 'normal', 'high'
   })
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if typing in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault()
+        handleOpenDialog()
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -202,6 +220,28 @@ export default function WorkingNotWorking() {
   // Filter items by type
   const workingItems = items.filter(i => i.type === 'working')
   const notWorkingItems = items.filter(i => i.type === 'not_working')
+  const resolvedItems = items.filter(i => i.is_resolved)
+  const unresolvedChallenges = notWorkingItems.filter(i => !i.is_resolved)
+
+  // Handle upvote
+  const handleUpvote = async (id) => {
+    try {
+      const item = items.find(i => i.id === id)
+      const currentVotes = item?.votes || 0
+      
+      const { error } = await supabase
+        .from('working_not_working')
+        .update({ votes: currentVotes + 1 })
+        .eq('id', id)
+
+      if (error) throw error
+      
+      // Optimistic update
+      setItems(prev => prev.map(i => i.id === id ? { ...i, votes: currentVotes + 1 } : i))
+    } catch (error) {
+      console.log('Error upvoting:', error.message)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0a1628] text-white">
@@ -211,7 +251,10 @@ export default function WorkingNotWorking() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Working / Not Working</h1>
-              <p className="text-white/50 mt-1">Monthly review of successes and opportunities</p>
+              <p className="text-white/50 mt-1">
+                Monthly review of successes and opportunities
+                <span className="ml-2 text-white/30 text-sm">(Press N to add new)</span>
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -244,12 +287,67 @@ export default function WorkingNotWorking() {
               </div>
               <Button 
                 onClick={() => handleOpenDialog()}
-                className="bg-gradient-to-r from-brand-orange to-brand-coral text-white"
+                className="bg-gradient-to-r from-brand-orange to-brand-coral text-white shadow-lg shadow-brand-orange/20 hover:shadow-brand-orange/40 transition-all"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Add Item
               </Button>
             </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-4 gap-4 mt-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 rounded-xl bg-green-500/10 border border-green-500/20"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-green-400/60 text-sm">Successes</span>
+                <TrendingUp className="h-4 w-4 text-green-400" />
+              </div>
+              <p className="text-3xl font-bold text-green-400 mt-1">{workingItems.length}</p>
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-amber-400/60 text-sm">Open Challenges</span>
+                <AlertCircle className="h-4 w-4 text-amber-400" />
+              </div>
+              <p className="text-3xl font-bold text-amber-400 mt-1">{unresolvedChallenges.length}</p>
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-purple-400/60 text-sm">Resolved</span>
+                <CheckCircle className="h-4 w-4 text-purple-400" />
+              </div>
+              <p className="text-3xl font-bold text-purple-400 mt-1">{resolvedItems.length}</p>
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-cyan-400/60 text-sm">Resolution Rate</span>
+                <Flame className="h-4 w-4 text-cyan-400" />
+              </div>
+              <p className="text-3xl font-bold text-cyan-400 mt-1">
+                {notWorkingItems.length > 0 
+                  ? Math.round((resolvedItems.length / notWorkingItems.length) * 100) 
+                  : 100}%
+              </p>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -331,12 +429,23 @@ export default function WorkingNotWorking() {
                             </Button>
                           </div>
                         </div>
-                        {item.responsible && (
-                          <div className="mt-3 flex items-center gap-2 text-sm text-white/50">
-                            <User className="h-3.5 w-3.5" />
-                            <span>Responsible: <span className="text-white/70">{item.responsible}</span></span>
-                          </div>
-                        )}
+                        <div className="mt-3 flex items-center justify-between">
+                          {item.responsible && (
+                            <div className="flex items-center gap-2 text-sm text-white/50">
+                              <User className="h-3.5 w-3.5" />
+                              <span>Responsible: <span className="text-white/70">{item.responsible}</span></span>
+                            </div>
+                          )}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => handleUpvote(item.id)}
+                            className="flex items-center gap-1.5 text-xs text-white/50 hover:text-green-400 transition-colors ml-auto"
+                          >
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                            <span>{item.votes || 0}</span>
+                          </motion.button>
+                        </div>
                       </motion.div>
                     ))
                   )}
@@ -444,12 +553,23 @@ export default function WorkingNotWorking() {
                           </div>
                         )}
                         
-                        {item.responsible && (
-                          <div className="mt-3 flex items-center gap-2 text-sm text-white/50">
-                            <User className="h-3.5 w-3.5" />
-                            <span>Responsible: <span className="text-white/70">{item.responsible}</span></span>
-                          </div>
-                        )}
+                        <div className="mt-3 flex items-center justify-between">
+                          {item.responsible && (
+                            <div className="flex items-center gap-2 text-sm text-white/50">
+                              <User className="h-3.5 w-3.5" />
+                              <span>Responsible: <span className="text-white/70">{item.responsible}</span></span>
+                            </div>
+                          )}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => handleUpvote(item.id)}
+                            className="flex items-center gap-1.5 text-xs text-white/50 hover:text-amber-400 transition-colors ml-auto"
+                          >
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                            <span>{item.votes || 0}</span>
+                          </motion.button>
+                        </div>
                       </motion.div>
                     ))
                   )}
