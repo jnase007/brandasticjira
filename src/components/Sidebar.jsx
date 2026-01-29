@@ -54,6 +54,7 @@ const navItems = [
 ]
 
 const adminNavItems = [
+  { path: '/mission', icon: Target, label: 'Mission', shortcut: 'G M' },
   { path: '/admin', icon: Shield, label: 'Admin', shortcut: 'G A' },
   { path: '/import', icon: Upload, label: 'JIRA Import', shortcut: 'G I' },
   { path: '/diagnostics', icon: Activity, label: 'Diagnostics', shortcut: 'G X' },

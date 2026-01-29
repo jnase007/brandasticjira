@@ -31,6 +31,7 @@ const Diagnostics = lazy(() => import('./pages/Diagnostics'))
 const ClientPublic = lazy(() => import('./pages/ClientPublic'))
 const ClientLogin = lazy(() => import('./pages/ClientLogin'))
 const ClientDashboard = lazy(() => import('./pages/ClientDashboard'))
+const Mission = lazy(() => import('./pages/Mission'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -898,6 +899,16 @@ function App() {
                 element={
                   <AdminRoute>
                     <Admin />
+                  </AdminRoute>
+                }
+              />
+
+              {/* Mission Dashboard */}
+              <Route
+                path="/mission"
+                element={
+                  <AdminRoute>
+                    <Mission />
                   </AdminRoute>
                 }
               />
