@@ -405,7 +405,7 @@ function MainLayout({ children }) {
           {!timerVisible && (
             <QuickActionsFAB
               onStartTimer={() => setTimerVisible(true)}
-              onNewTicket={() => {}} // Navigate to create ticket
+              onNewTicket={() => navigate('/tasks?new=true')}
               onOpenSearch={() => setCommandPaletteOpen(true)}
               onShowShortcuts={() => setShortcutsOpen(true)}
             />

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Building2, Palette, Clock, Mail, User, FileText, 
   Upload, X, Image as ImageIcon, Check, ChevronRight, ChevronLeft,
+  ChevronUp, ChevronDown, Minus,
   Sparkles, Plus, Kanban, ArrowRight, Zap, Target, DollarSign,
   Calendar, Briefcase, MessageSquare
 } from 'lucide-react'
@@ -44,19 +45,14 @@ const COLORS = [
   { value: '#2D3436', name: 'Dark' },
 ]
 
-const HOUR_OPTIONS = [
-  { value: 5, label: '5' },
+// Quick preset options for common hour amounts
+const HOUR_PRESETS = [
   { value: 10, label: '10' },
-  { value: 15, label: '15' },
   { value: 20, label: '20' },
-  { value: 25, label: '25' },
   { value: 30, label: '30' },
-  { value: 40, label: '40', popular: true },
-  { value: 50, label: '50' },
+  { value: 40, label: '40' },
   { value: 60, label: '60' },
   { value: 80, label: '80' },
-  { value: 100, label: '100' },
-  { value: 120, label: '120' },
 ]
 
 const STEPS = [
@@ -400,13 +396,19 @@ export default function ClientDialog({
     setSaving(true)
 
     try {
+      // Generate ticket prefix from name (first 3 letters, uppercase, letters only)
+      const generatePrefix = (name) => {
+        const lettersOnly = name.replace(/[^a-zA-Z]/g, '')
+        return lettersOnly.substring(0, 3).toUpperCase()
+      }
+      
       const dataToSave = {
         name: formData.name.trim(),
         slug: formData.slug.trim().toLowerCase(),
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
         contact_phone: formData.contact_phone?.trim() || null,
-        monthly_hours: parseInt(formData.monthly_hours) || 30,
+        monthly_hours: parseFloat(formData.monthly_hours) || 30,
         color: formData.color,
         account_services: formData.account_services 
           ? formData.account_services.split(',').map(s => s.trim()).filter(Boolean)
@@ -414,6 +416,8 @@ export default function ClientDialog({
         is_active: formData.client_status === 'active',
         logo_url: formData.logo_url || null,
         banner_url: formData.banner_url || null,
+        // Generate ticket prefix for new clients
+        ticket_prefix: client?.ticket_prefix || generatePrefix(formData.name.trim()),
         // New pipeline/engagement fields
         client_status: formData.client_status,
         engagement_type: formData.engagement_type,
@@ -905,10 +909,57 @@ export default function ClientDialog({
                           <div>
                             <Label className="text-sm font-medium mb-3 block">
                               {formData.client_status === 'prospect' ? 'Estimated' : ''} Monthly Hours
-                              <span className="ml-2 text-brand-orange font-bold">{formData.monthly_hours || formData.estimated_monthly_hours || 0}h</span>
                             </Label>
-                            <div className="grid grid-cols-6 gap-1.5">
-                              {HOUR_OPTIONS.map((opt) => (
+                            
+                            {/* Custom hours input with up/down arrows */}
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="flex items-center border-2 border-muted rounded-lg overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => {
+                                    const currentHours = prev.monthly_hours || prev.estimated_monthly_hours || 0
+                                    const newHours = Math.max(0, currentHours - 0.5)
+                                    return { ...prev, monthly_hours: newHours, estimated_monthly_hours: newHours }
+                                  })}
+                                  className="p-2 hover:bg-muted transition-colors border-r border-muted"
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  min="0"
+                                  value={formData.monthly_hours || formData.estimated_monthly_hours || ''}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0
+                                    setFormData(prev => ({ 
+                                      ...prev, 
+                                      monthly_hours: value,
+                                      estimated_monthly_hours: value 
+                                    }))
+                                  }}
+                                  className="w-20 text-center py-2 font-bold text-lg bg-transparent focus:outline-none"
+                                  placeholder="0"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => {
+                                    const currentHours = prev.monthly_hours || prev.estimated_monthly_hours || 0
+                                    const newHours = currentHours + 0.5
+                                    return { ...prev, monthly_hours: newHours, estimated_monthly_hours: newHours }
+                                  })}
+                                  className="p-2 hover:bg-muted transition-colors border-l border-muted"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              </div>
+                              <span className="text-lg font-semibold text-muted-foreground">hours/month</span>
+                            </div>
+
+                            {/* Quick preset buttons */}
+                            <div className="flex flex-wrap gap-1.5">
+                              <span className="text-xs text-muted-foreground mr-1 self-center">Quick:</span>
+                              {HOUR_PRESETS.map((opt) => (
                                 <button
                                   key={opt.value}
                                   type="button"
@@ -918,13 +969,13 @@ export default function ClientDialog({
                                     estimated_monthly_hours: opt.value 
                                   }))}
                                   className={cn(
-                                    "relative py-2 px-1 rounded-lg border-2 transition-all text-center font-semibold text-sm",
+                                    "py-1 px-3 rounded-full border transition-all text-center font-medium text-sm",
                                     (formData.monthly_hours === opt.value || formData.estimated_monthly_hours === opt.value)
                                       ? "border-brand-orange bg-brand-orange text-white"
                                       : "border-muted hover:border-brand-orange/50 hover:bg-brand-orange/5"
                                   )}
                                 >
-                                  {opt.value}
+                                  {opt.value}h
                                 </button>
                               ))}
                             </div>

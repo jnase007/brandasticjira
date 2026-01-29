@@ -695,11 +695,15 @@ export async function deleteTicket(ticketId) {
 }
 
 export async function updateTicketPositions(updates) {
-  // Batch update positions
+  // Batch update positions with updated_at timestamp
   const promises = updates.map(({ id, position, status }) =>
     supabase
       .from('tickets')
-      .update({ position, status })
+      .update({ 
+        position, 
+        status,
+        updated_at: new Date().toISOString() // Fix: update timestamp when status changes
+      })
       .eq('id', id)
   )
   const results = await Promise.all(promises)

@@ -244,21 +244,21 @@ export default function WorkingNotWorking() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a1628]">
       {/* Header */}
-      <div className="border-b border bg-card/50 backdrop-blur-xl sticky top-0 z-10">
+      <div className="border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0d1d35]/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Working / Not Working</h1>
-              <p className="text-foreground/50 mt-1">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Working / Not Working</h1>
+              <p className="text-slate-500 dark:text-white/50 mt-1">
                 Monthly review of successes and opportunities
-                <span className="ml-2 text-foreground/30 text-sm">(Press N to add new)</span>
+                <span className="ml-2 text-slate-400 dark:text-white/30 text-sm">(Press N to add new)</span>
               </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-foreground/50" />
+                <Calendar className="h-5 w-5 text-slate-500 dark:text-white/50" />
                 <Select 
                   value={`${selectedMonth}-${selectedYear}`}
                   onValueChange={(v) => {
@@ -267,16 +267,16 @@ export default function WorkingNotWorking() {
                     setSelectedYear(parseInt(y))
                   }}
                 >
-                  <SelectTrigger className="w-48 bg-card border-white/20">
+                  <SelectTrigger className="w-48 bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/20 text-slate-900 dark:text-white">
                     <SelectValue>{MONTHS[selectedMonth]} {selectedYear}</SelectValue>
                   </SelectTrigger>
-                  <SelectContent className="bg-card border-white/20">
+                  <SelectContent className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/20">
                     {[selectedYear - 1, selectedYear, selectedYear + 1].map(year => (
                       MONTHS.map((month, idx) => (
                         <SelectItem 
                           key={`${idx}-${year}`} 
                           value={`${idx}-${year}`}
-                          className="text-foreground hover:bg-white/10"
+                          className="text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10"
                         >
                           {month} {year}
                         </SelectItem>
@@ -287,7 +287,7 @@ export default function WorkingNotWorking() {
               </div>
               <Button 
                 onClick={() => handleOpenDialog()}
-                className="bg-gradient-to-r from-brand-orange to-brand-coral text-foreground shadow-lg shadow-brand-orange/20 hover:shadow-brand-orange/40 transition-all"
+                className="bg-gradient-to-r from-brand-orange to-brand-coral text-white shadow-lg shadow-brand-orange/20 hover:shadow-brand-orange/40 transition-all"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Add Item
@@ -300,49 +300,49 @@ export default function WorkingNotWorking() {
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-xl bg-green-500/10 border border-green-500/20"
+              className="p-4 rounded-xl bg-green-100 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20"
             >
               <div className="flex items-center justify-between">
-                <span className="text-green-400/60 text-sm">Successes</span>
-                <TrendingUp className="h-4 w-4 text-green-400" />
+                <span className="text-green-600/70 dark:text-green-400/60 text-sm">Successes</span>
+                <TrendingUp className="h-4 w-4 text-green-500 dark:text-green-400" />
               </div>
-              <p className="text-3xl font-bold text-green-400 mt-1">{workingItems.length}</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{workingItems.length}</p>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20"
+              className="p-4 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
             >
               <div className="flex items-center justify-between">
-                <span className="text-amber-400/60 text-sm">Open Challenges</span>
-                <AlertCircle className="h-4 w-4 text-amber-400" />
+                <span className="text-amber-600/70 dark:text-amber-400/60 text-sm">Open Challenges</span>
+                <AlertCircle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
               </div>
-              <p className="text-3xl font-bold text-amber-400 mt-1">{unresolvedChallenges.length}</p>
+              <p className="text-3xl font-bold text-amber-600 dark:text-amber-400 mt-1">{unresolvedChallenges.length}</p>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20"
+              className="p-4 rounded-xl bg-purple-100 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20"
             >
               <div className="flex items-center justify-between">
-                <span className="text-purple-400/60 text-sm">Resolved</span>
-                <CheckCircle className="h-4 w-4 text-purple-400" />
+                <span className="text-purple-600/70 dark:text-purple-400/60 text-sm">Resolved</span>
+                <CheckCircle className="h-4 w-4 text-purple-500 dark:text-purple-400" />
               </div>
-              <p className="text-3xl font-bold text-purple-400 mt-1">{resolvedItems.length}</p>
+              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1">{resolvedItems.length}</p>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20"
+              className="p-4 rounded-xl bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20"
             >
               <div className="flex items-center justify-between">
-                <span className="text-cyan-400/60 text-sm">Resolution Rate</span>
-                <Flame className="h-4 w-4 text-cyan-400" />
+                <span className="text-cyan-600/70 dark:text-cyan-400/60 text-sm">Resolution Rate</span>
+                <Flame className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
               </div>
-              <p className="text-3xl font-bold text-cyan-400 mt-1">
+              <p className="text-3xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">
                 {notWorkingItems.length > 0 
                   ? Math.round((resolvedItems.length / notWorkingItems.length) * 100) 
                   : 100}%
@@ -361,18 +361,18 @@ export default function WorkingNotWorking() {
         <div className="grid md:grid-cols-2 gap-8">
           {/* What's Working */}
           <motion.div variants={itemVariants}>
-            <Card className="bg-card border overflow-hidden">
+            <Card className="bg-white dark:bg-[#0d1d35] border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-6 w-6 text-green-400" />
-                    <CardTitle className="text-foreground text-xl">What's Working</CardTitle>
+                    <CheckCircle className="h-6 w-6 text-green-500 dark:text-green-400" />
+                    <CardTitle className="text-slate-900 dark:text-white text-xl">What's Working</CardTitle>
                   </div>
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                  <Badge className="bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30">
                     {workingItems.length}
                   </Badge>
                 </div>
-                <p className="text-foreground/40 text-sm mt-1">Successes</p>
+                <p className="text-slate-500 dark:text-white/40 text-sm mt-1">Successes</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <AnimatePresence>
@@ -382,12 +382,12 @@ export default function WorkingNotWorking() {
                       animate={{ opacity: 1 }}
                       className="text-center py-12"
                     >
-                      <Sparkles className="h-12 w-12 text-green-400/30 mx-auto mb-4" />
-                      <p className="text-foreground/40">No successes recorded this month</p>
+                      <Sparkles className="h-12 w-12 text-green-300 dark:text-green-400/30 mx-auto mb-4" />
+                      <p className="text-slate-500 dark:text-white/40">No successes recorded this month</p>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="mt-4 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                        className="mt-4 border-green-300 dark:border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
                         onClick={() => {
                           setFormData(f => ({ ...f, type: 'working' }))
                           handleOpenDialog()
@@ -406,15 +406,15 @@ export default function WorkingNotWorking() {
                         animate="visible"
                         exit="exit"
                         transition={{ delay: idx * 0.05 }}
-                        className="group relative p-4 rounded-xl bg-white/5 border border-green-500/20 hover:border-green-500/40 transition-all"
+                        className="group relative p-4 rounded-xl bg-green-50 dark:bg-white/5 border border-green-200 dark:border-green-500/20 hover:border-green-300 dark:hover:border-green-500/40 transition-all"
                       >
                         <div className="flex items-start justify-between gap-4">
-                          <p className="text-foreground/90 leading-relaxed">{item.description}</p>
+                          <p className="text-slate-800 dark:text-white/90 leading-relaxed">{item.description}</p>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-foreground/50 hover:text-foreground"
+                              className="h-8 w-8 p-0 text-slate-400 dark:text-white/50 hover:text-slate-700 dark:hover:text-white"
                               onClick={() => handleOpenDialog(item)}
                             >
                               <Edit2 className="h-4 w-4" />
@@ -422,7 +422,7 @@ export default function WorkingNotWorking() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-foreground/50 hover:text-red-400"
+                              className="h-8 w-8 p-0 text-slate-400 dark:text-white/50 hover:text-red-500 dark:hover:text-red-400"
                               onClick={() => handleDelete(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -431,16 +431,16 @@ export default function WorkingNotWorking() {
                         </div>
                         <div className="mt-3 flex items-center justify-between">
                           {item.responsible && (
-                            <div className="flex items-center gap-2 text-sm text-foreground/50">
+                            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-white/50">
                               <User className="h-3.5 w-3.5" />
-                              <span>Responsible: <span className="text-foreground/70">{item.responsible}</span></span>
+                              <span>Responsible: <span className="text-slate-700 dark:text-white/70">{item.responsible}</span></span>
                             </div>
                           )}
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleUpvote(item.id)}
-                            className="flex items-center gap-1.5 text-xs text-foreground/50 hover:text-green-400 transition-colors ml-auto"
+                            className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-white/50 hover:text-green-500 dark:hover:text-green-400 transition-colors ml-auto"
                           >
                             <ThumbsUp className="h-3.5 w-3.5" />
                             <span>{item.votes || 0}</span>
@@ -456,18 +456,18 @@ export default function WorkingNotWorking() {
 
           {/* What's Not Working */}
           <motion.div variants={itemVariants}>
-            <Card className="bg-card border overflow-hidden">
+            <Card className="bg-white dark:bg-[#0d1d35] border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <AlertCircle className="h-6 w-6 text-amber-400" />
-                    <CardTitle className="text-foreground text-xl">What's Not Working</CardTitle>
+                    <AlertCircle className="h-6 w-6 text-amber-500 dark:text-amber-400" />
+                    <CardTitle className="text-slate-900 dark:text-white text-xl">What's Not Working</CardTitle>
                   </div>
-                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                  <Badge className="bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30">
                     {notWorkingItems.length}
                   </Badge>
                 </div>
-                <p className="text-foreground/40 text-sm mt-1">Opportunities</p>
+                <p className="text-slate-500 dark:text-white/40 text-sm mt-1">Opportunities</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <AnimatePresence>
@@ -477,12 +477,12 @@ export default function WorkingNotWorking() {
                       animate={{ opacity: 1 }}
                       className="text-center py-12"
                     >
-                      <CheckCircle className="h-12 w-12 text-amber-400/30 mx-auto mb-4" />
-                      <p className="text-foreground/40">No challenges recorded this month</p>
+                      <CheckCircle className="h-12 w-12 text-amber-300 dark:text-amber-400/30 mx-auto mb-4" />
+                      <p className="text-slate-500 dark:text-white/40">No challenges recorded this month</p>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="mt-4 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                        className="mt-4 border-amber-300 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
                         onClick={() => {
                           setFormData(f => ({ ...f, type: 'not_working' }))
                           handleOpenDialog()
@@ -504,14 +504,14 @@ export default function WorkingNotWorking() {
                         className={cn(
                           "group relative p-4 rounded-xl border transition-all",
                           item.is_resolved 
-                            ? "bg-green-500/10 border-green-500/30 opacity-60"
-                            : "bg-white/5 border-amber-500/20 hover:border-amber-500/40"
+                            ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 opacity-60"
+                            : "bg-amber-50 dark:bg-white/5 border-amber-200 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-500/40"
                         )}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <p className={cn(
                             "leading-relaxed",
-                            item.is_resolved ? "text-foreground/60 line-through" : "text-foreground/90"
+                            item.is_resolved ? "text-slate-500 dark:text-white/60 line-through" : "text-slate-800 dark:text-white/90"
                           )}>
                             {item.description}
                           </p>
@@ -520,7 +520,7 @@ export default function WorkingNotWorking() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-foreground/50 hover:text-green-400"
+                                className="h-8 w-8 p-0 text-slate-400 dark:text-white/50 hover:text-green-500 dark:hover:text-green-400"
                                 onClick={() => handleResolve(item.id)}
                                 title="Mark as resolved"
                               >
@@ -530,7 +530,7 @@ export default function WorkingNotWorking() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-foreground/50 hover:text-foreground"
+                              className="h-8 w-8 p-0 text-slate-400 dark:text-white/50 hover:text-slate-700 dark:hover:text-white"
                               onClick={() => handleOpenDialog(item)}
                             >
                               <Edit2 className="h-4 w-4" />
@@ -538,7 +538,7 @@ export default function WorkingNotWorking() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-foreground/50 hover:text-red-400"
+                              className="h-8 w-8 p-0 text-slate-400 dark:text-white/50 hover:text-red-500 dark:hover:text-red-400"
                               onClick={() => handleDelete(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -547,24 +547,24 @@ export default function WorkingNotWorking() {
                         </div>
                         
                         {item.next_steps && (
-                          <div className="mt-3 pt-3 border-t border">
-                            <p className="text-sm text-foreground/50 mb-1">Next Steps:</p>
-                            <p className="text-foreground/70 text-sm">{item.next_steps}</p>
+                          <div className="mt-3 pt-3 border-t border-amber-200 dark:border-white/10">
+                            <p className="text-sm text-slate-500 dark:text-white/50 mb-1">Next Steps:</p>
+                            <p className="text-slate-700 dark:text-white/70 text-sm">{item.next_steps}</p>
                           </div>
                         )}
                         
                         <div className="mt-3 flex items-center justify-between">
                           {item.responsible && (
-                            <div className="flex items-center gap-2 text-sm text-foreground/50">
+                            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-white/50">
                               <User className="h-3.5 w-3.5" />
-                              <span>Responsible: <span className="text-foreground/70">{item.responsible}</span></span>
+                              <span>Responsible: <span className="text-slate-700 dark:text-white/70">{item.responsible}</span></span>
                             </div>
                           )}
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleUpvote(item.id)}
-                            className="flex items-center gap-1.5 text-xs text-foreground/50 hover:text-amber-400 transition-colors ml-auto"
+                            className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-white/50 hover:text-amber-500 dark:hover:text-amber-400 transition-colors ml-auto"
                           >
                             <ThumbsUp className="h-3.5 w-3.5" />
                             <span>{item.votes || 0}</span>
@@ -582,15 +582,15 @@ export default function WorkingNotWorking() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-card border text-foreground">
+        <DialogContent className="sm:max-w-lg bg-white dark:bg-[#0d1d35] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
           <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+            <DialogTitle className="text-slate-900 dark:text-white">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6 py-4">
             {/* Type Selection */}
             <div>
-              <Label className="text-foreground/70 mb-3 block">Type *</Label>
+              <Label className="text-slate-600 dark:text-white/70 mb-3 block">Type *</Label>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
@@ -599,16 +599,16 @@ export default function WorkingNotWorking() {
                     "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
                     formData.type === 'working'
                       ? "border-green-500 bg-green-500/10"
-                      : "border-white/20 bg-white/5 hover:border-white/40"
+                      : "border-slate-200 dark:border-white/20 bg-slate-50 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/40"
                   )}
                 >
                   <CheckCircle className={cn(
                     "h-6 w-6",
-                    formData.type === 'working' ? "text-green-400" : "text-foreground/50"
+                    formData.type === 'working' ? "text-green-500 dark:text-green-400" : "text-slate-400 dark:text-white/50"
                   )} />
                   <span className={cn(
                     "font-medium",
-                    formData.type === 'working' ? "text-green-400" : "text-foreground/70"
+                    formData.type === 'working' ? "text-green-600 dark:text-green-400" : "text-slate-600 dark:text-white/70"
                   )}>
                     What's Working
                   </span>
@@ -621,16 +621,16 @@ export default function WorkingNotWorking() {
                     "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
                     formData.type === 'not_working'
                       ? "border-amber-500 bg-amber-500/10"
-                      : "border-white/20 bg-white/5 hover:border-white/40"
+                      : "border-slate-200 dark:border-white/20 bg-slate-50 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/40"
                   )}
                 >
                   <AlertCircle className={cn(
                     "h-6 w-6",
-                    formData.type === 'not_working' ? "text-amber-400" : "text-foreground/50"
+                    formData.type === 'not_working' ? "text-amber-500 dark:text-amber-400" : "text-slate-400 dark:text-white/50"
                   )} />
                   <span className={cn(
                     "font-medium",
-                    formData.type === 'not_working' ? "text-amber-400" : "text-foreground/70"
+                    formData.type === 'not_working' ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"
                   )}>
                     What's Not Working
                   </span>
@@ -640,38 +640,38 @@ export default function WorkingNotWorking() {
 
             {/* Description */}
             <div>
-              <Label className="text-foreground/70">
+              <Label className="text-slate-600 dark:text-white/70">
                 {formData.type === 'working' ? 'Success' : 'Challenge'} *
               </Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
                 placeholder={formData.type === 'working' ? 'Describe what went well...' : 'Describe the challenge...'}
-                className="mt-1.5 bg-[#0a1628] border-white/20 text-foreground min-h-[100px]"
+                className="mt-1.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/20 text-slate-900 dark:text-white min-h-[100px] placeholder:text-slate-400 dark:placeholder:text-white/40"
               />
             </div>
 
             {/* Next Steps (only for not working) */}
             {formData.type === 'not_working' && (
               <div>
-                <Label className="text-foreground/70">Next Steps</Label>
+                <Label className="text-slate-600 dark:text-white/70">Next Steps</Label>
                 <Textarea
                   value={formData.next_steps}
                   onChange={(e) => setFormData(f => ({ ...f, next_steps: e.target.value }))}
                   placeholder="What actions will address this?"
-                  className="mt-1.5 bg-[#0a1628] border-white/20 text-foreground min-h-[80px]"
+                  className="mt-1.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/20 text-slate-900 dark:text-white min-h-[80px] placeholder:text-slate-400 dark:placeholder:text-white/40"
                 />
               </div>
             )}
 
             {/* Responsible */}
             <div>
-              <Label className="text-foreground/70">Responsible</Label>
+              <Label className="text-slate-600 dark:text-white/70">Responsible</Label>
               <Input
                 value={formData.responsible}
                 onChange={(e) => setFormData(f => ({ ...f, responsible: e.target.value }))}
                 placeholder="Who is responsible?"
-                className="mt-1.5 bg-[#0a1628] border-white/20 text-foreground"
+                className="mt-1.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/20 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40"
               />
             </div>
           </div>
@@ -680,13 +680,13 @@ export default function WorkingNotWorking() {
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}
-              className="border-white/20 text-foreground hover:bg-white/10"
+              className="border-slate-200 dark:border-white/20 text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
-              className="bg-gradient-to-r from-brand-orange to-brand-coral text-foreground"
+              className="bg-gradient-to-r from-brand-orange to-brand-coral text-white"
             >
               {editingItem ? 'Save Changes' : 'Add Item'}
             </Button>

@@ -1212,10 +1212,10 @@ export default function Admin() {
                     <Label htmlFor="monthly-overhead">Monthly Overhead</Label>
                     <Input
                       id="monthly-overhead"
-                      inputMode="decimal"
-                      value={monthlyOverhead}
-                      onChange={(e) => setMonthlyOverhead(parseFloat(e.target.value) || 0)}
-                      className="mt-1.5"
+                      type="text"
+                      value={monthlyOverhead.toLocaleString()}
+                      onChange={(e) => setMonthlyOverhead(parseFloat(e.target.value.replace(/,/g, '')) || 0)}
+                      className="mt-1.5 font-mono"
                     />
                   </div>
                   <div>

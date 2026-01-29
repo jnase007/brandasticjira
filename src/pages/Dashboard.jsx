@@ -307,18 +307,33 @@ export default function Dashboard({ onConfetti }) {
   useEffect(() => {
     // Don't fetch if auth is still loading
     if (authLoading) {
+      console.log('[Dashboard] Still waiting for auth...')
       return
     }
     
     // If no user after auth loaded, don't attempt fetch
     if (!user) {
-      console.log('[Dashboard] No user after auth loaded')
+      console.log('[Dashboard] No user after auth loaded - redirecting to login')
+      setLoading(false)
       return
+    }
+    
+    // Also wait for profile to be ready (critical for data fetching)
+    if (!profile) {
+      console.log('[Dashboard] User exists but waiting for profile...')
+      // Don't return here - set a timeout to retry
+      const profileTimeout = setTimeout(() => {
+        if (!profile) {
+          console.log('[Dashboard] Profile still not ready after timeout, fetching anyway...')
+          fetchData()
+        }
+      }, 1000)
+      return () => clearTimeout(profileTimeout)
     }
     
     console.log('[Dashboard] Auth ready, fetching data for:', user?.email || profile?.email)
     fetchData()
-  }, [authLoading, user?.id])
+  }, [authLoading, user?.id, profile?.id])
 
   useEffect(() => {
     const updateRunningTimer = async () => {
@@ -1368,7 +1383,14 @@ export default function Dashboard({ onConfetti }) {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate group-hover:text-brand-orange transition-colors">{client.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate group-hover:text-brand-orange transition-colors">{client.name}</p>
+                              {client.ticket_prefix && (
+                                <Badge variant="outline" className="text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-[10px] px-1.5 py-0 font-mono flex-shrink-0">
+                                  {client.ticket_prefix}
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground">Assigned client</p>
                           </div>
                           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-brand-orange transition-colors" />

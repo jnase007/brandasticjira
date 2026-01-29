@@ -1819,25 +1819,19 @@ function PayrollReport({ employees, timeEntries }) {
     const margin = 40
 
     // ========== HEADER SECTION (Printer-friendly: minimal ink) ==========
-    // Small logo on left
+    // Logo on left (contains BRANDASTIC text already)
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 24
+      const logoHeight = 28
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
-      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 25, logoWidth, logoHeight, undefined, 'FAST')
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 22, logoWidth, logoHeight, undefined, 'FAST')
     }
-    
-    // Company name next to logo
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
-    doc.setTextColor(50, 50, 50)
-    doc.text('BRANDASTIC', margin + 32, 42)
     
     // Report type on right
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 100, 100)
-    doc.text('Payroll Report', pageWidth - margin, 42, { align: 'right' })
+    doc.text('Payroll Report', pageWidth - margin, 40, { align: 'right' })
     
     // Thin separator line
     doc.setDrawColor(200, 200, 200)
@@ -2413,25 +2407,19 @@ export default function Reports() {
     const margin = 40
 
     // ========== HEADER SECTION (Printer-friendly: minimal ink) ==========
-    // Small logo on left
+    // Logo on left (contains BRANDASTIC text already)
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 24
+      const logoHeight = 28
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
-      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 25, logoWidth, logoHeight, undefined, 'FAST')
+      doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 22, logoWidth, logoHeight, undefined, 'FAST')
     }
-    
-    // Company name next to logo
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
-    doc.setTextColor(50, 50, 50)
-    doc.text('BRANDASTIC', margin + 32, 42)
     
     // Report type on right
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 100, 100)
-    doc.text('Project Management', pageWidth - margin, 42, { align: 'right' })
+    doc.text('Project Management', pageWidth - margin, 40, { align: 'right' })
     
     // Thin separator line
     doc.setDrawColor(200, 200, 200)

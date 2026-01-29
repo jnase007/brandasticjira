@@ -674,6 +674,7 @@ export default function TeamHub() {
   }
 
   return (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a1628]">
     <motion.div
       initial="hidden"
       animate="visible"
@@ -688,9 +689,9 @@ export default function TeamHub() {
               <div className="p-2 rounded-xl bg-brand-teal/10">
                 <Users className="h-6 w-6 text-brand-teal" />
               </div>
-              <h1 className="text-2xl sm:text-4xl font-display font-bold">Team Hub</h1>
+              <h1 className="text-2xl sm:text-4xl font-display font-bold text-slate-900 dark:text-white">Team Hub</h1>
             </div>
-            <p className="text-sm sm:text-lg text-muted-foreground">
+            <p className="text-sm sm:text-lg text-slate-500 dark:text-white/50">
               Client overview, team assignments & ad spend budgets
             </p>
           </div>
@@ -714,12 +715,12 @@ export default function TeamHub() {
         className="grid gap-4 md:grid-cols-4 mb-8"
       >
         <motion.div variants={itemVariants}>
-          <Card className="bg-gradient-to-br from-brand-orange/10 to-brand-coral/5">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-brand-orange/10 to-brand-coral/5">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Clients</p>
-                  <p className="text-3xl font-bold mt-1">
+                  <p className="text-sm text-slate-500 dark:text-white/50">Active Clients</p>
+                  <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                     {clients.length}
                   </p>
                 </div>
@@ -730,12 +731,12 @@ export default function TeamHub() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="bg-gradient-to-br from-brand-blue/10 to-cyan-500/5">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-brand-blue/10 to-cyan-500/5">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Team Members</p>
-                  <p className="text-3xl font-bold mt-1">
+                  <p className="text-sm text-slate-500 dark:text-white/50">Team Members</p>
+                  <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                     {teamMembers.length}
                   </p>
                 </div>
@@ -746,12 +747,12 @@ export default function TeamHub() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-green-500/10 to-emerald-500/5">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{selectedYear} Budget</p>
-                  <p className="text-3xl font-bold mt-1">
+                  <p className="text-sm text-slate-500 dark:text-white/50">{selectedYear} Budget</p>
+                  <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                     {formatCurrency(totalBudget)}
                   </p>
                 </div>
@@ -762,12 +763,12 @@ export default function TeamHub() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="bg-gradient-to-br from-brand-purple/10 to-purple-500/5">
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-brand-purple/10 to-purple-500/5">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{selectedYear} Actuals</p>
-                  <p className="text-3xl font-bold mt-1">
+                  <p className="text-sm text-slate-500 dark:text-white/50">{selectedYear} Actuals</p>
+                  <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                     {formatCurrency(totalActuals)}
                   </p>
                 </div>
@@ -781,13 +782,13 @@ export default function TeamHub() {
       {/* Main Tabs */}
       <Tabs defaultValue="team" className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <TabsList className="bg-muted/50 flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="team" className="gap-2">
+          <TabsList className="bg-slate-100 dark:bg-white/10 flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0d1d35]">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Team Members</span>
               <span className="sm:hidden">Team</span>
             </TabsTrigger>
-            <TabsTrigger value="shoutouts" className="gap-2">
+            <TabsTrigger value="shoutouts" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0d1d35]">
               <Heart className="h-4 w-4 text-pink-500" />
               <span className="hidden sm:inline">Shoutouts</span>
               <span className="sm:hidden">🎉</span>
@@ -798,18 +799,18 @@ export default function TeamHub() {
               )}
             </TabsTrigger>
             {isActualAdmin && (
-              <TabsTrigger value="rates" className="gap-2">
+              <TabsTrigger value="rates" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0d1d35]">
                 <PiggyBank className="h-4 w-4" />
                 <span className="hidden sm:inline">Rates & Profitability</span>
                 <span className="sm:hidden">Rates</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="roster" className="gap-2">
+            <TabsTrigger value="roster" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0d1d35]">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Client Roster</span>
               <span className="sm:hidden">Roster</span>
             </TabsTrigger>
-            <TabsTrigger value="adspend" className="gap-2">
+            <TabsTrigger value="adspend" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0d1d35]">
               <DollarSign className="h-4 w-4" />
               <span className="hidden sm:inline">Ad Spend Budgets</span>
               <span className="sm:hidden">Ad Spend</span>
@@ -818,12 +819,12 @@ export default function TeamHub() {
 
           <div className="flex items-center gap-3 w-full lg:w-auto">
             <div className="relative flex-1 lg:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-white/50" />
               <Input
                 placeholder="Search clients..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 rounded-xl"
+                className="pl-9 rounded-xl bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/20 text-slate-900 dark:text-white"
               />
             </div>
           </div>
@@ -832,19 +833,19 @@ export default function TeamHub() {
         {/* Team Members Tab */}
         <TabsContent value="team">
           <motion.div variants={itemVariants}>
-            <Card>
+            <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl flex items-center gap-2">
+                <CardTitle className="text-xl flex items-center gap-2 text-slate-900 dark:text-white">
                   <Users className="h-5 w-5 text-brand-orange" />
                   Team Members
                 </CardTitle>
-                <p className="text-muted-foreground">
+                <p className="text-slate-500 dark:text-white/50">
                   Your Brandastic team - click on anyone to see their full profile
                 </p>
               </CardHeader>
               <CardContent>
                 {teamMembers.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
+                  <div className="text-center py-12 text-slate-400 dark:text-white/40">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No team members found</p>
                   </div>
@@ -881,7 +882,7 @@ export default function TeamHub() {
                             <motion.div
                               variants={itemVariants}
                               whileHover={{ y: -2 }}
-                              className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card"
+                              className="p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-white dark:bg-[#0d1d35]"
                             >
                               {/* Header with Avatar */}
                               <div className="flex items-center gap-3 mb-3">
@@ -908,7 +909,7 @@ export default function TeamHub() {
 
                               {/* Tagline */}
                               {member.tagline && (
-                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2 italic">
+                                <p className="text-sm text-slate-500 dark:text-white/50 mb-3 line-clamp-2 italic">
                                   "{member.tagline}"
                                 </p>
                               )}
@@ -916,13 +917,13 @@ export default function TeamHub() {
                               {/* Quick Info */}
                               <div className="space-y-1.5 text-sm">
                                 {member.email && (
-                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                  <div className="flex items-center gap-2 text-slate-500 dark:text-white/50">
                                     <Mail className="h-3.5 w-3.5" />
                                     <span className="truncate">{member.email}</span>
                                   </div>
                                 )}
                                 {yearsAtCompany !== null && (
-                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                  <div className="flex items-center gap-2 text-slate-500 dark:text-white/50">
                                     <Briefcase className="h-3.5 w-3.5" />
                                     <span>
                                       {yearsAtCompany === 0 ? 'New this year' : `${yearsAtCompany}+ years`}
@@ -930,7 +931,7 @@ export default function TeamHub() {
                                   </div>
                                 )}
                                 {birthdayDisplay && (
-                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                  <div className="flex items-center gap-2 text-slate-500 dark:text-white/50">
                                     <Cake className="h-3.5 w-3.5 text-pink-500" />
                                     <span>{birthdayDisplay}</span>
                                   </div>
@@ -957,21 +958,21 @@ export default function TeamHub() {
         {/* Shoutouts Tab */}
         <TabsContent value="shoutouts">
           <motion.div variants={itemVariants}>
-            <Card>
+            <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-xl flex items-center gap-2">
+                    <CardTitle className="text-xl flex items-center gap-2 text-slate-900 dark:text-white">
                       <Heart className="h-5 w-5 text-pink-500" />
                       Team Shoutouts 💝
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
                       Appreciate your teammates! Give shoutouts for great work.
                     </p>
                   </div>
                   <Button 
                     onClick={() => setShoutoutDialogOpen(true)}
-                    className="bg-pink-500 hover:bg-pink-600"
+                    className="bg-pink-500 hover:bg-pink-600 text-white"
                   >
                     <Heart className="h-4 w-4 mr-2" />
                     Give a Shoutout
@@ -980,7 +981,7 @@ export default function TeamHub() {
               </CardHeader>
               <CardContent>
                 {shoutouts.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
+                  <div className="text-center py-12 text-slate-500 dark:text-white/50">
                     <Heart className="h-12 w-12 mx-auto mb-4 opacity-30 text-pink-400" />
                     <p className="text-lg font-medium mb-1">No shoutouts yet</p>
                     <p className="text-sm mb-4">Be the first to appreciate a teammate!</p>
@@ -1008,7 +1009,7 @@ export default function TeamHub() {
                             "p-4 rounded-xl border-2 transition-all",
                             isForMe 
                               ? "border-pink-300 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20"
-                              : "border-muted bg-card hover:border-pink-200"
+                              : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1d35] hover:border-pink-200"
                           )}
                         >
                           <div className="flex items-start gap-4">
@@ -1021,14 +1022,14 @@ export default function TeamHub() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="font-semibold">{fromUser?.full_name || 'Someone'}</span>
-                                <span className="text-muted-foreground">→</span>
+                                <span className="text-slate-500 dark:text-white/50">→</span>
                                 <span className="font-semibold text-pink-600">{toUser?.full_name || 'Someone'}</span>
                                 {isForMe && (
                                   <Badge className="bg-pink-500 text-white text-xs">That's you! 🎉</Badge>
                                 )}
                               </div>
                               <p className="text-sm mb-2">{shoutout.message}</p>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-white/50">
                                 <Badge variant="outline" className="text-xs">
                                   {shoutout.category === 'appreciation' && '💖 Appreciation'}
                                   {shoutout.category === 'teamwork' && '🤝 Teamwork'}
@@ -1059,7 +1060,7 @@ export default function TeamHub() {
           <TabsContent value="rates">
             <motion.div variants={itemVariants} className="space-y-6">
               {/* Overhead Settings Card */}
-              <Card className="border-brand-orange/30 bg-gradient-to-r from-brand-orange/5 to-transparent">
+              <Card className="bg-white dark:bg-[#0d1d35] border-brand-orange/30 bg-gradient-to-r from-brand-orange/5 to-transparent shadow-sm">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1067,7 +1068,7 @@ export default function TeamHub() {
                         <Building2 className="h-5 w-5 text-brand-orange" />
                         Company Overhead Settings
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
                         Overhead is distributed across billable hours to calculate true project costs
                       </p>
                     </div>
@@ -1085,7 +1086,7 @@ export default function TeamHub() {
                       <div className="space-y-2">
                         <Label>Monthly Overhead</Label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-white/50">$</span>
                           <Input
                             type="number"
                             defaultValue={monthlyOverhead}
@@ -1094,7 +1095,7 @@ export default function TeamHub() {
                             placeholder="37000"
                           />
                         </div>
-                        <p className="text-xs text-muted-foreground">Rent, utilities, software, insurance, etc.</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50">Rent, utilities, software, insurance, etc.</p>
                       </div>
                       <div className="space-y-2">
                         <Label>Target Billable Hours/Month</Label>
@@ -1104,7 +1105,7 @@ export default function TeamHub() {
                           id="hours-input"
                           placeholder="745"
                         />
-                        <p className="text-xs text-muted-foreground">Total hours across all clients</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50">Total hours across all clients</p>
                       </div>
                       <div className="flex items-end gap-2">
                         <Button
@@ -1124,23 +1125,23 @@ export default function TeamHub() {
                     </div>
                   ) : (
                     <div className="grid gap-6 md:grid-cols-4">
-                      <div className="text-center p-4 rounded-xl bg-background border">
+                      <div className="text-center p-4 rounded-xl bg-white dark:bg-[#0d1d35] border">
                         <p className="text-2xl font-bold text-brand-orange">${monthlyOverhead.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Monthly Overhead</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Monthly Overhead</p>
                       </div>
-                      <div className="text-center p-4 rounded-xl bg-background border">
+                      <div className="text-center p-4 rounded-xl bg-white dark:bg-[#0d1d35] border">
                         <p className="text-2xl font-bold text-brand-blue">{targetBillableHours}hrs</p>
-                        <p className="text-xs text-muted-foreground mt-1">Target Billable Hours</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Target Billable Hours</p>
                       </div>
-                      <div className="text-center p-4 rounded-xl bg-background border">
+                      <div className="text-center p-4 rounded-xl bg-white dark:bg-[#0d1d35] border">
                         <p className="text-2xl font-bold text-brand-purple">${overheadPerHour.toFixed(2)}/hr</p>
-                        <p className="text-xs text-muted-foreground mt-1">Overhead Per Hour</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Overhead Per Hour</p>
                       </div>
-                      <div className="text-center p-4 rounded-xl bg-background border">
+                      <div className="text-center p-4 rounded-xl bg-white dark:bg-[#0d1d35] border">
                         <p className="text-2xl font-bold text-green-500">
                           ${(175 - overheadPerHour - (teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / (teamMembers.length || 1))).toFixed(0)}/hr
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">Avg Net Profit/Hr</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Avg Net Profit/Hr</p>
                       </div>
                     </div>
                   )}
@@ -1149,12 +1150,12 @@ export default function TeamHub() {
 
               {/* Summary Cards */}
               <div className="grid gap-4 md:grid-cols-4">
-                <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5">
+                <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-blue-500/10 to-cyan-500/5">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Avg. Labor Cost</p>
-                        <p className="text-3xl font-bold mt-1">
+                        <p className="text-sm text-slate-500 dark:text-white/50">Avg. Labor Cost</p>
+                        <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                           ${teamMembers.length > 0 
                             ? Math.round(teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length)
                             : 0}/hr
@@ -1165,46 +1166,46 @@ export default function TeamHub() {
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/5">
+                <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-purple-500/10 to-pink-500/5">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Fully Loaded Cost</p>
-                        <p className="text-3xl font-bold mt-1">
+                        <p className="text-sm text-slate-500 dark:text-white/50">Fully Loaded Cost</p>
+                        <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                           ${teamMembers.length > 0 
                             ? Math.round((teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) + overheadPerHour)
                             : 0}/hr
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">Labor + Overhead</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Labor + Overhead</p>
                       </div>
                       <Building2 className="h-8 w-8 text-purple-500/50" />
                     </div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-gradient-to-br from-brand-orange/10 to-brand-coral/5">
+                <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-brand-orange/10 to-brand-coral/5">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Client Billing Rate</p>
-                        <p className="text-3xl font-bold mt-1">$175/hr</p>
+                        <p className="text-sm text-slate-500 dark:text-white/50">Client Billing Rate</p>
+                        <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">$175/hr</p>
                       </div>
                       <TrendingUp className="h-8 w-8 text-brand-orange/50" />
                     </div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5">
+                <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm bg-gradient-to-br from-green-500/10 to-emerald-500/5">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">True Net Margin</p>
-                        <p className="text-3xl font-bold mt-1">
+                        <p className="text-sm text-slate-500 dark:text-white/50">True Net Margin</p>
+                        <p className="text-3xl font-bold mt-1 text-slate-900 dark:text-white">
                           {teamMembers.length > 0 
                             ? Math.round((1 - ((teamMembers.reduce((sum, m) => sum + (m.cost_rate || 50), 0) / teamMembers.length) + overheadPerHour) / 175) * 100)
                             : 0}%
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">After overhead</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">After overhead</p>
                       </div>
                       <Percent className="h-8 w-8 text-green-500/50" />
                     </div>
@@ -1213,42 +1214,42 @@ export default function TeamHub() {
               </div>
               
               {/* Employee Rates Table */}
-              <Card>
+              <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-xl flex items-center gap-2">
+                  <CardTitle className="text-xl flex items-center gap-2 text-slate-900 dark:text-white">
                     <PiggyBank className="h-5 w-5 text-green-500" />
                     Employee Hourly Rates
                   </CardTitle>
-                  <p className="text-muted-foreground">
+                  <p className="text-slate-500 dark:text-white/50">
                     Set the labor cost for each team member. Overhead (${overheadPerHour.toFixed(2)}/hr) is added automatically.
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-xl border overflow-hidden overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-muted/50">
+                      <thead className="bg-slate-100 dark:bg-white/10/50">
                         <tr>
                           <th className="text-left py-3 px-4 font-medium">Employee</th>
                           <th className="text-left py-3 px-4 font-medium">Job Title</th>
                           <th className="text-center py-3 px-4 font-medium">
                             <div>Labor Cost</div>
-                            <div className="text-xs font-normal text-muted-foreground">Direct</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-white/50">Direct</div>
                           </th>
                           <th className="text-center py-3 px-4 font-medium">
                             <div>+ Overhead</div>
-                            <div className="text-xs font-normal text-muted-foreground">${overheadPerHour.toFixed(2)}/hr</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-white/50">${overheadPerHour.toFixed(2)}/hr</div>
                           </th>
                           <th className="text-center py-3 px-4 font-medium bg-brand-purple/10">
                             <div>Fully Loaded</div>
-                            <div className="text-xs font-normal text-muted-foreground">True Cost</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-white/50">True Cost</div>
                           </th>
                           <th className="text-center py-3 px-4 font-medium">
                             <div>Gross Margin</div>
-                            <div className="text-xs font-normal text-muted-foreground">Labor only</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-white/50">Labor only</div>
                           </th>
                           <th className="text-center py-3 px-4 font-medium bg-green-500/10">
                             <div>Net Margin</div>
-                            <div className="text-xs font-normal text-muted-foreground">With overhead</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-white/50">With overhead</div>
                           </th>
                           <th className="text-right py-3 px-4 font-medium">Actions</th>
                         </tr>
@@ -1256,7 +1257,7 @@ export default function TeamHub() {
                       <tbody>
                         {teamMembers.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                            <td colSpan={8} className="text-center py-12 text-slate-500 dark:text-white/50">
                               No team members found
                             </td>
                           </tr>
@@ -1271,7 +1272,7 @@ export default function TeamHub() {
                             const isEditing = editingRate === member.id
                             
                             return (
-                              <tr key={member.id} className="border-t hover:bg-muted/30 transition-colors">
+                              <tr key={member.id} className="border-t hover:bg-slate-100 dark:bg-white/10/30 transition-colors">
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-3">
                                     <Avatar className="h-9 w-9">
@@ -1282,17 +1283,17 @@ export default function TeamHub() {
                                     </Avatar>
                                     <div>
                                       <p className="font-medium">{member.full_name || 'Team Member'}</p>
-                                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                                      <p className="text-xs text-slate-500 dark:text-white/50">{member.email}</p>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="py-3 px-4 text-muted-foreground">
+                                <td className="py-3 px-4 text-slate-500 dark:text-white/50">
                                   {member.job_title || member.department || '-'}
                                 </td>
                                 <td className="py-3 px-4 text-center">
                                   {isEditing ? (
                                     <div className="flex items-center justify-center gap-1">
-                                      <span className="text-muted-foreground text-sm">$</span>
+                                      <span className="text-slate-500 dark:text-white/50 text-sm">$</span>
                                       <Input
                                         type="number"
                                         value={rateValue}
@@ -1313,14 +1314,14 @@ export default function TeamHub() {
                                     <span className="font-medium">${laborCost}</span>
                                   )}
                                 </td>
-                                <td className="py-3 px-4 text-center text-muted-foreground">
+                                <td className="py-3 px-4 text-center text-slate-500 dark:text-white/50">
                                   +${overheadPerHour.toFixed(2)}
                                 </td>
                                 <td className="py-3 px-4 text-center bg-brand-purple/5">
                                   <span className="font-bold text-brand-purple">${fullyLoadedCost.toFixed(2)}</span>
                                 </td>
                                 <td className="py-3 px-4 text-center">
-                                  <span className="text-muted-foreground">{grossMargin}%</span>
+                                  <span className="text-slate-500 dark:text-white/50">{grossMargin}%</span>
                                 </td>
                                 <td className="py-3 px-4 text-center bg-green-500/5">
                                   <Badge 
@@ -1332,7 +1333,7 @@ export default function TeamHub() {
                                   >
                                     {netMargin}%
                                   </Badge>
-                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                  <div className="text-xs text-slate-500 dark:text-white/50 mt-0.5">
                                     ${profitPerHour.toFixed(0)}/hr profit
                                   </div>
                                 </td>
@@ -1382,7 +1383,7 @@ export default function TeamHub() {
                       </tbody>
                       {/* Totals Row */}
                       {teamMembers.length > 0 && (
-                        <tfoot className="bg-muted/30 font-medium">
+                        <tfoot className="bg-slate-100 dark:bg-white/10/30 font-medium">
                           <tr className="border-t-2">
                             <td colSpan={2} className="py-3 px-4">
                               <strong>Team Average</strong>
@@ -1414,14 +1415,14 @@ export default function TeamHub() {
                   </div>
                   
                   {/* Info Box */}
-                  <div className="mt-4 p-4 rounded-xl bg-muted/50 border">
+                  <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-white/10/50 border">
                     <h4 className="font-medium mb-2 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-brand-orange" />
                       How Profitability is Calculated
                     </h4>
-                    <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                    <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-500 dark:text-white/50">
                       <div>
-                        <p className="font-medium text-foreground mb-1">Per Hour Breakdown:</p>
+                        <p className="font-medium text-slate-900 dark:text-white mb-1">Per Hour Breakdown:</p>
                         <ul className="space-y-1">
                           <li>• <strong>Revenue:</strong> $175/hr (client billing)</li>
                           <li>• <strong>Labor Cost:</strong> Employee's hourly cost</li>
@@ -1430,7 +1431,7 @@ export default function TeamHub() {
                         </ul>
                       </div>
                       <div>
-                        <p className="font-medium text-foreground mb-1">Margin Calculations:</p>
+                        <p className="font-medium text-slate-900 dark:text-white mb-1">Margin Calculations:</p>
                         <ul className="space-y-1">
                           <li>• <strong>Gross Margin:</strong> ($175 - Labor) ÷ $175</li>
                           <li>• <strong>Net Margin:</strong> ($175 - Fully Loaded) ÷ $175</li>
@@ -1448,10 +1449,10 @@ export default function TeamHub() {
         {/* Client Roster Tab */}
         <TabsContent value="roster">
           <motion.div variants={itemVariants}>
-            <Card>
+            <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl">Client Roster & Team Assignments</CardTitle>
-                <p className="text-sm text-muted-foreground">
+                <CardTitle className="text-xl text-slate-900 dark:text-white">Client Roster & Team Assignments</CardTitle>
+                <p className="text-sm text-slate-500 dark:text-white/50">
                   Click any cell to edit. Changes save automatically.
                 </p>
               </CardHeader>
@@ -1493,7 +1494,7 @@ export default function TeamHub() {
                     <tbody>
                       {filteredClients.length === 0 ? (
                         <tr>
-                          <td colSpan={5 + teamRoles.length} className="text-center py-12 text-muted-foreground">
+                          <td colSpan={5 + teamRoles.length} className="text-center py-12 text-slate-500 dark:text-white/50">
                             No clients found
                           </td>
                         </tr>
@@ -1505,8 +1506,8 @@ export default function TeamHub() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.03 }}
                             className={cn(
-                              "border-b hover:bg-muted/30 transition-colors",
-                              index % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
+                              "border-b hover:bg-slate-100 dark:bg-white/10/30 transition-colors",
+                              index % 2 === 0 ? "bg-white dark:bg-white dark:bg-[#0d1d35]" : "bg-slate-100 dark:bg-white/10/10"
                             )}
                           >
                             <td className="py-3 px-4 sticky left-0 bg-inherit z-10">
@@ -1518,7 +1519,7 @@ export default function TeamHub() {
                                 <span className="font-medium">{client.name}</span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-sm text-muted-foreground">
+                            <td className="py-3 px-4 text-sm text-slate-500 dark:text-white/50">
                               {client.account_services?.join(', ') || '-'}
                             </td>
                             <td className="py-2 px-2">
@@ -1547,7 +1548,7 @@ export default function TeamHub() {
                                       setRenewalDateValue('')
                                     }}
                                   >
-                                    <X className="h-3 w-3 text-muted-foreground" />
+                                    <X className="h-3 w-3 text-slate-500 dark:text-white/50" />
                                   </Button>
                                 </div>
                               ) : (
@@ -1560,8 +1561,8 @@ export default function TeamHub() {
                                     "w-full py-2 px-2 rounded-lg text-sm text-center transition-all cursor-pointer",
                                     "border-2 border-dashed hover:shadow-sm",
                                     client.renewal_date 
-                                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 hover:border-blue-400 text-foreground" 
-                                      : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-muted-foreground"
+                                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 hover:border-blue-400 text-slate-900 dark:text-white" 
+                                      : "bg-slate-100 dark:bg-white/10/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-slate-500 dark:text-white/50"
                                   )}
                                   title={client.renewal_date ? `Edit renewal date: ${formatDate(client.renewal_date)}` : "Click to add renewal date"}
                                 >
@@ -1609,7 +1610,7 @@ export default function TeamHub() {
                                         </SelectTrigger>
                                         <SelectContent>
                                           <SelectItem value="none">
-                                            <span className="text-muted-foreground italic">— Remove —</span>
+                                            <span className="text-slate-500 dark:text-white/50 italic">— Remove —</span>
                                           </SelectItem>
                                           {teamMembers.map(member => (
                                             <SelectItem key={member.id} value={member.id}>
@@ -1632,7 +1633,7 @@ export default function TeamHub() {
                                         onClick={() => setEditingCell(null)}
                                         className="h-8 w-8"
                                       >
-                                        <X className="h-4 w-4 text-muted-foreground" />
+                                        <X className="h-4 w-4 text-slate-500 dark:text-white/50" />
                                       </Button>
                                     </div>
                                   ) : (
@@ -1644,8 +1645,8 @@ export default function TeamHub() {
                                         "w-full py-2 px-3 rounded-lg text-sm text-center transition-all cursor-pointer",
                                         "border-2 border-dashed hover:shadow-sm",
                                         displayValue 
-                                          ? "bg-brand-teal/10 border-brand-teal/30 hover:border-brand-teal/50 text-foreground font-medium" 
-                                          : "bg-muted/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-muted-foreground"
+                                          ? "bg-brand-teal/10 border-brand-teal/30 hover:border-brand-teal/50 text-slate-900 dark:text-white font-medium" 
+                                          : "bg-slate-100 dark:bg-white/10/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-slate-500 dark:text-white/50"
                                       )}
                                       title={displayValue ? `Click to change ${role.label}: ${displayValue}` : `Click to assign ${role.label}`}
                                     >
@@ -1714,7 +1715,7 @@ export default function TeamHub() {
               </Button>
             </div>
 
-            <Card>
+            <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1756,7 +1757,7 @@ export default function TeamHub() {
                               key={client.id}
                               className={cn(
                                 "border-b",
-                                clientIndex % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
+                                clientIndex % 2 === 0 ? "bg-white dark:bg-white dark:bg-[#0d1d35]" : "bg-slate-100 dark:bg-white/10/10"
                               )}
                             >
                               <td className="py-3 px-4 sticky left-0 bg-inherit z-10">
@@ -1768,7 +1769,7 @@ export default function TeamHub() {
                                   <span className="font-medium">{client.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-muted-foreground text-sm italic" colSpan={1 + MONTHS.length * 2}>
+                              <td className="py-3 px-4 text-slate-500 dark:text-white/50 text-sm italic" colSpan={1 + MONTHS.length * 2}>
                                 No ad spend data
                               </td>
                             </tr>
@@ -1779,8 +1780,8 @@ export default function TeamHub() {
                           <tr
                             key={`${client.id}-${platform}`}
                             className={cn(
-                              "border-b hover:bg-muted/30",
-                              clientIndex % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/10"
+                              "border-b hover:bg-slate-100 dark:bg-white/10/30",
+                              clientIndex % 2 === 0 ? "bg-white dark:bg-white dark:bg-[#0d1d35]" : "bg-slate-100 dark:bg-white/10/10"
                             )}
                           >
                             {platformIndex === 0 ? (
@@ -1840,10 +1841,10 @@ export default function TeamHub() {
                                           setEditValue(actuals || '')
                                         }}
                                         className={cn(
-                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-muted",
+                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-slate-100 dark:bg-white/10",
                                           status === 'over' && "text-red-600 font-medium",
                                           status === 'warning' && "text-amber-600",
-                                          !actuals && "text-muted-foreground/40"
+                                          !actuals && "text-slate-500 dark:text-white/50/40"
                                         )}
                                       >
                                         {actuals ? formatCurrency(actuals) : '-'}
@@ -1877,8 +1878,8 @@ export default function TeamHub() {
                                           setEditValue(budget || '')
                                         }}
                                         className={cn(
-                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-muted",
-                                          !budget && "text-muted-foreground/40"
+                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-slate-100 dark:bg-white/10",
+                                          !budget && "text-slate-500 dark:text-white/50/40"
                                         )}
                                       >
                                         {budget ? formatCurrency(budget) : '-'}
@@ -1899,7 +1900,7 @@ export default function TeamHub() {
                           <span className="font-bold text-brand-teal">TOTALS</span>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-sm text-muted-foreground">All Platforms</span>
+                          <span className="text-sm text-slate-500 dark:text-white/50">All Platforms</span>
                         </td>
                         {MONTHS.map((_, monthIndex) => {
                           const month = monthIndex + 1
@@ -1938,7 +1939,7 @@ export default function TeamHub() {
                         <td colSpan={24} className="py-3 px-4">
                           <div className="flex items-center gap-6 text-sm">
                             <div>
-                              <span className="text-muted-foreground">Total Actuals: </span>
+                              <span className="text-slate-500 dark:text-white/50">Total Actuals: </span>
                               <span className="font-bold text-lg">
                                 {formatCurrency(
                                   adSpend
@@ -1948,7 +1949,7 @@ export default function TeamHub() {
                               </span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Total Budget: </span>
+                              <span className="text-slate-500 dark:text-white/50">Total Budget: </span>
                               <span className="font-bold text-lg text-brand-teal">
                                 {formatCurrency(
                                   adSpend
@@ -1958,7 +1959,7 @@ export default function TeamHub() {
                               </span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Variance: </span>
+                              <span className="text-slate-500 dark:text-white/50">Variance: </span>
                               {(() => {
                                 const yearActuals = adSpend.filter(a => a.year === selectedYear).reduce((sum, a) => sum + (parseFloat(a.actuals) || 0), 0)
                                 const yearBudget = adSpend.filter(a => a.year === selectedYear).reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0)
@@ -2043,7 +2044,7 @@ export default function TeamHub() {
                 onChange={(e) => setShoutoutMessage(e.target.value)}
                 rows={3}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500 dark:text-white/50">
                 Tip: Specific praise is more meaningful than generic compliments!
               </p>
             </div>
@@ -2131,7 +2132,7 @@ export default function TeamHub() {
               />
               <Label htmlFor="applyToYear" className="text-sm cursor-pointer flex-1">
                 <span className="font-medium">Apply to entire year</span>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-white/50 mt-0.5">
                   Set this budget for all 12 months of {newSpend.year}
                 </p>
               </Label>
@@ -2166,7 +2167,7 @@ export default function TeamHub() {
                 className="mt-1.5"
               />
               {newSpend.applyToYear && newSpend.budget && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-slate-500 dark:text-white/50 mt-1">
                   Yearly total: <span className="font-medium text-brand-teal">${(parseFloat(newSpend.budget) * 12).toLocaleString()}</span>
                 </p>
               )}
@@ -2300,11 +2301,11 @@ export default function TeamHub() {
             
             {/* Existing roles */}
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Current Roles</Label>
+              <Label className="text-sm text-slate-500 dark:text-white/50">Current Roles</Label>
               {teamRoles.map(role => (
                 <div 
                   key={role.key} 
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-slate-100 dark:bg-white/10/50 rounded-lg"
                 >
                   <span className="font-medium">{role.label}</span>
                   <Button
@@ -2318,7 +2319,7 @@ export default function TeamHub() {
                 </div>
               ))}
               {teamRoles.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-sm text-slate-500 dark:text-white/50 text-center py-4">
                   No roles defined. Add some above!
                 </p>
               )}
@@ -2347,5 +2348,6 @@ export default function TeamHub() {
         </DialogContent>
       </Dialog>
     </motion.div>
+    </div>
   )
 }

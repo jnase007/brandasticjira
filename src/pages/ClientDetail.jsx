@@ -124,6 +124,9 @@ export default function ClientDetail() {
   const [teamAssignments, setTeamAssignments] = useState([])
   const [allTeamMembers, setAllTeamMembers] = useState([])
   
+  // Client rate (hourly billing rate for this client)
+  const [clientRate, setClientRate] = useState(175) // Default hourly rate
+  
   // Client wins state
   const [clientWins, setClientWins] = useState([])
   const [addWinOpen, setAddWinOpen] = useState(false)
@@ -154,21 +157,26 @@ export default function ClientDetail() {
   
   // Quick task state
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
-  const [newTask, setNewTask] = useState({ 
+  // Simplified task form - removed billing type, priority, and other clutter per QA feedback
+  const getEmptyTaskForm = () => ({
     title: '', 
     description: '', 
     board_id: '', 
     assignee_id: '',
     service_category: '',
-    billing_type: 'retainer', // retainer, alacarte, internal
-    estimated_amount: '',
-    priority: 'medium',
-    is_recurring: false,
-    recurrence_pattern: '',
+    estimated_hours: '',
     due_date: '',
-    recurrence_end_date: '',
   })
+  const [newTask, setNewTask] = useState(getEmptyTaskForm())
   const [savingTask, setSavingTask] = useState(false)
+  
+  // Reset form when dialog opens/closes
+  const handleCreateTaskDialogChange = (open) => {
+    setCreateTaskOpen(open)
+    if (!open) {
+      setNewTask(getEmptyTaskForm())
+    }
+  }
   
   // Task suggestions based on service category
   const TASK_SUGGESTIONS = {
@@ -501,6 +509,23 @@ export default function ClientDetail() {
         setBoards(boardsData || [])
       } catch (err) {
         console.log('Error fetching boards:', err)
+      }
+      
+      // Fetch client hourly rate (what we charge this client)
+      try {
+        const { data: rateData } = await supabase
+          .from('client_rates')
+          .select('hourly_rate')
+          .eq('client_id', resolvedClientId)
+          .order('effective_date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        
+        if (rateData?.hourly_rate) {
+          setClientRate(rateData.hourly_rate)
+        }
+      } catch (err) {
+        console.log('Client rates table may not exist yet:', err)
       }
 
     } catch (error) {
@@ -1195,35 +1220,28 @@ export default function ClientDetail() {
         }
       }
       
+      // Simplified task data - just the essentials
       const taskData = {
         title: newTask.title,
         description: newTask.description,
         board_id: boardId,
         client_id: resolvedClientId,
         assigned_to: newTask.assignee_id || user.id, // Default to current user
-        status: 'todo',
-        priority: newTask.priority || 'medium',
+        status: 'new',
+        priority: 'medium', // Default priority
         created_by: user.id,
-        billing_type: newTask.billing_type || 'retainer',
+        // Auto-set billing type based on client engagement type
+        billing_type: client?.engagement_type === 'retainer' ? 'retainer' : 'alacarte',
       }
       
-      // Add estimated amount for a-la-carte projects
-      if (newTask.billing_type === 'alacarte' && newTask.estimated_amount) {
-        taskData.estimated_amount = parseFloat(newTask.estimated_amount)
+      // Add estimated hours if provided
+      if (newTask.estimated_hours) {
+        taskData.estimated_hours = parseFloat(newTask.estimated_hours)
       }
       
       // Add due date if provided
       if (newTask.due_date) {
         taskData.due_date = newTask.due_date
-      }
-      
-      // Add recurring fields if enabled
-      if (newTask.is_recurring && newTask.recurrence_pattern) {
-        taskData.is_recurring = true
-        taskData.recurrence_pattern = newTask.recurrence_pattern
-        if (newTask.recurrence_end_date) {
-          taskData.recurrence_end_date = newTask.recurrence_end_date
-        }
       }
       
       const { data: createdTicket, error } = await supabase
@@ -1235,10 +1253,8 @@ export default function ClientDetail() {
       if (error) throw error
       
       toast({
-        title: newTask.is_recurring ? '🔄 Recurring task created' : '✅ Task created',
-        description: newTask.is_recurring 
-          ? `"${newTask.title}" will repeat ${newTask.recurrence_pattern}`
-          : `"${newTask.title}" has been assigned`,
+        title: '✅ Task created',
+        description: `"${newTask.title}" has been assigned`,
         variant: 'success',
       })
 
@@ -1253,7 +1269,7 @@ export default function ClientDetail() {
       })
       
       setCreateTaskOpen(false)
-      setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium', billing_type: 'retainer', estimated_amount: '' })
+      setNewTask(getEmptyTaskForm())
       fetchClientData(true)
     } catch (error) {
       console.error('Error creating task:', error)
@@ -3463,17 +3479,32 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
       
-      {/* Create Task Dialog - Improved */}
-      <Dialog open={createTaskOpen} onOpenChange={setCreateTaskOpen}>
+      {/* Create Task Dialog - Simplified per QA feedback */}
+      <Dialog open={createTaskOpen} onOpenChange={handleCreateTaskDialogChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Ticket className="h-5 w-5 text-brand-orange" />
               New Task for {client?.name}
+              {client?.ticket_prefix && (
+                <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded">
+                  {client.ticket_prefix}
+                </span>
+              )}
             </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Create a task and assign it to a team member
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Create a task and assign it to a team member
+              </p>
+              {/* Client Rate Reminder */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  ${clientRate}/hr
+                </span>
+                <span className="text-xs text-green-600 dark:text-green-500">client rate</span>
+              </div>
+            </div>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto space-y-5 py-4">
@@ -3556,7 +3587,7 @@ export default function ClientDetail() {
               />
             </div>
             
-            {/* Two column layout for assignee and priority */}
+            {/* Simplified two column layout: Assign To and Estimated Hours */}
             <div className="grid gap-4 md:grid-cols-2">
               {/* Assign To */}
               <div className="space-y-2">
@@ -3586,76 +3617,22 @@ export default function ClientDetail() {
                 <p className="text-xs text-muted-foreground">Defaults to you if not changed</p>
               </div>
               
-              {/* Priority */}
+              {/* Estimated Hours */}
               <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select 
-                  value={newTask.priority} 
-                  onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-gray-400" />
-                        Low
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                        Medium
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-orange-500" />
-                        High
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="urgent">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500" />
-                        Urgent
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Estimated Hours</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="e.g., 2"
+                  value={newTask.estimated_hours}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, estimated_hours: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">Optional time estimate</p>
               </div>
             </div>
             
-            {/* Board - Optional now */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                Board
-                <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-              </Label>
-              <Select 
-                value={newTask.board_id || '__auto__'} 
-                onValueChange={(value) => setNewTask(prev => ({ ...prev, board_id: value === '__auto__' ? '' : value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Auto-assign to General Tasks" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__auto__">
-                    <span className="text-muted-foreground">General Tasks (auto-create)</span>
-                  </SelectItem>
-                  {boards.map(board => (
-                    <SelectItem key={board.id} value={board.id}>
-                      {board.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Leave empty to add to "General Tasks" board
-              </p>
-            </div>
-            
-            {/* Due Date */}
+            {/* Due Date - Optional */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4" />
@@ -3668,130 +3645,10 @@ export default function ClientDetail() {
                 onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
               />
             </div>
-            
-            {/* Billing Type - A-la-carte option */}
-            <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
-              <Label className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-green-500" />
-                Billing Type
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: 'retainer', label: 'Retainer', desc: 'Included in monthly', color: 'bg-blue-500' },
-                  { id: 'alacarte', label: 'A-la-carte', desc: 'Billed separately', color: 'bg-green-500' },
-                  { id: 'internal', label: 'Internal', desc: 'Not billed', color: 'bg-gray-400' },
-                ].map(type => (
-                  <button
-                    key={type.id}
-                    type="button"
-                    onClick={() => setNewTask(prev => ({ ...prev, billing_type: type.id }))}
-                    className={cn(
-                      "flex-1 min-w-[100px] p-3 rounded-lg border-2 text-left transition-all",
-                      newTask.billing_type === type.id 
-                        ? "border-brand-orange bg-brand-orange/5" 
-                        : "border-transparent bg-background hover:border-muted-foreground/20"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={cn("w-2 h-2 rounded-full", type.color)} />
-                      <span className="font-medium text-sm">{type.label}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{type.desc}</p>
-                  </button>
-                ))}
-              </div>
-              
-              {/* Estimated Amount - only for a-la-carte */}
-              {newTask.billing_type === 'alacarte' && (
-                <div className="mt-3 space-y-2">
-                  <Label className="text-sm">Estimated Amount</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={newTask.estimated_amount}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, estimated_amount: e.target.value }))}
-                      className="pl-7"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    💡 This will be tracked as additional revenue outside the retainer
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {/* Recurring Task Toggle */}
-            <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2 cursor-pointer">
-                  <Repeat className="h-4 w-4 text-blue-500" />
-                  Recurring Task
-                </Label>
-                <button
-                  type="button"
-                  onClick={() => setNewTask(prev => ({ ...prev, is_recurring: !prev.is_recurring }))}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                    newTask.is_recurring ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                      newTask.is_recurring ? "translate-x-6" : "translate-x-1"
-                    )}
-                  />
-                </button>
-              </div>
-              
-              {newTask.is_recurring && (
-                <div className="space-y-3 pt-2 border-t">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Repeat Every</Label>
-                    <Select 
-                      value={newTask.recurrence_pattern} 
-                      onValueChange={(value) => setNewTask(prev => ({ ...prev, recurrence_pattern: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select frequency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="biweekly">Every 2 Weeks</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="quarterly">Quarterly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-sm flex items-center gap-2">
-                      End Date
-                      <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-                    </Label>
-                    <Input
-                      type="date"
-                      value={newTask.recurrence_end_date}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, recurrence_end_date: e.target.value }))}
-                      placeholder="Leave empty for no end date"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Leave empty to repeat indefinitely
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
           
           <DialogFooter className="border-t pt-4">
-            <Button variant="outline" onClick={() => {
-              setCreateTaskOpen(false)
-              setNewTask({ title: '', description: '', board_id: '', assignee_id: '', service_category: '', priority: 'medium', billing_type: 'retainer', estimated_amount: '', is_recurring: false, recurrence_pattern: '', due_date: '', recurrence_end_date: '' })
-            }}>
+            <Button variant="outline" onClick={() => handleCreateTaskDialogChange(false)}>
               Cancel
             </Button>
             <Button 

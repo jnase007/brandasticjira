@@ -26,6 +26,7 @@ import {
   Trash2,
   Palette,
   Loader2,
+  DollarSign,
 } from 'lucide-react'
 import { 
   getBoard, 
@@ -96,7 +97,9 @@ export default function BoardDetail() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [newTicket, setNewTicket] = useState({
+  
+  // Default empty form state
+  const emptyTicketForm = {
     title: '',
     description: '',
     priority: 'medium',
@@ -104,7 +107,17 @@ export default function BoardDetail() {
     estimated_hours: '',
     ticket_type: 'task',
     category_id: '',
-  })
+  }
+  const [newTicket, setNewTicket] = useState(emptyTicketForm)
+  
+  // Reset form when dialog closes
+  const handleDialogChange = (open) => {
+    setCreateDialogOpen(open)
+    if (!open) {
+      // Reset form when closing
+      setNewTicket(emptyTicketForm)
+    }
+  }
   const [saving, setSaving] = useState(false)
 
   // Category management
@@ -114,6 +127,9 @@ export default function BoardDetail() {
   const [savingCategory, setSavingCategory] = useState(false)
 
   const [fetchError, setFetchError] = useState(null)
+  
+  // Client rate (for displaying when creating tasks)
+  const [clientRate, setClientRate] = useState(175)
 
   // Fetch board and tickets
   const fetchData = useCallback(async () => {
@@ -139,7 +155,28 @@ export default function BoardDetail() {
         supabase.from('ticket_categories').select('*').eq('board_id', boardId).order('position'),
       ])
 
-      if (boardRes.data) setBoard(boardRes.data)
+      if (boardRes.data) {
+        setBoard(boardRes.data)
+        
+        // Fetch client rate if we have a client_id
+        if (boardRes.data.client_id) {
+          try {
+            const { data: rateData } = await supabase
+              .from('client_rates')
+              .select('hourly_rate')
+              .eq('client_id', boardRes.data.client_id)
+              .order('effective_date', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            
+            if (rateData?.hourly_rate) {
+              setClientRate(rateData.hourly_rate)
+            }
+          } catch (err) {
+            console.log('Client rates table may not exist:', err)
+          }
+        }
+      }
       if (ticketsRes.data) {
         // Normalize statuses for backwards compatibility
         const normalizedTickets = ticketsRes.data.map(t => ({
@@ -632,10 +669,20 @@ export default function BoardDetail() {
       </DragDropContext>
 
       {/* Create Task Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create New Task</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Create New Task</DialogTitle>
+              {/* Client Rate Reminder */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  ${clientRate}/hr
+                </span>
+                <span className="text-xs text-green-600 dark:text-green-500">rate</span>
+              </div>
+            </div>
           </DialogHeader>
           <div className="space-y-4">
             <div>

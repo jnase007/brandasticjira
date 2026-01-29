@@ -80,7 +80,7 @@ function EmptyClientsState({ onImport, loading }) {
         <Building2 className="h-10 w-10 text-brand-orange" />
       </div>
       <h3 className="text-xl font-semibold mb-2">No Clients Yet</h3>
-      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+      <p className="text-slate-500 dark:text-white/50 mb-6 max-w-md mx-auto">
         Import your Brandastic clients to start tracking time, projects, and profitability.
       </p>
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -103,8 +103,8 @@ function EmptyClientsState({ onImport, loading }) {
           )}
         </Button>
       </div>
-      <div className="mt-6 p-4 rounded-xl bg-muted/50 max-w-lg mx-auto">
-        <p className="text-sm text-muted-foreground">
+      <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-white/10/50 max-w-lg mx-auto">
+        <p className="text-sm text-slate-500 dark:text-white/50">
           <strong>Includes:</strong> Calops, Prudental Labs, Salvin, Check'n Play, DESS USA, and 17 more clients with calculated hours at $175/hr
         </p>
       </div>
@@ -617,7 +617,7 @@ export default function ClientManagement() {
             <RefreshCw className="h-10 w-10 text-amber-500" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Connection Lost</h2>
-          <p className="text-muted-foreground mb-6 max-w-md">
+          <p className="text-slate-500 dark:text-white/50 mb-6 max-w-md">
             Your session needs to be refreshed. This can happen after being idle for a while.
           </p>
           <div className="flex gap-3">
@@ -651,6 +651,7 @@ export default function ClientManagement() {
   }
 
   return (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a1628]">
     <motion.div
       initial="hidden"
       animate="visible"
@@ -665,9 +666,9 @@ export default function ClientManagement() {
               <div className="p-2 rounded-xl bg-gradient-to-br from-brand-orange to-brand-coral">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
-              <h1 className="text-2xl sm:text-4xl font-display font-bold">Client Management</h1>
+              <h1 className="text-2xl sm:text-4xl font-display font-bold text-slate-900 dark:text-white">Client Management</h1>
             </div>
-            <p className="text-sm sm:text-lg text-muted-foreground">
+            <p className="text-sm sm:text-lg text-slate-500 dark:text-white/50">
               Manage client relationships, requests, and portfolios
             </p>
           </div>
@@ -699,15 +700,15 @@ export default function ClientManagement() {
       {/* Stats */}
       <motion.div variants={containerVariants} className="grid gap-4 grid-cols-2 md:grid-cols-5 mb-8">
         <motion.div variants={itemVariants}>
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-blue-500/10">
                   <Building2 className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Clients</p>
-                  <p className="text-2xl font-bold">
+                  <p className="text-sm text-slate-500 dark:text-white/50">Active Clients</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
                     {activeClients.length}
                   </p>
                 </div>
@@ -717,14 +718,14 @@ export default function ClientManagement() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className={cn(prospectClients.length > 0 && "border-purple-500/30 bg-purple-500/5")}>
+          <Card className={cn("bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm", prospectClients.length > 0 && "border-purple-500/30 bg-purple-500/5")}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-purple-500/10">
                   <Target className="h-5 w-5 text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Prospects</p>
+                  <p className="text-sm text-slate-500 dark:text-white/50">Prospects</p>
                   <p className="text-2xl font-bold text-purple-500">
                     {prospectClients.length}
                   </p>
@@ -735,14 +736,14 @@ export default function ClientManagement() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-green-500/10">
                   <DollarSign className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Pipeline Value</p>
+                  <p className="text-sm text-slate-500 dark:text-white/50">Pipeline Value</p>
                   <p className="text-2xl font-bold text-green-600">
                     ${prospectClients.reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0).toLocaleString()}
                   </p>
@@ -753,15 +754,15 @@ export default function ClientManagement() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-yellow-500/10">
                   <Trophy className="h-5 w-5 text-yellow-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Client Wins 🎉</p>
-                  <p className="text-2xl font-bold">
+                  <p className="text-sm text-slate-500 dark:text-white/50">Client Wins 🎉</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
                     {clientWins.length}
                   </p>
                 </div>
@@ -771,14 +772,14 @@ export default function ClientManagement() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className={cn(pendingRequests.length > 0 && "border-brand-orange/30 bg-brand-orange/5")}>
+          <Card className={cn("bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm", pendingRequests.length > 0 && "border-brand-orange/30 bg-brand-orange/5")}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-orange-500/10">
                   <Bell className="h-5 w-5 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Pending Requests</p>
+                  <p className="text-sm text-slate-500 dark:text-white/50">Pending Requests</p>
                   <p className="text-2xl font-bold text-orange-500">
                     {pendingRequests.length}
                   </p>
@@ -805,10 +806,10 @@ export default function ClientManagement() {
               <h2 className="text-2xl font-bold mb-2">
                 🚀 Import Your Brandastic Clients
               </h2>
-              <p className="text-muted-foreground mb-1">
+              <p className="text-slate-500 dark:text-white/50 mb-1">
                 Get started by importing all 22 Brandastic clients with their monthly hours, billing rates, and project data.
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-slate-500 dark:text-white/50">
                 Includes: Calops ($21k), Prudental Labs ($11k), Salvin, Check'n Play, DESS USA, and more...
               </p>
             </div>
@@ -855,7 +856,7 @@ export default function ClientManagement() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-muted/50">
+        <TabsList className="bg-slate-100 dark:bg-white/10/50">
           <TabsTrigger value="clients" className="gap-2">
             <Building2 className="h-4 w-4" />
             Clients
@@ -886,16 +887,16 @@ export default function ClientManagement() {
 
         {/* Clients Tab */}
         <TabsContent value="clients">
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Client Directory</CardTitle>
-                  <CardDescription>All clients with portal access</CardDescription>
+                  <CardTitle className="text-slate-900 dark:text-white">Client Directory</CardTitle>
+                  <CardDescription className="text-slate-500 dark:text-white/50">All clients with portal access</CardDescription>
                 </div>
                 <div className="flex gap-3 items-center">
                   <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-white/50" />
                     <Input
                       placeholder="Search clients... (⌘K)"
                       value={searchQuery}
@@ -930,7 +931,7 @@ export default function ClientManagement() {
                       </SelectItem>
                       <SelectItem value="all">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-3 w-3 text-muted-foreground" />
+                          <Building2 className="h-3 w-3 text-slate-500 dark:text-white/50" />
                           All ({clients.length})
                         </div>
                       </SelectItem>
@@ -964,7 +965,7 @@ export default function ClientManagement() {
               <>
               {filteredClients.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/10/50 flex items-center justify-center mx-auto mb-4">
                     {statusFilter === 'inactive' ? (
                       <Pause className="h-8 w-8 text-amber-500" />
                     ) : statusFilter === 'active' ? (
@@ -972,7 +973,7 @@ export default function ClientManagement() {
                     ) : statusFilter === 'prospect' ? (
                       <Target className="h-8 w-8 text-purple-500" />
                     ) : (
-                      <Building2 className="h-8 w-8 text-muted-foreground" />
+                      <Building2 className="h-8 w-8 text-slate-500 dark:text-white/50" />
                     )}
                   </div>
                   <h3 className="text-lg font-semibold mb-2">
@@ -987,7 +988,7 @@ export default function ClientManagement() {
                             : 'No clients found'
                     }
                   </h3>
-                  <p className="text-muted-foreground text-sm mb-4">
+                  <p className="text-slate-500 dark:text-white/50 text-sm mb-4">
                     {searchQuery 
                       ? `No clients match "${searchQuery}" in the ${statusFilter} filter.`
                       : statusFilter === 'inactive'
@@ -1018,8 +1019,8 @@ export default function ClientManagement() {
                 {filteredClients.map((client) => {
                   // Count unique team members assigned to this client
                   const clientTeamCount = clientUsers.filter(u => u.client_id === client.id).length
-                  // Count tickets/tasks for this client
-                  const clientTicketCount = requests.filter(r => r.client_id === client.id).length
+                  // Count tickets/tasks for this client (exclude closed ones for active count)
+                  const clientTicketCount = requests.filter(r => r.client_id === client.id && r.status !== 'closed').length
                   // Count boards/projects for this client
                   const clientProjectCount = projects.filter(p => p.client_id === client.id).length
                   const monthlyRevenue = (client.monthly_hours || 0) * 175
@@ -1034,7 +1035,7 @@ export default function ClientManagement() {
                       variants={itemVariants}
                       whileHover={{ y: -2 }}
                       className={cn(
-                        "p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-card group relative",
+                        "p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-white dark:bg-[#0d1d35] group relative",
                         isPinned(client.id) && "ring-2 ring-yellow-400/50 border-yellow-400/30",
                         client.is_active === false && "opacity-75 border-dashed"
                       )}
@@ -1050,7 +1051,7 @@ export default function ClientManagement() {
                           "absolute top-2 right-2 p-1.5 rounded-lg transition-all z-10",
                           isPinned(client.id) 
                             ? "bg-yellow-500 text-white" 
-                            : "bg-muted/50 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-yellow-500 hover:text-white"
+                            : "bg-slate-100 dark:bg-white/10/50 text-slate-500 dark:text-white/50 opacity-0 group-hover:opacity-100 hover:bg-yellow-500 hover:text-white"
                         )}
                         title={isPinned(client.id) ? "Unpin client" : "Pin client"}
                       >
@@ -1075,6 +1076,11 @@ export default function ClientManagement() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold truncate">{client.name}</h3>
+                            {client.ticket_prefix && (
+                              <Badge variant="outline" className="text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-[10px] px-1.5 py-0 font-mono">
+                                {client.ticket_prefix}
+                              </Badge>
+                            )}
                             {client.is_active === false && (
                               <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-[10px] px-1.5 py-0">
                                 <Pause className="h-2.5 w-2.5 mr-0.5" />
@@ -1085,12 +1091,12 @@ export default function ClientManagement() {
                           {client.account_services && client.account_services.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {client.account_services.slice(0, 2).map((service, i) => (
-                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50">
                                   {service}
                                 </span>
                               ))}
                               {client.account_services.length > 2 && (
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-[10px] text-slate-500 dark:text-white/50">
                                   +{client.account_services.length - 2}
                                 </span>
                               )}
@@ -1103,35 +1109,35 @@ export default function ClientManagement() {
                       <div className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs text-muted-foreground">Monthly</p>
+                            <p className="text-xs text-slate-500 dark:text-white/50">Monthly</p>
                             <p className="font-bold text-green-600">${monthlyRevenue.toLocaleString()}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Hours</p>
+                            <p className="text-xs text-slate-500 dark:text-white/50">Hours</p>
                             <p className="font-bold">{client.monthly_hours || 0}h</p>
                           </div>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                        <div className="p-1.5 rounded-lg bg-muted/50">
+                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/10/50">
                           <p className="font-semibold">{clientTeamCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Team</p>
+                          <p className="text-[10px] text-slate-500 dark:text-white/50">Team</p>
                         </div>
-                        <div className="p-1.5 rounded-lg bg-muted/50">
+                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/10/50">
                           <p className="font-semibold">{clientTicketCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Tasks</p>
+                          <p className="text-[10px] text-slate-500 dark:text-white/50">Tasks</p>
                         </div>
-                        <div className="p-1.5 rounded-lg bg-muted/50">
+                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/10/50">
                           <p className="font-semibold">{clientProjectCount}</p>
-                          <p className="text-[10px] text-muted-foreground">Boards</p>
+                          <p className="text-[10px] text-slate-500 dark:text-white/50">Boards</p>
                         </div>
                       </div>
                       
                       {/* Contact & View Link */}
                       <div className="flex items-center justify-between mt-3">
                         {client.contact_email ? (
-                          <p className="text-xs text-muted-foreground truncate flex-1">
+                          <p className="text-xs text-slate-500 dark:text-white/50 truncate flex-1">
                             📧 {client.contact_email}
                           </p>
                         ) : (
@@ -1149,27 +1155,27 @@ export default function ClientManagement() {
               )}
               
               {/* Summary Footer */}
-              <div className="mt-6 p-4 rounded-xl bg-muted/50 border">
+              <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-white/10/50 border">
                 <div className="flex flex-wrap gap-6 justify-center text-center">
                   <div>
                     <p className="text-2xl font-bold text-green-600">{activeClients.length}</p>
-                    <p className="text-sm text-muted-foreground">Active</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Active</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-amber-500">{inactiveClients.length}</p>
-                    <p className="text-sm text-muted-foreground">Paused</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Paused</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-brand-orange">
                       ${activeClients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * 175), 0).toLocaleString()}
                     </p>
-                    <p className="text-sm text-muted-foreground">Monthly Revenue</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Monthly Revenue</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold">
                       {activeClients.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)}h
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Hours/Month</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Total Hours/Month</p>
                   </div>
                 </div>
               </div>
@@ -1181,12 +1187,12 @@ export default function ClientManagement() {
 
         {/* Requests Tab */}
         <TabsContent value="requests">
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Client Requests</CardTitle>
-                  <CardDescription>Track approvals, assets, and feedback from clients</CardDescription>
+                  <CardTitle className="text-slate-900 dark:text-white">Client Requests</CardTitle>
+                  <CardDescription className="text-slate-500 dark:text-white/50">Track approvals, assets, and feedback from clients</CardDescription>
                 </div>
                 <Button onClick={() => setRequestDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -1196,7 +1202,7 @@ export default function ClientManagement() {
             </CardHeader>
             <CardContent>
               {requests.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
+                <div className="text-center py-12 text-slate-500 dark:text-white/50">
                   <Bell className="h-12 w-12 mx-auto mb-4 opacity-30" />
                   <p>No requests yet</p>
                   <Button variant="outline" className="mt-4" onClick={() => setRequestDialogOpen(true)}>
@@ -1213,12 +1219,12 @@ export default function ClientManagement() {
                       <div
                         key={request.id}
                         className={cn(
-                          "flex items-center justify-between p-4 rounded-xl border hover:bg-muted/50 transition-colors",
+                          "flex items-center justify-between p-4 rounded-xl border hover:bg-slate-100 dark:bg-white/10/50 transition-colors",
                           request.status === 'pending' && "border-brand-orange/30 bg-brand-orange/5"
                         )}
                       >
                         <div className="flex items-center gap-4">
-                          <div className={cn("p-2 rounded-lg bg-muted/50", typeConfig.color)}>
+                          <div className={cn("p-2 rounded-lg bg-slate-100 dark:bg-white/10/50", typeConfig.color)}>
                             <Icon className="h-5 w-5" />
                           </div>
                           <div>
@@ -1226,7 +1232,7 @@ export default function ClientManagement() {
                               <p className="font-medium">{request.title}</p>
                               <Badge variant="outline">{request.client?.name}</Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-slate-500 dark:text-white/50">
                               {typeConfig.label} • {formatRelativeDate(new Date(request.created_at))}
                               {request.due_date && ` • Due ${formatDate(request.due_date)}`}
                             </p>
@@ -1260,16 +1266,16 @@ export default function ClientManagement() {
 
         {/* Client Wins Tab */}
         <TabsContent value="wins">
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
                     🏆 Client Wins
                   </CardTitle>
-                  <CardDescription>Celebrate team achievements and client successes</CardDescription>
+                  <CardDescription className="text-slate-500 dark:text-white/50">Celebrate team achievements and client successes</CardDescription>
                 </div>
-                <Button onClick={() => setProjectDialogOpen(true)} className="bg-yellow-500 hover:bg-yellow-600">
+                <Button onClick={() => setProjectDialogOpen(true)} className="bg-yellow-500 hover:bg-yellow-600 text-white">
                   <Trophy className="h-4 w-4 mr-2" />
                   Share a Win
                 </Button>
@@ -1277,7 +1283,7 @@ export default function ClientManagement() {
             </CardHeader>
             <CardContent>
               {clientWins.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
+                <div className="text-center py-12 text-slate-500 dark:text-white/50">
                   <Trophy className="h-12 w-12 mx-auto mb-4 opacity-30 text-yellow-500" />
                   <p className="text-lg font-medium mb-1">No wins shared yet</p>
                   <p className="text-sm mb-4">Be the first to celebrate a client success!</p>
@@ -1302,7 +1308,7 @@ export default function ClientManagement() {
                           </div>
                           <div>
                             <h3 className="font-bold text-lg">{win.title}</h3>
-                            <p className="text-sm text-muted-foreground">{win.client?.name}</p>
+                            <p className="text-sm text-slate-500 dark:text-white/50">{win.client?.name}</p>
                           </div>
                         </div>
                         {win.is_featured && (
@@ -1314,7 +1320,7 @@ export default function ClientManagement() {
                       </div>
                       
                       {win.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{win.description}</p>
+                        <p className="text-sm text-slate-500 dark:text-white/50 mb-3 line-clamp-2">{win.description}</p>
                       )}
                       
                       {win.image_url && (
@@ -1340,7 +1346,7 @@ export default function ClientManagement() {
                               <AvatarFallback className="text-[10px]">{win.user.full_name?.charAt(0)}</AvatarFallback>
                             </Avatar>
                           )}
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-slate-500 dark:text-white/50">
                             {win.user?.full_name} • {win.created_at ? formatRelativeDate(new Date(win.created_at)) : 'Recently'}
                           </span>
                         </div>
@@ -1363,17 +1369,17 @@ export default function ClientManagement() {
 
         {/* Sales Pipeline Tab */}
         <TabsContent value="pipeline">
-          <Card>
+          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
                     <Target className="h-5 w-5 text-purple-500" />
                     Sales Pipeline
                   </CardTitle>
-                  <CardDescription>Track prospects through your sales process</CardDescription>
+                  <CardDescription className="text-slate-500 dark:text-white/50">Track prospects through your sales process</CardDescription>
                 </div>
-                <Button onClick={() => setClientDialogOpen(true)} className="bg-purple-500 hover:bg-purple-600">
+                <Button onClick={() => setClientDialogOpen(true)} className="bg-purple-500 hover:bg-purple-600 text-white">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Prospect
                 </Button>
@@ -1381,7 +1387,7 @@ export default function ClientManagement() {
             </CardHeader>
             <CardContent>
               {prospectClients.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
+                <div className="text-center py-12 text-slate-500 dark:text-white/50">
                   <Target className="h-12 w-12 mx-auto mb-4 opacity-30 text-purple-500" />
                   <p className="text-lg font-medium mb-1">No prospects yet</p>
                   <p className="text-sm mb-4">Start building your sales pipeline</p>
@@ -1426,11 +1432,11 @@ export default function ClientManagement() {
                                   "flex-1 p-2 rounded-xl border-2 border-dashed transition-colors min-h-[300px]",
                                   snapshot.isDraggingOver 
                                     ? "border-purple-500 bg-purple-500/10" 
-                                    : "border-transparent bg-muted/30"
+                                    : "border-transparent bg-slate-100 dark:bg-white/10/30"
                                 )}
                               >
                                 {stageClients.length === 0 && !snapshot.isDraggingOver ? (
-                                  <div className="text-center py-8 text-muted-foreground text-sm">
+                                  <div className="text-center py-8 text-slate-500 dark:text-white/50 text-sm">
                                     <stage.icon className="h-6 w-6 mx-auto mb-2 opacity-30" />
                                     <p className="text-xs">No prospects</p>
                                   </div>
@@ -1443,14 +1449,14 @@ export default function ClientManagement() {
                                           {...provided.draggableProps}
                                           {...provided.dragHandleProps}
                                           className={cn(
-                                            "mb-2 p-3 rounded-lg bg-card border shadow-sm transition-all group",
+                                            "mb-2 p-3 rounded-lg bg-white dark:bg-[#0d1d35] border shadow-sm transition-all group",
                                             snapshot.isDragging 
                                               ? "shadow-lg ring-2 ring-purple-500 rotate-2" 
                                               : "hover:shadow-md cursor-grab"
                                           )}
                                         >
                                           <div className="flex items-center gap-2 mb-2">
-                                            <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                                            <GripVertical className="h-4 w-4 text-slate-500 dark:text-white/50/50 flex-shrink-0" />
                                             {client.logo_url ? (
                                               <img src={client.logo_url} alt={client.name} className="w-8 h-8 rounded-lg object-cover" />
                                             ) : (
@@ -1470,7 +1476,7 @@ export default function ClientManagement() {
                                                 {client.name}
                                               </Link>
                                               {client.lead_source && (
-                                                <p className="text-[10px] text-muted-foreground truncate">{client.lead_source}</p>
+                                                <p className="text-[10px] text-slate-500 dark:text-white/50 truncate">{client.lead_source}</p>
                                               )}
                                             </div>
                                           </div>
@@ -1483,7 +1489,7 @@ export default function ClientManagement() {
                                               </Badge>
                                             )}
                                             {client.expected_close_date && (
-                                              <span className="text-muted-foreground text-[10px]">
+                                              <span className="text-slate-500 dark:text-white/50 text-[10px]">
                                                 {formatDate(client.expected_close_date)}
                                               </span>
                                             )}
@@ -1691,7 +1697,7 @@ export default function ClientManagement() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-100 dark:bg-white/10/50">
               <input
                 type="checkbox"
                 id="sendEmail"
@@ -1894,16 +1900,16 @@ export default function ClientManagement() {
                   {projectImageUploading ? (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
-                      <p className="text-sm text-muted-foreground">Uploading...</p>
+                      <p className="text-sm text-slate-500 dark:text-white/50">Uploading...</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
-                      <div className="p-3 rounded-full bg-muted/50">
-                        <Upload className="h-6 w-6 text-muted-foreground" />
+                      <div className="p-3 rounded-full bg-slate-100 dark:bg-white/10/50">
+                        <Upload className="h-6 w-6 text-slate-500 dark:text-white/50" />
                       </div>
                       <div>
                         <p className="font-medium text-sm">Drag & drop or click to upload</p>
-                        <p className="text-xs text-muted-foreground">PNG, JPG, GIF, or PDF (max 10MB)</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50">PNG, JPG, GIF, or PDF (max 10MB)</p>
                       </div>
                     </div>
                   )}
@@ -1959,5 +1965,6 @@ export default function ClientManagement() {
         }}
       />
     </motion.div>
+    </div>
   )
 }
