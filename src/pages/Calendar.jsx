@@ -52,10 +52,13 @@ export default function Calendar() {
   const [tickets, setTickets] = useState([])
   const [timeEntries, setTimeEntries] = useState([])
   const [clients, setClients] = useState([])
+  const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [viewFilter, setViewFilter] = useState('all') // all, my-tasks, due-dates, time-logged
+  const [viewFilter, setViewFilter] = useState('all') // all, my-tasks
+  const [clientFilter, setClientFilter] = useState('all') // all or client id
+  const [memberFilter, setMemberFilter] = useState('all') // all or user id
 
   useEffect(() => {
     fetchData()
@@ -71,27 +74,34 @@ export default function Calendar() {
       const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 })
       const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
       
-      const [ticketsRes, timeRes, clientsRes] = await Promise.all([
+      const [ticketsRes, timeRes, clientsRes, membersRes] = await Promise.all([
         supabase
           .from('tickets')
-          .select('*, client:client_id(id, name), assignee:assigned_to(id, full_name, avatar_url)')
+          .select('*, client:client_id(id, name, logo_url), assignee:assigned_to(id, full_name, avatar_url)')
           .gte('due_date', calendarStart.toISOString().split('T')[0])
           .lte('due_date', calendarEnd.toISOString().split('T')[0])
           .order('due_date'),
         supabase
           .from('time_entries')
-          .select('*, client:client_id(id, name)')
+          .select('*, client:client_id(id, name, logo_url), user:user_id(id, full_name, avatar_url)')
           .gte('date', calendarStart.toISOString().split('T')[0])
           .lte('date', calendarEnd.toISOString().split('T')[0]),
         supabase
           .from('clients')
-          .select('id, name')
+          .select('id, name, logo_url')
           .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .eq('is_active', true)
+          .order('full_name')
       ])
       
       setTickets(ticketsRes.data || [])
       setTimeEntries(timeRes.data || [])
       setClients(clientsRes.data || [])
+      setTeamMembers(membersRes.data || [])
     } catch (error) {
       console.error('Error fetching calendar data:', error)
     } finally {
@@ -113,22 +123,35 @@ export default function Calendar() {
   const getEventsForDay = (day) => {
     const dayStr = format(day, 'yyyy-MM-dd')
     
-    const dayTickets = tickets.filter(t => {
+    let dayTickets = tickets.filter(t => {
       if (!t.due_date) return false
       return t.due_date === dayStr || t.due_date.startsWith(dayStr)
     })
     
-    const dayTimeEntries = timeEntries.filter(t => t.date === dayStr)
-    const totalMinutes = dayTimeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0)
+    let dayTimeEntries = timeEntries.filter(t => t.date === dayStr)
     
-    // Apply filter
-    let filteredTickets = dayTickets
+    // Apply view filter (my tasks)
     if (viewFilter === 'my-tasks') {
-      filteredTickets = dayTickets.filter(t => t.assigned_to === user?.id)
+      dayTickets = dayTickets.filter(t => t.assigned_to === user?.id)
+      dayTimeEntries = dayTimeEntries.filter(e => e.user_id === user?.id)
     }
     
+    // Apply client filter
+    if (clientFilter !== 'all') {
+      dayTickets = dayTickets.filter(t => t.client_id === clientFilter)
+      dayTimeEntries = dayTimeEntries.filter(e => e.client_id === clientFilter)
+    }
+    
+    // Apply team member filter
+    if (memberFilter !== 'all') {
+      dayTickets = dayTickets.filter(t => t.assigned_to === memberFilter)
+      dayTimeEntries = dayTimeEntries.filter(e => e.user_id === memberFilter)
+    }
+    
+    const totalMinutes = dayTimeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0)
+    
     return {
-      tickets: filteredTickets,
+      tickets: dayTickets,
       timeEntries: dayTimeEntries,
       totalHours: totalMinutes / 60,
     }
@@ -138,7 +161,7 @@ export default function Calendar() {
   const selectedDayEvents = useMemo(() => {
     if (!selectedDate) return null
     return getEventsForDay(selectedDate)
-  }, [selectedDate, tickets, timeEntries, viewFilter])
+  }, [selectedDate, tickets, timeEntries, viewFilter, clientFilter, memberFilter, user])
 
   const navigateMonth = (direction) => {
     setCurrentMonth(prev => 
@@ -152,23 +175,43 @@ export default function Calendar() {
     setDetailsOpen(true)
   }
 
-  // Stats for current month
+  // Stats for current month (respecting filters)
   const monthStats = useMemo(() => {
-    const monthTickets = tickets.filter(t => 
+    let monthTickets = tickets.filter(t => 
       t.due_date && isSameMonth(parseISO(t.due_date), currentMonth)
     )
+    let monthTimeEntries = timeEntries
+    
+    // Apply client filter
+    if (clientFilter !== 'all') {
+      monthTickets = monthTickets.filter(t => t.client_id === clientFilter)
+      monthTimeEntries = monthTimeEntries.filter(e => e.client_id === clientFilter)
+    }
+    
+    // Apply member filter
+    if (memberFilter !== 'all') {
+      monthTickets = monthTickets.filter(t => t.assigned_to === memberFilter)
+      monthTimeEntries = monthTimeEntries.filter(e => e.user_id === memberFilter)
+    }
+    
+    // Apply view filter
+    if (viewFilter === 'my-tasks') {
+      monthTickets = monthTickets.filter(t => t.assigned_to === user?.id)
+      monthTimeEntries = monthTimeEntries.filter(e => e.user_id === user?.id)
+    }
+    
     const myTickets = monthTickets.filter(t => t.assigned_to === user?.id)
-    const totalHours = timeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60
+    const totalHours = monthTimeEntries.reduce((sum, e) => sum + (e.minutes || 0), 0) / 60
     
     return {
       totalTasks: monthTickets.length,
       myTasks: myTickets.length,
       overdue: monthTickets.filter(t => 
-        t.status !== 'done' && new Date(t.due_date) < new Date()
+        t.status !== 'done' && t.status !== 'closed' && new Date(t.due_date) < new Date()
       ).length,
       totalHours: totalHours.toFixed(1),
     }
-  }, [tickets, timeEntries, currentMonth, user])
+  }, [tickets, timeEntries, currentMonth, user, clientFilter, memberFilter, viewFilter])
 
   return (
     <motion.div
@@ -190,9 +233,11 @@ export default function Calendar() {
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View Filter */}
           <Select value={viewFilter} onValueChange={setViewFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[130px]">
+              <Eye className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -201,11 +246,95 @@ export default function Calendar() {
             </SelectContent>
           </Select>
           
+          {/* Client Filter */}
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-[160px]">
+              <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Clients" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map(client => (
+                <SelectItem key={client.id} value={client.id}>
+                  <div className="flex items-center gap-2">
+                    {client.logo_url ? (
+                      <img src={client.logo_url} alt="" className="w-4 h-4 rounded object-cover" />
+                    ) : (
+                      <div className="w-4 h-4 rounded bg-brand-orange/20 flex items-center justify-center text-[8px] font-bold text-brand-orange">
+                        {client.name?.charAt(0)}
+                      </div>
+                    )}
+                    <span className="truncate">{client.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {/* Team Member Filter */}
+          <Select value={memberFilter} onValueChange={setMemberFilter}>
+            <SelectTrigger className="w-[160px]">
+              <Users className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Team" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Team</SelectItem>
+              {teamMembers.map(member => (
+                <SelectItem key={member.id} value={member.id}>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-4 w-4">
+                      <AvatarImage src={member.avatar_url} />
+                      <AvatarFallback className="text-[8px]">
+                        {member.full_name?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">{member.full_name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
           <Button variant="outline" onClick={goToToday}>
             Today
           </Button>
+          
+          {/* Clear filters button */}
+          {(clientFilter !== 'all' || memberFilter !== 'all' || viewFilter !== 'all') && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setClientFilter('all')
+                setMemberFilter('all')
+                setViewFilter('all')
+              }}
+              className="text-muted-foreground"
+            >
+              Clear filters
+            </Button>
+          )}
         </div>
       </div>
+      
+      {/* Active Filters Indicator */}
+      {(clientFilter !== 'all' || memberFilter !== 'all') && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-sm text-muted-foreground">Showing:</span>
+          {clientFilter !== 'all' && (
+            <Badge variant="secondary" className="gap-1">
+              <Building2 className="h-3 w-3" />
+              {clients.find(c => c.id === clientFilter)?.name || 'Client'}
+            </Badge>
+          )}
+          {memberFilter !== 'all' && (
+            <Badge variant="secondary" className="gap-1">
+              <Users className="h-3 w-3" />
+              {teamMembers.find(m => m.id === memberFilter)?.full_name || 'Team Member'}
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
