@@ -28,7 +28,6 @@ const navItems = [
 
 const adminNavItems = [
   { path: '/admin', icon: Shield, label: 'Admin' },
-  { path: '/diagnostics', icon: ActivitySquare, label: 'Diagnostics' },
 ]
 
 // Bottom tab bar for quick access
