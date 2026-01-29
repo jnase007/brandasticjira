@@ -33,6 +33,7 @@ const ClientLogin = lazy(() => import('./pages/ClientLogin'))
 const ClientDashboard = lazy(() => import('./pages/ClientDashboard'))
 const Mission = lazy(() => import('./pages/Mission'))
 const Financials = lazy(() => import('./pages/Financials'))
+const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -920,6 +921,16 @@ function App() {
                 element={
                   <AdminRoute>
                     <Financials />
+                  </AdminRoute>
+                }
+              />
+
+              {/* Working / Not Working */}
+              <Route
+                path="/working"
+                element={
+                  <AdminRoute>
+                    <WorkingNotWorking />
                   </AdminRoute>
                 }
               />
