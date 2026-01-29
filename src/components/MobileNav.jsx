@@ -66,37 +66,43 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
           position: 'fixed',
         }}
       >
-        <div className="flex items-center justify-around h-16 px-2">
+        <div className="flex items-center justify-around h-16 px-2 bg-gradient-to-t from-background via-background to-background/95">
           {quickItems.map((item) => {
             const Icon = item.icon
             const isActive = item.path && location.pathname === item.path
             
             if (item.action === 'timer') {
               return (
-                <button
+                <motion.button
                   key="timer"
                   onClick={onOpenTimer}
-                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors text-muted-foreground hover:text-foreground"
+                  whileTap={{ scale: 0.9 }}
+                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground active:bg-brand-orange/10"
                 >
                   <div className="relative">
                     <Icon className="h-5 w-5" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                    <motion.span 
+                      className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                    />
                   </div>
                   <span className="text-[10px] font-medium">{item.label}</span>
-                </button>
+                </motion.button>
               )
             }
             
             if (item.action === 'more') {
               return (
-                <button
+                <motion.button
                   key="more"
                   onClick={() => setShowMore(true)}
-                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors text-muted-foreground hover:text-foreground"
+                  whileTap={{ scale: 0.9 }}
+                  className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground active:bg-brand-orange/10"
                 >
                   <Icon className="h-5 w-5" />
                   <span className="text-[10px] font-medium">{item.label}</span>
-                </button>
+                </motion.button>
               )
             }
             
@@ -105,14 +111,26 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors",
+                  "relative flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-200",
                   isActive
                     ? "text-brand-orange"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground active:scale-95"
                 )}
               >
-                <Icon className={cn("h-5 w-5", isActive && "text-brand-orange")} />
-                <span className={cn("text-[10px] font-medium", isActive && "text-brand-orange")}>
+                {isActive && (
+                  <motion.div
+                    layoutId="mobileActiveTab"
+                    className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand-orange rounded-full"
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                )}
+                <motion.div
+                  animate={isActive ? { scale: 1.1, y: -2 } : { scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                >
+                  <Icon className={cn("h-5 w-5", isActive && "text-brand-orange")} />
+                </motion.div>
+                <span className={cn("text-[10px] font-medium", isActive && "text-brand-orange font-semibold")}>
                   {item.label}
                 </span>
               </Link>

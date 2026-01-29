@@ -1206,7 +1206,38 @@ export default function TimeTracking() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Quick Time Templates */}
             <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Quick Add</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: '15m', minutes: 15 },
+                  { label: '30m', minutes: 30 },
+                  { label: '1h', minutes: 60 },
+                  { label: '1.5h', minutes: 90 },
+                  { label: '2h', minutes: 120 },
+                  { label: '4h', minutes: 240 },
+                  { label: '8h', minutes: 480 },
+                ].map(preset => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant={timeEntry.hours === String(preset.minutes / 60) ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => setTimeEntry(e => ({ 
+                      ...e, 
+                      hours: String(preset.minutes / 60),
+                      minutes: preset.minutes 
+                    }))}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="border-t pt-4">
               <Label>Client *</Label>
               <Select
                 value={timeEntry.client_id}
