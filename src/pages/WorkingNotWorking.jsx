@@ -244,21 +244,21 @@ export default function WorkingNotWorking() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white">
+    <div className="min-h-screen">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#0d1d35]/50 backdrop-blur-xl sticky top-0 z-10">
+      <div className="border-b border bg-card/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Working / Not Working</h1>
-              <p className="text-white/50 mt-1">
+              <p className="text-foreground/50 mt-1">
                 Monthly review of successes and opportunities
-                <span className="ml-2 text-white/30 text-sm">(Press N to add new)</span>
+                <span className="ml-2 text-foreground/30 text-sm">(Press N to add new)</span>
               </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-white/50" />
+                <Calendar className="h-5 w-5 text-foreground/50" />
                 <Select 
                   value={`${selectedMonth}-${selectedYear}`}
                   onValueChange={(v) => {
@@ -267,16 +267,16 @@ export default function WorkingNotWorking() {
                     setSelectedYear(parseInt(y))
                   }}
                 >
-                  <SelectTrigger className="w-48 bg-[#0d1d35] border-white/20">
+                  <SelectTrigger className="w-48 bg-card border-white/20">
                     <SelectValue>{MONTHS[selectedMonth]} {selectedYear}</SelectValue>
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0d1d35] border-white/20">
+                  <SelectContent className="bg-card border-white/20">
                     {[selectedYear - 1, selectedYear, selectedYear + 1].map(year => (
                       MONTHS.map((month, idx) => (
                         <SelectItem 
                           key={`${idx}-${year}`} 
                           value={`${idx}-${year}`}
-                          className="text-white hover:bg-white/10"
+                          className="text-foreground hover:bg-white/10"
                         >
                           {month} {year}
                         </SelectItem>
@@ -287,7 +287,7 @@ export default function WorkingNotWorking() {
               </div>
               <Button 
                 onClick={() => handleOpenDialog()}
-                className="bg-gradient-to-r from-brand-orange to-brand-coral text-white shadow-lg shadow-brand-orange/20 hover:shadow-brand-orange/40 transition-all"
+                className="bg-gradient-to-r from-brand-orange to-brand-coral text-foreground shadow-lg shadow-brand-orange/20 hover:shadow-brand-orange/40 transition-all"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Add Item
@@ -361,18 +361,18 @@ export default function WorkingNotWorking() {
         <div className="grid md:grid-cols-2 gap-8">
           {/* What's Working */}
           <motion.div variants={itemVariants}>
-            <Card className="bg-[#0d1d35] border-white/10 overflow-hidden">
+            <Card className="bg-card border overflow-hidden">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-6 w-6 text-green-400" />
-                    <CardTitle className="text-white text-xl">What's Working</CardTitle>
+                    <CardTitle className="text-foreground text-xl">What's Working</CardTitle>
                   </div>
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
                     {workingItems.length}
                   </Badge>
                 </div>
-                <p className="text-white/40 text-sm mt-1">Successes</p>
+                <p className="text-foreground/40 text-sm mt-1">Successes</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <AnimatePresence>
@@ -383,7 +383,7 @@ export default function WorkingNotWorking() {
                       className="text-center py-12"
                     >
                       <Sparkles className="h-12 w-12 text-green-400/30 mx-auto mb-4" />
-                      <p className="text-white/40">No successes recorded this month</p>
+                      <p className="text-foreground/40">No successes recorded this month</p>
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -409,12 +409,12 @@ export default function WorkingNotWorking() {
                         className="group relative p-4 rounded-xl bg-white/5 border border-green-500/20 hover:border-green-500/40 transition-all"
                       >
                         <div className="flex items-start justify-between gap-4">
-                          <p className="text-white/90 leading-relaxed">{item.description}</p>
+                          <p className="text-foreground/90 leading-relaxed">{item.description}</p>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-white/50 hover:text-white"
+                              className="h-8 w-8 p-0 text-foreground/50 hover:text-foreground"
                               onClick={() => handleOpenDialog(item)}
                             >
                               <Edit2 className="h-4 w-4" />
@@ -422,7 +422,7 @@ export default function WorkingNotWorking() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-white/50 hover:text-red-400"
+                              className="h-8 w-8 p-0 text-foreground/50 hover:text-red-400"
                               onClick={() => handleDelete(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -431,16 +431,16 @@ export default function WorkingNotWorking() {
                         </div>
                         <div className="mt-3 flex items-center justify-between">
                           {item.responsible && (
-                            <div className="flex items-center gap-2 text-sm text-white/50">
+                            <div className="flex items-center gap-2 text-sm text-foreground/50">
                               <User className="h-3.5 w-3.5" />
-                              <span>Responsible: <span className="text-white/70">{item.responsible}</span></span>
+                              <span>Responsible: <span className="text-foreground/70">{item.responsible}</span></span>
                             </div>
                           )}
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleUpvote(item.id)}
-                            className="flex items-center gap-1.5 text-xs text-white/50 hover:text-green-400 transition-colors ml-auto"
+                            className="flex items-center gap-1.5 text-xs text-foreground/50 hover:text-green-400 transition-colors ml-auto"
                           >
                             <ThumbsUp className="h-3.5 w-3.5" />
                             <span>{item.votes || 0}</span>
@@ -456,18 +456,18 @@ export default function WorkingNotWorking() {
 
           {/* What's Not Working */}
           <motion.div variants={itemVariants}>
-            <Card className="bg-[#0d1d35] border-white/10 overflow-hidden">
+            <Card className="bg-card border overflow-hidden">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <AlertCircle className="h-6 w-6 text-amber-400" />
-                    <CardTitle className="text-white text-xl">What's Not Working</CardTitle>
+                    <CardTitle className="text-foreground text-xl">What's Not Working</CardTitle>
                   </div>
                   <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                     {notWorkingItems.length}
                   </Badge>
                 </div>
-                <p className="text-white/40 text-sm mt-1">Opportunities</p>
+                <p className="text-foreground/40 text-sm mt-1">Opportunities</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <AnimatePresence>
@@ -478,7 +478,7 @@ export default function WorkingNotWorking() {
                       className="text-center py-12"
                     >
                       <CheckCircle className="h-12 w-12 text-amber-400/30 mx-auto mb-4" />
-                      <p className="text-white/40">No challenges recorded this month</p>
+                      <p className="text-foreground/40">No challenges recorded this month</p>
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -511,7 +511,7 @@ export default function WorkingNotWorking() {
                         <div className="flex items-start justify-between gap-4">
                           <p className={cn(
                             "leading-relaxed",
-                            item.is_resolved ? "text-white/60 line-through" : "text-white/90"
+                            item.is_resolved ? "text-foreground/60 line-through" : "text-foreground/90"
                           )}>
                             {item.description}
                           </p>
@@ -520,7 +520,7 @@ export default function WorkingNotWorking() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-white/50 hover:text-green-400"
+                                className="h-8 w-8 p-0 text-foreground/50 hover:text-green-400"
                                 onClick={() => handleResolve(item.id)}
                                 title="Mark as resolved"
                               >
@@ -530,7 +530,7 @@ export default function WorkingNotWorking() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-white/50 hover:text-white"
+                              className="h-8 w-8 p-0 text-foreground/50 hover:text-foreground"
                               onClick={() => handleOpenDialog(item)}
                             >
                               <Edit2 className="h-4 w-4" />
@@ -538,7 +538,7 @@ export default function WorkingNotWorking() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-white/50 hover:text-red-400"
+                              className="h-8 w-8 p-0 text-foreground/50 hover:text-red-400"
                               onClick={() => handleDelete(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -547,24 +547,24 @@ export default function WorkingNotWorking() {
                         </div>
                         
                         {item.next_steps && (
-                          <div className="mt-3 pt-3 border-t border-white/10">
-                            <p className="text-sm text-white/50 mb-1">Next Steps:</p>
-                            <p className="text-white/70 text-sm">{item.next_steps}</p>
+                          <div className="mt-3 pt-3 border-t border">
+                            <p className="text-sm text-foreground/50 mb-1">Next Steps:</p>
+                            <p className="text-foreground/70 text-sm">{item.next_steps}</p>
                           </div>
                         )}
                         
                         <div className="mt-3 flex items-center justify-between">
                           {item.responsible && (
-                            <div className="flex items-center gap-2 text-sm text-white/50">
+                            <div className="flex items-center gap-2 text-sm text-foreground/50">
                               <User className="h-3.5 w-3.5" />
-                              <span>Responsible: <span className="text-white/70">{item.responsible}</span></span>
+                              <span>Responsible: <span className="text-foreground/70">{item.responsible}</span></span>
                             </div>
                           )}
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleUpvote(item.id)}
-                            className="flex items-center gap-1.5 text-xs text-white/50 hover:text-amber-400 transition-colors ml-auto"
+                            className="flex items-center gap-1.5 text-xs text-foreground/50 hover:text-amber-400 transition-colors ml-auto"
                           >
                             <ThumbsUp className="h-3.5 w-3.5" />
                             <span>{item.votes || 0}</span>
@@ -582,7 +582,7 @@ export default function WorkingNotWorking() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-[#0d1d35] border-white/10 text-white">
+        <DialogContent className="sm:max-w-lg bg-card border text-foreground">
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
           </DialogHeader>
@@ -590,7 +590,7 @@ export default function WorkingNotWorking() {
           <div className="space-y-6 py-4">
             {/* Type Selection */}
             <div>
-              <Label className="text-white/70 mb-3 block">Type *</Label>
+              <Label className="text-foreground/70 mb-3 block">Type *</Label>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
@@ -604,11 +604,11 @@ export default function WorkingNotWorking() {
                 >
                   <CheckCircle className={cn(
                     "h-6 w-6",
-                    formData.type === 'working' ? "text-green-400" : "text-white/50"
+                    formData.type === 'working' ? "text-green-400" : "text-foreground/50"
                   )} />
                   <span className={cn(
                     "font-medium",
-                    formData.type === 'working' ? "text-green-400" : "text-white/70"
+                    formData.type === 'working' ? "text-green-400" : "text-foreground/70"
                   )}>
                     What's Working
                   </span>
@@ -626,11 +626,11 @@ export default function WorkingNotWorking() {
                 >
                   <AlertCircle className={cn(
                     "h-6 w-6",
-                    formData.type === 'not_working' ? "text-amber-400" : "text-white/50"
+                    formData.type === 'not_working' ? "text-amber-400" : "text-foreground/50"
                   )} />
                   <span className={cn(
                     "font-medium",
-                    formData.type === 'not_working' ? "text-amber-400" : "text-white/70"
+                    formData.type === 'not_working' ? "text-amber-400" : "text-foreground/70"
                   )}>
                     What's Not Working
                   </span>
@@ -640,38 +640,38 @@ export default function WorkingNotWorking() {
 
             {/* Description */}
             <div>
-              <Label className="text-white/70">
+              <Label className="text-foreground/70">
                 {formData.type === 'working' ? 'Success' : 'Challenge'} *
               </Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
                 placeholder={formData.type === 'working' ? 'Describe what went well...' : 'Describe the challenge...'}
-                className="mt-1.5 bg-[#0a1628] border-white/20 text-white min-h-[100px]"
+                className="mt-1.5 bg-[#0a1628] border-white/20 text-foreground min-h-[100px]"
               />
             </div>
 
             {/* Next Steps (only for not working) */}
             {formData.type === 'not_working' && (
               <div>
-                <Label className="text-white/70">Next Steps</Label>
+                <Label className="text-foreground/70">Next Steps</Label>
                 <Textarea
                   value={formData.next_steps}
                   onChange={(e) => setFormData(f => ({ ...f, next_steps: e.target.value }))}
                   placeholder="What actions will address this?"
-                  className="mt-1.5 bg-[#0a1628] border-white/20 text-white min-h-[80px]"
+                  className="mt-1.5 bg-[#0a1628] border-white/20 text-foreground min-h-[80px]"
                 />
               </div>
             )}
 
             {/* Responsible */}
             <div>
-              <Label className="text-white/70">Responsible</Label>
+              <Label className="text-foreground/70">Responsible</Label>
               <Input
                 value={formData.responsible}
                 onChange={(e) => setFormData(f => ({ ...f, responsible: e.target.value }))}
                 placeholder="Who is responsible?"
-                className="mt-1.5 bg-[#0a1628] border-white/20 text-white"
+                className="mt-1.5 bg-[#0a1628] border-white/20 text-foreground"
               />
             </div>
           </div>
@@ -680,13 +680,13 @@ export default function WorkingNotWorking() {
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}
-              className="border-white/20 text-white hover:bg-white/10"
+              className="border-white/20 text-foreground hover:bg-white/10"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
-              className="bg-gradient-to-r from-brand-orange to-brand-coral text-white"
+              className="bg-gradient-to-r from-brand-orange to-brand-coral text-foreground"
             >
               {editingItem ? 'Save Changes' : 'Add Item'}
             </Button>

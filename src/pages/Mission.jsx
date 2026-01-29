@@ -174,18 +174,18 @@ export default function Mission() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white">
+    <div className="min-h-screen">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#0d1d35]/50 backdrop-blur-xl sticky top-0 z-10">
+      <div className="border-b border bg-card/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-orange to-brand-coral flex items-center justify-center">
-                <Target className="h-5 w-5 text-white" />
+                <Target className="h-5 w-5 text-foreground" />
               </div>
               Mission & Vision
             </h1>
-            <p className="text-white/50 text-sm mt-1">Our company vision and one-page strategic plan</p>
+            <p className="text-foreground/50 text-sm mt-1">Our company vision and one-page strategic plan</p>
           </div>
           {profile?.role === 'admin' && (
             <Button 
@@ -207,28 +207,28 @@ export default function Mission() {
       >
         {/* Long Term Vision */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10 overflow-hidden">
+          <Card className="bg-card border overflow-hidden">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
                   <Eye className="h-5 w-5 text-purple-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-white">Long Term Vision</CardTitle>
-                  <p className="text-white/40 text-sm">Company Vision</p>
+                  <CardTitle className="text-foreground">Long Term Vision</CardTitle>
+                  <p className="text-foreground/40 text-sm">Company Vision</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-lg text-white/90 font-medium">{mission.long_term_vision}</p>
+              <p className="text-lg text-foreground/90 font-medium">{mission.long_term_vision}</p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                 {mission.vision_pillars.map((pillar, idx) => (
                   <div 
                     key={idx}
-                    className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/30 transition-colors"
+                    className="p-4 rounded-xl bg-white/5 border border hover:border-purple-500/30 transition-colors"
                   >
-                    <p className="text-white/70 text-sm">{pillar.title}</p>
+                    <p className="text-foreground/70 text-sm">{pillar.title}</p>
                   </div>
                 ))}
               </div>
@@ -238,13 +238,13 @@ export default function Mission() {
 
         {/* Rally Cry */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
                   <Sparkles className="h-5 w-5 text-cyan-400" />
                 </div>
-                <CardTitle className="text-white">{mission.rally_year} Rally Cry/Theme</CardTitle>
+                <CardTitle className="text-foreground">{mission.rally_year} Rally Cry/Theme</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -257,13 +257,13 @@ export default function Mission() {
 
         {/* Core Values */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-orange/20 flex items-center justify-center">
                   <Heart className="h-5 w-5 text-brand-orange" />
                 </div>
-                <CardTitle className="text-white">Core Values</CardTitle>
+                <CardTitle className="text-foreground">Core Values</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -274,7 +274,7 @@ export default function Mission() {
                     className="p-5 rounded-xl bg-gradient-to-br from-brand-orange/10 to-transparent border border-brand-orange/20 hover:border-brand-orange/40 transition-all"
                   >
                     <h3 className="text-brand-orange font-semibold mb-2">{idx + 1}. {value.title}</h3>
-                    <p className="text-white/60 text-sm">{value.description}</p>
+                    <p className="text-foreground/60 text-sm">{value.description}</p>
                   </div>
                 ))}
               </div>
@@ -284,13 +284,13 @@ export default function Mission() {
 
         {/* Vital Factors Goals */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
                   <Target className="h-5 w-5 text-green-400" />
                 </div>
-                <CardTitle className="text-white">Top Vital Factors Goals</CardTitle>
+                <CardTitle className="text-foreground">Top Vital Factors Goals</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -298,10 +298,10 @@ export default function Mission() {
                 {mission.vital_factors.map((factor, idx) => (
                   <div 
                     key={idx}
-                    className="p-4 rounded-xl bg-white/5 border border-white/10"
+                    className="p-4 rounded-xl bg-white/5 border border"
                   >
-                    <p className="text-white/50 text-xs mb-1">{idx + 1}. {factor.label}</p>
-                    <p className="text-white font-bold text-lg">{factor.value}</p>
+                    <p className="text-foreground/50 text-xs mb-1">{idx + 1}. {factor.label}</p>
+                    <p className="text-foreground font-bold text-lg">{factor.value}</p>
                   </div>
                 ))}
               </div>
@@ -311,15 +311,15 @@ export default function Mission() {
 
         {/* Vital Initiatives */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
                   <Lightbulb className="h-5 w-5 text-yellow-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-white">Vital Initiatives to Achieve Goals</CardTitle>
-                  <p className="text-white/40 text-sm">Action Items</p>
+                  <CardTitle className="text-foreground">Vital Initiatives to Achieve Goals</CardTitle>
+                  <p className="text-foreground/40 text-sm">Action Items</p>
                 </div>
               </div>
             </CardHeader>
@@ -328,10 +328,10 @@ export default function Mission() {
                 {mission.initiatives.map((init, idx) => (
                   <div 
                     key={idx}
-                    className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-yellow-500/30 transition-colors"
+                    className="p-4 rounded-xl bg-white/5 border border hover:border-yellow-500/30 transition-colors"
                   >
                     <h4 className="text-yellow-400 font-semibold text-sm mb-2">{idx + 1}. {init.title}</h4>
-                    <p className="text-white/60 text-xs leading-relaxed">{init.description}</p>
+                    <p className="text-foreground/60 text-xs leading-relaxed">{init.description}</p>
                   </div>
                 ))}
               </div>
@@ -361,7 +361,7 @@ export default function Mission() {
               {/* Planning Mode Controls */}
               <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-slate-100 border border-slate-200">
                 <span className="text-slate-500 text-sm">Planning Mode:</span>
-                <Button size="sm" className="bg-brand-orange hover:bg-brand-coral text-white">
+                <Button size="sm" className="bg-brand-orange hover:bg-brand-coral text-foreground">
                   Set Target Revenue
                 </Button>
                 <Button size="sm" variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-100">
@@ -501,26 +501,26 @@ export default function Mission() {
 
         {/* Year-by-Year Roadmap Table */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
                   <Calendar className="h-5 w-5 text-blue-400" />
                 </div>
-                <CardTitle className="text-white">Year-by-Year Roadmap</CardTitle>
+                <CardTitle className="text-foreground">Year-by-Year Roadmap</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Year</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Target Revenue</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Total Clients</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">New Clients Needed</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">New/Month</th>
-                      <th className="text-left py-3 px-4 text-white/50 font-medium text-sm">Milestone</th>
+                    <tr className="border-b border">
+                      <th className="text-left py-3 px-4 text-foreground/50 font-medium text-sm">Year</th>
+                      <th className="text-left py-3 px-4 text-foreground/50 font-medium text-sm">Target Revenue</th>
+                      <th className="text-left py-3 px-4 text-foreground/50 font-medium text-sm">Total Clients</th>
+                      <th className="text-left py-3 px-4 text-foreground/50 font-medium text-sm">New Clients Needed</th>
+                      <th className="text-left py-3 px-4 text-foreground/50 font-medium text-sm">New/Month</th>
+                      <th className="text-left py-3 px-4 text-foreground/50 font-medium text-sm">Milestone</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -534,23 +534,23 @@ export default function Mission() {
                       >
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-medium">{row.year}</span>
-                            {idx === 0 && <Badge className="bg-cyan-600 text-white text-[10px]">Now</Badge>}
-                            {idx === years && <Badge className="bg-green-600 text-white text-[10px]">Goal</Badge>}
+                            <span className="text-foreground font-medium">{row.year}</span>
+                            {idx === 0 && <Badge className="bg-cyan-600 text-foreground text-[10px]">Now</Badge>}
+                            {idx === years && <Badge className="bg-green-600 text-foreground text-[10px]">Goal</Badge>}
                           </div>
                         </td>
-                        <td className={cn("py-3 px-4 font-bold", idx === years ? "text-green-400" : "text-white")}>
+                        <td className={cn("py-3 px-4 font-bold", idx === years ? "text-green-400" : "text-foreground")}>
                           ${(row.revenue / 1000000).toFixed(2)}M
                         </td>
-                        <td className="py-3 px-4 text-white">{row.totalClients}</td>
+                        <td className="py-3 px-4 text-foreground">{row.totalClients}</td>
                         <td className="py-3 px-4">
                           {row.newClients > 0 ? (
                             <span className="text-green-400">+{row.newClients}</span>
                           ) : (
-                            <span className="text-white/40">—</span>
+                            <span className="text-foreground/40">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-white/70">~{row.perMonth}/mo</td>
+                        <td className="py-3 px-4 text-foreground/70">~{row.perMonth}/mo</td>
                         <td className="py-3 px-4">
                           {idx === years ? (
                             <span className="text-green-400 font-medium flex items-center gap-1">
@@ -558,7 +558,7 @@ export default function Mission() {
                               {row.milestone}
                             </span>
                           ) : row.milestone ? (
-                            <span className="text-white/60">{row.milestone}</span>
+                            <span className="text-foreground/60">{row.milestone}</span>
                           ) : null}
                         </td>
                       </tr>
@@ -572,63 +572,63 @@ export default function Mission() {
 
         {/* What This Means + Growth Levers */}
         <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-6">
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
                   <Zap className="h-5 w-5 text-green-400" />
                 </div>
-                <CardTitle className="text-white">What This Means</CardTitle>
+                <CardTitle className="text-foreground">What This Means</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-3">
                 <ArrowUpRight className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-                <p className="text-white/70 text-sm">
-                  Average client brings in <span className="text-white font-bold">${Math.round(avgClientMonthly).toLocaleString()}/month</span> (${Math.round(avgClientValue).toLocaleString()}/year)
+                <p className="text-foreground/70 text-sm">
+                  Average client brings in <span className="text-foreground font-bold">${Math.round(avgClientMonthly).toLocaleString()}/month</span> (${Math.round(avgClientValue).toLocaleString()}/year)
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <ArrowUpRight className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-                <p className="text-white/70 text-sm">
-                  Need to add <span className="text-white font-bold">~{Math.round(clientsNeededPerYear)} new clients per year</span> on average
+                <p className="text-foreground/70 text-sm">
+                  Need to add <span className="text-foreground font-bold">~{Math.round(clientsNeededPerYear)} new clients per year</span> on average
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <ArrowUpRight className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-                <p className="text-white/70 text-sm">
-                  That's roughly <span className="text-white font-bold">{(clientsNeededPerYear / 12).toFixed(1)} new client per month</span>
+                <p className="text-foreground/70 text-sm">
+                  That's roughly <span className="text-foreground font-bold">{(clientsNeededPerYear / 12).toFixed(1)} new client per month</span>
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#0d1d35] border-white/10">
+          <Card className="bg-card border">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-purple-400" />
                 </div>
-                <CardTitle className="text-white">Growth Levers</CardTitle>
+                <CardTitle className="text-foreground">Growth Levers</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-3">
                 <ArrowUpRight className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                <p className="text-white/70 text-sm">
-                  <span className="text-white font-medium">Increase average client value</span> — upsell existing clients
+                <p className="text-foreground/70 text-sm">
+                  <span className="text-foreground font-medium">Increase average client value</span> — upsell existing clients
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <ArrowUpRight className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                <p className="text-white/70 text-sm">
-                  <span className="text-white font-medium">Improve client retention</span> — reduce churn rate
+                <p className="text-foreground/70 text-sm">
+                  <span className="text-foreground font-medium">Improve client retention</span> — reduce churn rate
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <ArrowUpRight className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                <p className="text-white/70 text-sm">
-                  <span className="text-white font-medium">Target larger businesses</span> — higher contract values
+                <p className="text-foreground/70 text-sm">
+                  <span className="text-foreground font-medium">Target larger businesses</span> — higher contract values
                 </p>
               </div>
             </CardContent>
@@ -638,7 +638,7 @@ export default function Mission() {
         {/* Bottom Line */}
         <motion.div variants={itemVariants}>
           <div className="p-6 rounded-2xl bg-gradient-to-r from-brand-orange to-brand-coral text-center">
-            <p className="text-white text-lg font-medium">
+            <p className="text-foreground text-lg font-medium">
               <span className="font-bold">Bottom Line:</span> With {cagr}% annual growth, you'll reach{' '}
               <span className="font-bold">${(mission.revenue_target / 1000000).toFixed(1)}M</span> by {mission.target_year}, 
               growing from <span className="font-bold">{mission.current_clients} clients</span> to{' '}
@@ -650,7 +650,7 @@ export default function Mission() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl bg-[#0d1d35] border-white/10 text-white max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl bg-card border text-foreground max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Mission & Vision</DialogTitle>
           </DialogHeader>

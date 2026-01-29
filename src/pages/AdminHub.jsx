@@ -117,7 +117,7 @@ export default function AdminHub() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white">
+    <div className="min-h-screen">
       {/* Hero Header */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-brand-orange/20 via-transparent to-purple-500/20" />
@@ -132,14 +132,14 @@ export default function AdminHub() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-border mb-6">
               <Crown className="h-4 w-4 text-brand-orange" />
-              <span className="text-sm text-white/70">Admin Dashboard</span>
+              <span className="text-sm text-foreground/70">Admin Dashboard</span>
             </div>
             <h1 className="text-5xl font-bold mb-4">
               Welcome back, <span className="text-brand-orange">{profile?.full_name?.split(' ')[0] || 'Admin'}</span>
             </h1>
-            <p className="text-xl text-white/50 max-w-2xl mx-auto">
+            <p className="text-xl text-foreground/50 max-w-2xl mx-auto">
               Your command center for strategic planning, financial oversight, and team management
             </p>
           </motion.div>
@@ -160,11 +160,11 @@ export default function AdminHub() {
               <motion.div
                 key={idx}
                 variants={itemVariants}
-                className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm"
+                className="p-6 rounded-2xl bg-card border backdrop-blur-sm"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <stat.icon className={cn("h-5 w-5", stat.color)} />
-                  <span className="text-white/50 text-sm">{stat.label}</span>
+                  <span className="text-foreground/50 text-sm">{stat.label}</span>
                 </div>
                 <p className={cn("text-3xl font-bold", stat.color)}>{stat.value}</p>
               </motion.div>
@@ -189,7 +189,7 @@ export default function AdminHub() {
           {ADMIN_SECTIONS.map((section, idx) => (
             <motion.div key={section.path} variants={itemVariants}>
               <Link to={section.path}>
-                <Card className="group bg-[#0d1d35] border-white/10 overflow-hidden hover:border-white/30 transition-all duration-300 h-full">
+                <Card className="group overflow-hidden hover:border-brand-orange/30 transition-all duration-300 h-full">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className={cn(
@@ -197,17 +197,17 @@ export default function AdminHub() {
                         "shadow-lg group-hover:scale-110 transition-transform duration-300",
                         section.color
                       )}>
-                        <section.icon className="h-7 w-7 text-white" />
+                        <section.icon className="h-7 w-7 text-foreground" />
                       </div>
-                      <Badge className="bg-white/10 text-white/60 border-white/20">
+                      <Badge className="bg-white/10 text-foreground/60 border-border">
                         {section.badge}
                       </Badge>
                     </div>
                     
-                    <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-brand-orange transition-colors">
+                    <h3 className="text-xl font-semibold text-foreground mb-2 group-hover:text-brand-orange transition-colors">
                       {section.title}
                     </h3>
-                    <p className="text-white/50 text-sm leading-relaxed mb-4">
+                    <p className="text-foreground/50 text-sm leading-relaxed mb-4">
                       {section.description}
                     </p>
                     
@@ -222,11 +222,11 @@ export default function AdminHub() {
         </motion.div>
 
         {/* Quick Actions */}
-        <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-brand-orange/10 to-purple-500/10 border border-white/10">
+        <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-brand-orange/10 to-purple-500/10 border">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-semibold text-white mb-1">Quick Actions</h3>
-              <p className="text-white/50 text-sm">Keyboard shortcuts for faster navigation</p>
+              <h3 className="text-xl font-semibold text-foreground mb-1">Quick Actions</h3>
+              <p className="text-foreground/50 text-sm">Keyboard shortcuts for faster navigation</p>
             </div>
             <div className="flex items-center gap-4">
               {[
@@ -237,12 +237,12 @@ export default function AdminHub() {
                 <div key={idx} className="flex items-center gap-2">
                   <div className="flex gap-1">
                     {shortcut.key.split(' ').map((k, i) => (
-                      <kbd key={i} className="px-2 py-1 text-xs font-mono bg-white/10 border border-white/20 rounded">
+                      <kbd key={i} className="px-2 py-1 text-xs font-mono bg-white/10 border border-border rounded">
                         {k}
                       </kbd>
                     ))}
                   </div>
-                  <span className="text-white/50 text-sm">{shortcut.label}</span>
+                  <span className="text-foreground/50 text-sm">{shortcut.label}</span>
                 </div>
               ))}
             </div>
