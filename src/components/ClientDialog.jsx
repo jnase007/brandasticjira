@@ -985,16 +985,45 @@ export default function ClientDialog({
                         {formData.engagement_type === 'one_time' && (
                           <div>
                             <Label className="text-sm font-medium">Estimated Project Hours</Label>
-                            <Input
-                              type="number"
-                              placeholder="e.g., 100"
-                              value={formData.estimated_project_hours || ''}
-                              onChange={(e) => setFormData(prev => ({ 
-                                ...prev, 
-                                estimated_project_hours: parseFloat(e.target.value) || null 
-                              }))}
-                              className="mt-1.5 h-11"
-                            />
+                            <div className="flex items-center border-2 border-muted rounded-lg overflow-hidden mt-1.5 focus-within:border-brand-orange focus-within:ring-2 focus-within:ring-brand-orange/20">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="e.g., 100"
+                                value={formData.estimated_project_hours ? formData.estimated_project_hours.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                                  const numValue = parseFloat(rawValue) || null
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    estimated_project_hours: numValue 
+                                  }))
+                                }}
+                                className="flex-1 py-2.5 px-3 bg-transparent focus:outline-none text-base"
+                              />
+                              <div className="flex flex-col border-l border-muted">
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ 
+                                    ...prev, 
+                                    estimated_project_hours: (prev.estimated_project_hours || 0) + 5 
+                                  }))}
+                                  className="px-2 py-0.5 hover:bg-muted transition-colors"
+                                >
+                                  <ChevronUp className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ 
+                                    ...prev, 
+                                    estimated_project_hours: Math.max(0, (prev.estimated_project_hours || 0) - 5) 
+                                  }))}
+                                  className="px-2 py-0.5 hover:bg-muted transition-colors border-t border-muted"
+                                >
+                                  <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
 
@@ -1003,18 +1032,46 @@ export default function ClientDialog({
                           <Label className="text-sm font-medium">
                             {formData.client_status === 'prospect' ? 'Estimated Budget' : 'Monthly Budget'}
                           </Label>
-                          <div className="relative mt-1.5">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type="number"
-                              placeholder="5000"
-                              value={formData.estimated_budget || ''}
-                              onChange={(e) => setFormData(prev => ({ 
-                                ...prev, 
-                                estimated_budget: parseFloat(e.target.value) || null 
-                              }))}
-                              className="pl-9 h-11"
+                          <div className="relative mt-1.5 flex items-center border-2 border-muted rounded-lg overflow-hidden focus-within:border-brand-orange focus-within:ring-2 focus-within:ring-brand-orange/20">
+                            <DollarSign className="ml-3 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="5,000"
+                              value={formData.estimated_budget ? formData.estimated_budget.toLocaleString() : ''}
+                              onChange={(e) => {
+                                // Remove commas and non-numeric chars (except decimal)
+                                const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                                const numValue = parseFloat(rawValue) || null
+                                setFormData(prev => ({ 
+                                  ...prev, 
+                                  estimated_budget: numValue
+                                }))
+                              }}
+                              className="flex-1 py-2.5 px-2 bg-transparent focus:outline-none text-base"
                             />
+                            <div className="flex flex-col border-l border-muted">
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ 
+                                  ...prev, 
+                                  estimated_budget: (prev.estimated_budget || 0) + 500 
+                                }))}
+                                className="px-2 py-0.5 hover:bg-muted transition-colors"
+                              >
+                                <ChevronUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ 
+                                  ...prev, 
+                                  estimated_budget: Math.max(0, (prev.estimated_budget || 0) - 500) 
+                                }))}
+                                className="px-2 py-0.5 hover:bg-muted transition-colors border-t border-muted"
+                              >
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                            </div>
                           </div>
                         </div>
 
