@@ -129,6 +129,9 @@ export default function ClientDialog({
     lead_source: '',
     expected_close_date: '',
     notes: '',
+    // Deactivation tracking
+    deactivated_at: '',
+    deactivation_reason: '',
   })
 
   const [errors, setErrors] = useState({})
@@ -171,6 +174,9 @@ export default function ClientDialog({
           lead_source: client.lead_source || '',
           expected_close_date: client.expected_close_date || '',
           notes: client.notes || '',
+          // Deactivation tracking
+          deactivated_at: client.deactivated_at || '',
+          deactivation_reason: client.deactivation_reason || '',
         })
         setStep(1)
       } else {
@@ -428,6 +434,9 @@ export default function ClientDialog({
         lead_source: formData.lead_source || null,
         expected_close_date: formData.expected_close_date || null,
         notes: formData.notes || null,
+        // Deactivation tracking - only save if inactive
+        deactivated_at: formData.client_status === 'inactive' ? (formData.deactivated_at || null) : null,
+        deactivation_reason: formData.client_status === 'inactive' ? (formData.deactivation_reason || null) : null,
       }
 
       console.log('Saving client data:', dataToSave)
@@ -807,25 +816,82 @@ export default function ClientDialog({
                         className="space-y-4"
                       >
                         <div>
-                          <Label className="text-sm font-medium">Status</Label>
+                          <Label className="text-sm font-medium">Client Status</Label>
                           <Select
-                            value={formData.is_active ? 'active' : 'inactive'}
-                            onValueChange={(value) =>
-                              setFormData(prev => ({ ...prev, is_active: value === 'active' }))
-                            }
+                            value={formData.client_status}
+                            onValueChange={(value) => {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                client_status: value,
+                                is_active: value === 'active',
+                                // Auto-set today's date when switching to inactive
+                                deactivated_at: value === 'inactive' && !prev.deactivated_at 
+                                  ? new Date().toISOString().split('T')[0] 
+                                  : prev.deactivated_at
+                              }))
+                            }}
                           >
                             <SelectTrigger className="mt-1.5 h-11">
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="prospect">Prospect</SelectItem>
                               <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
+                              <SelectItem value="inactive">Inactive / Churned</SelectItem>
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Inactive clients are hidden from dashboards and reports.
+                            {formData.client_status === 'inactive' 
+                              ? 'Client will be hidden from dashboards and reports.' 
+                              : formData.client_status === 'prospect'
+                                ? 'Client is in the sales pipeline.'
+                                : 'Active retainer client.'}
                           </p>
                         </div>
+                        
+                        {/* Deactivation Details - Only show when inactive */}
+                        {formData.client_status === 'inactive' && (
+                          <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 space-y-3">
+                            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-medium text-sm">
+                              <Calendar className="h-4 w-4" />
+                              Deactivation Details
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-sm text-red-700 dark:text-red-400">End Date</Label>
+                                <Input
+                                  type="date"
+                                  value={formData.deactivated_at}
+                                  onChange={(e) => setFormData(prev => ({ ...prev, deactivated_at: e.target.value }))}
+                                  className="mt-1 bg-white dark:bg-white/10"
+                                />
+                                <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">When did/will the retainer end?</p>
+                              </div>
+                              <div>
+                                <Label className="text-sm text-red-700 dark:text-red-400">Reason</Label>
+                                <Select
+                                  value={formData.deactivation_reason || ''}
+                                  onValueChange={(value) => setFormData(prev => ({ ...prev, deactivation_reason: value }))}
+                                >
+                                  <SelectTrigger className="mt-1 bg-white dark:bg-white/10">
+                                    <SelectValue placeholder="Select reason..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="client_ended">Client ended retainer</SelectItem>
+                                    <SelectItem value="budget_cuts">Budget cuts</SelectItem>
+                                    <SelectItem value="contract_complete">Project/contract complete</SelectItem>
+                                    <SelectItem value="poor_fit">Not a good fit</SelectItem>
+                                    <SelectItem value="went_inhouse">Went in-house</SelectItem>
+                                    <SelectItem value="competitor">Went to competitor</SelectItem>
+                                    <SelectItem value="business_closed">Business closed</SelectItem>
+                                    <SelectItem value="paused">Temporarily paused</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>

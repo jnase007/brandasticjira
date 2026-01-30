@@ -229,18 +229,35 @@ export default function Mission() {
         <motion.div variants={itemVariants}>
           <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm overflow-hidden">
             <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                  <Eye className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <Eye className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-slate-900 dark:text-white">Long Term Vision</CardTitle>
+                    <p className="text-slate-500 dark:text-white/40 text-sm">Company Vision</p>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-slate-900 dark:text-white">Long Term Vision</CardTitle>
-                  <p className="text-slate-500 dark:text-white/40 text-sm">Company Vision</p>
-                </div>
+                {profile?.role === 'admin' && (
+                  <Badge variant="outline" className="text-purple-500 border-purple-300 dark:border-purple-500/50">
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Editable
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-lg text-slate-800 dark:text-white/90 font-medium">{mission.long_term_vision}</p>
+              {profile?.role === 'admin' ? (
+                <Textarea 
+                  value={mission.long_term_vision}
+                  onChange={(e) => setMission(m => ({ ...m, long_term_vision: e.target.value }))}
+                  className="text-lg text-slate-800 dark:text-white/90 font-medium bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/20 min-h-[60px] resize-none"
+                  placeholder="Enter your long-term vision..."
+                />
+              ) : (
+                <p className="text-lg text-slate-800 dark:text-white/90 font-medium">{mission.long_term_vision}</p>
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                 {mission.vision_pillars.map((pillar, idx) => (
@@ -248,10 +265,36 @@ export default function Mission() {
                     key={idx}
                     className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-300 dark:hover:border-purple-500/30 transition-colors"
                   >
-                    <p className="text-slate-600 dark:text-white/70 text-sm">{pillar.title}</p>
+                    {profile?.role === 'admin' ? (
+                      <Input 
+                        value={pillar.title}
+                        onChange={(e) => {
+                          const newPillars = [...mission.vision_pillars]
+                          newPillars[idx] = { ...newPillars[idx], title: e.target.value }
+                          setMission(m => ({ ...m, vision_pillars: newPillars }))
+                        }}
+                        className="text-slate-600 dark:text-white/70 text-sm bg-transparent border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-purple-400 transition-colors"
+                      />
+                    ) : (
+                      <p className="text-slate-600 dark:text-white/70 text-sm">{pillar.title}</p>
+                    )}
                   </div>
                 ))}
               </div>
+              
+              {profile?.role === 'admin' && (
+                <div className="flex justify-end pt-2">
+                  <Button 
+                    size="sm" 
+                    className="bg-purple-600 hover:bg-purple-700 text-white" 
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    <Save className={cn("h-4 w-4 mr-2", saving && "animate-spin")} />
+                    {saving ? 'Saving...' : 'Save Vision'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -389,8 +432,8 @@ export default function Mission() {
                 </Button>
               </div>
 
-              {/* Revenue Inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Revenue & Client Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-slate-600 dark:text-white/70 text-sm">{mission.target_year} Target Revenue ($)</Label>
                   <div className="flex items-center gap-2 mt-1">
@@ -400,26 +443,55 @@ export default function Mission() {
                       onChange={(e) => setMission(m => ({ ...m, revenue_target: parseInt(e.target.value.replace(/,/g, '')) || 0 }))}
                       className="bg-slate-100 dark:bg-white/5 border-slate-300 dark:border-white/20 text-slate-900 dark:text-white font-mono"
                     />
-                    <span className="text-slate-500 dark:text-white/50">= ${(mission.revenue_target / 1000000).toFixed(1)}M</span>
+                    <span className="text-slate-500 dark:text-white/50 text-sm">= ${(mission.revenue_target / 1000000).toFixed(1)}M</span>
                   </div>
                   <p className="text-brand-orange text-xs mt-1">Required CAGR: {cagr}%</p>
                 </div>
                 <div>
-                  <Label className="text-slate-600 dark:text-white/70 text-sm">Current Annual Revenue</Label>
-                  <div className="flex items-center gap-4 mt-1">
-                    <span className="text-2xl font-bold text-slate-900 dark:text-white">${(mission.current_revenue / 1000000).toFixed(2)}M</span>
-                    <span className="text-slate-500 dark:text-white/50 text-sm">Based on active clients</span>
-                    <Button 
-                      size="sm" 
-                      className="ml-auto bg-green-600 hover:bg-green-700 text-white" 
-                      onClick={handleSave}
-                      disabled={saving}
-                    >
-                      <Save className={cn("h-4 w-4 mr-2", saving && "animate-spin")} />
-                      {saving ? 'Saving...' : 'Save Settings'}
-                    </Button>
-                  </div>
+                  <Label className="text-slate-600 dark:text-white/70 text-sm">Current Revenue ($)</Label>
+                  <Input 
+                    type="text" 
+                    value={mission.current_revenue.toLocaleString()}
+                    onChange={(e) => setMission(m => ({ ...m, current_revenue: parseInt(e.target.value.replace(/,/g, '')) || 0 }))}
+                    className="mt-1 bg-slate-100 dark:bg-white/5 border-slate-300 dark:border-white/20 text-slate-900 dark:text-white font-mono"
+                  />
+                  <p className="text-slate-400 dark:text-white/40 text-xs mt-1">= ${(mission.current_revenue / 1000000).toFixed(2)}M</p>
                 </div>
+                <div>
+                  <Label className="text-slate-600 dark:text-white/70 text-sm">Target Clients</Label>
+                  <Input 
+                    type="number" 
+                    value={mission.target_clients}
+                    onChange={(e) => setMission(m => ({ ...m, target_clients: parseInt(e.target.value) || 0 }))}
+                    className="mt-1 bg-slate-100 dark:bg-white/5 border-slate-300 dark:border-white/20 text-slate-900 dark:text-white"
+                  />
+                  <p className="text-slate-400 dark:text-white/40 text-xs mt-1">by {mission.target_year}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-600 dark:text-white/70 text-sm">Current Clients</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input 
+                      type="number" 
+                      value={mission.current_clients}
+                      onChange={(e) => setMission(m => ({ ...m, current_clients: parseInt(e.target.value) || 0 }))}
+                      className="bg-slate-100 dark:bg-white/5 border-slate-300 dark:border-white/20 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <p className="text-slate-400 dark:text-white/40 text-xs mt-1">today</p>
+                </div>
+              </div>
+              
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <Button 
+                  size="sm" 
+                  className="bg-green-600 hover:bg-green-700 text-white" 
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  <Save className={cn("h-4 w-4 mr-2", saving && "animate-spin")} />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </Button>
               </div>
 
               {/* Stats Cards */}

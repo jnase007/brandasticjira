@@ -584,12 +584,6 @@ export default function TeamMemberDetail() {
                             {ticket.client?.name || ticket.boards?.clients?.name || ticket.boards?.name || 'No board'}
                           </p>
                         </div>
-                        <Badge variant={
-                          ticket.priority === 'high' ? 'destructive' : 
-                          ticket.priority === 'medium' ? 'default' : 'secondary'
-                        }>
-                          {ticket.priority}
-                        </Badge>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </Link>
                     ))}

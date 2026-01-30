@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { format } from 'date-fns'
 import {
   Building2, Clock, DollarSign, Users, ArrowLeft, Calendar,
   TrendingUp, FileText, Timer, CheckCircle, AlertCircle,
@@ -10,7 +11,7 @@ import {
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus,
   Kanban, Circle, Upload, X, Trash2, MoreVertical, Pencil, Repeat, CalendarDays,
-  PlayCircle, UserCheck, ThumbsUp, Receipt, CheckCircle2
+  PlayCircle, UserCheck, ThumbsUp, Receipt, CheckCircle2, ArrowUpDown
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -155,6 +156,9 @@ export default function ClientDetail() {
   
   // Edit client state
   const [editClientOpen, setEditClientOpen] = useState(false)
+  
+  // Task sorting state
+  const [taskSort, setTaskSort] = useState('newest') // 'newest' | 'oldest' | 'due_date' | 'assignee'
   
   // Quick task state
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
@@ -1445,6 +1449,33 @@ export default function ClientDetail() {
     return statusMap[status] || status
   }
   
+  // Sort tickets based on selected sort option
+  const sortTickets = (ticketList) => {
+    return [...ticketList].sort((a, b) => {
+      switch (taskSort) {
+        case 'newest':
+          return new Date(b.created_at) - new Date(a.created_at)
+        case 'oldest':
+          return new Date(a.created_at) - new Date(b.created_at)
+        case 'due_date':
+          // Tasks with due dates come first (soonest first), then tasks without due dates
+          if (a.due_date && !b.due_date) return -1
+          if (!a.due_date && b.due_date) return 1
+          if (!a.due_date && !b.due_date) return new Date(b.created_at) - new Date(a.created_at)
+          return new Date(a.due_date) - new Date(b.due_date)
+        case 'assignee':
+          const aName = a.assigned_user?.full_name || 'zzz' // Unassigned at bottom
+          const bName = b.assigned_user?.full_name || 'zzz'
+          const nameCompare = aName.localeCompare(bName)
+          if (nameCompare !== 0) return nameCompare
+          // Secondary sort by newest
+          return new Date(b.created_at) - new Date(a.created_at)
+        default:
+          return new Date(b.created_at) - new Date(a.created_at)
+      }
+    })
+  }
+  
   const ticketsByStatus = {
     new: tickets.filter(t => normalizeStatus(t.status) === 'new').length,
     in_progress: tickets.filter(t => normalizeStatus(t.status) === 'in_progress').length,
@@ -1496,6 +1527,38 @@ export default function ClientDetail() {
           <Badge variant={budgetUsed >= 100 ? "destructive" : "outline"} className="ml-auto">
             {budgetUsed}%
           </Badge>
+        </motion.div>
+      )}
+
+      {/* Inactive Client Banner */}
+      {client.client_status === 'inactive' && (
+        <motion.div 
+          variants={itemVariants} 
+          className="mb-4 p-3 rounded-lg flex items-center gap-3 bg-slate-500/10 border border-slate-500/30 text-slate-700 dark:text-slate-300"
+        >
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">
+              ⏸️ Inactive Client
+              {client.deactivated_at && (
+                <span className="font-normal text-muted-foreground">
+                  {' '}— Ended {format(new Date(client.deactivated_at), 'MMM d, yyyy')}
+                </span>
+              )}
+            </p>
+            {client.deactivation_reason && (
+              <p className="text-sm text-muted-foreground">
+                Reason: {client.deactivation_reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </p>
+            )}
+          </div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => setEditClientOpen(true)}
+          >
+            Reactivate
+          </Button>
         </motion.div>
       )}
 
@@ -2168,7 +2231,20 @@ export default function ClientDetail() {
                     </CardTitle>
                     <CardDescription>All work items for this client • Drag tasks on boards to change status</CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Sort Dropdown */}
+                    <Select value={taskSort} onValueChange={setTaskSort}>
+                      <SelectTrigger className="w-[140px] h-9">
+                        <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest First</SelectItem>
+                        <SelectItem value="oldest">Oldest First</SelectItem>
+                        <SelectItem value="due_date">Due Date</SelectItem>
+                        <SelectItem value="assignee">Assignee</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button 
                       variant="outline"
                       size="sm"
@@ -2241,7 +2317,7 @@ export default function ClientDetail() {
                       { key: 'ready_for_billing', label: 'Ready for Billing', icon: Receipt, color: 'orange', bgClass: 'bg-orange-50 dark:bg-orange-900/20', borderClass: 'border-orange-200' },
                       { key: 'closed', label: 'Closed', icon: CheckCircle2, color: 'green', bgClass: 'bg-green-50 dark:bg-green-900/20', borderClass: 'border-green-200', isClosed: true },
                     ].map(({ key, label, icon: StatusIcon, color, bgClass, borderClass, isClosed }) => {
-                      const statusTickets = tickets.filter(t => normalizeStatus(t.status) === key)
+                      const statusTickets = sortTickets(tickets.filter(t => normalizeStatus(t.status) === key))
                       if (statusTickets.length === 0) return null
                       
                       return (
@@ -2288,9 +2364,6 @@ export default function ClientDetail() {
                                     <span>{ticket.boards?.name || 'General Tasks'}</span>
                                   </div>
                                 </div>
-                                <Badge variant={ticket.priority === 'high' || ticket.priority === 'urgent' ? 'destructive' : 'secondary'} className="text-xs flex-shrink-0">
-                                  {ticket.priority}
-                                </Badge>
                               </Link>
                             ))}
                             {isClosed && statusTickets.length > 5 && (

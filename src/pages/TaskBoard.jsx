@@ -72,12 +72,6 @@ const normalizeStatus = (status) => {
   return result
 }
 
-const PRIORITY_COLORS = {
-  urgent: 'border-l-red-500 bg-red-500/5',
-  high: 'border-l-orange-500 bg-orange-500/5',
-  medium: 'border-l-yellow-500 bg-yellow-500/5',
-  low: 'border-l-gray-400 bg-gray-400/5',
-}
 
 export default function TaskBoard() {
   const { user, profile } = useAuth()
@@ -564,8 +558,7 @@ export default function TaskBoard() {
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
                               className={cn(
-                                "mb-2 p-3 rounded-lg bg-card border border-l-4 shadow-sm cursor-grab active:cursor-grabbing select-none",
-                                PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium,
+                                "mb-2 p-3 rounded-lg bg-card border shadow-sm cursor-grab active:cursor-grabbing select-none",
                                 dragSnapshot.isDragging 
                                   ? "shadow-xl ring-2 ring-brand-orange rotate-2 scale-105 z-50" 
                                   : "hover:shadow-md"

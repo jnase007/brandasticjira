@@ -13,7 +13,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from 'lucide-react'
-import { cn, formatRelativeDate, getPriorityInfo, getInitials, getStatusInfo, getHoursProgress } from '../lib/utils'
+import { cn, formatRelativeDate, getInitials, getStatusInfo, getHoursProgress } from '../lib/utils'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
@@ -21,7 +21,6 @@ import { Progress } from './ui/progress'
 
 const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
   const navigate = useNavigate()
-  const priorityInfo = getPriorityInfo(ticket.priority)
   const statusInfo = getStatusInfo(ticket.status)
   const hasAttachments = ticket.attachments?.length > 0
   const hasDueDate = !!ticket.due_date
@@ -61,11 +60,11 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
         isDragging && "shadow-2xl ring-2 ring-brand-orange/40 rotate-2 scale-105 z-50"
       )}
     >
-      {/* Priority indicator strip */}
+      {/* Left indicator strip */}
       <div 
         className={cn(
           "absolute left-0 top-0 bottom-0 w-1 rounded-l-xl",
-          isOverdue ? "bg-red-500" : priorityInfo.color.replace('priority-', 'bg-priority-')
+          isOverdue ? "bg-red-500" : "bg-brand-orange"
         )}
       />
       
@@ -98,9 +97,6 @@ const TicketCard = memo(function TicketCard({ ticket, isDragging = false }) {
                 </Tooltip>
               </TooltipProvider>
             )}
-            <Badge variant={ticket.priority} className="text-[10px] px-1.5 py-0">
-              {priorityInfo.label}
-            </Badge>
           </div>
           
           {/* Prominent Assignee Avatar */}

@@ -35,6 +35,7 @@ import {
   UserCog,
   ShieldCheck,
   User,
+  FileText,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -1039,13 +1040,18 @@ export default function Admin() {
                               <Badge
                                 variant={
                                   user.role === 'admin' ? 'default' :
-                                  user.role === 'team' ? 'secondary' : 'outline'
+                                  user.role === 'team' ? 'secondary' :
+                                  user.role === 'contractor' ? 'outline' : 'outline'
                                 }
                                 className={cn(
-                                  user.role === 'admin' && "bg-brand-purple text-white"
+                                  user.role === 'admin' && "bg-brand-purple text-white",
+                                  user.role === 'contractor' && "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700"
                                 )}
                               >
-                                {user.role}
+                                {user.role === 'team' ? 'Team (W-2)' : 
+                                 user.role === 'contractor' ? '1099' :
+                                 user.role === 'admin' ? 'Admin (W-2)' :
+                                 user.role}
                               </Badge>
                             </td>
                             <td className="py-3 px-4">
@@ -1132,8 +1138,19 @@ export default function Admin() {
                                     className="gap-2"
                                   >
                                     <User className="h-4 w-4 text-blue-500" />
-                                    <span>Team Member</span>
+                                    <span>Team Member (W-2)</span>
                                     {user.role === 'team' && (
+                                      <CheckCircle className="h-3 w-3 ml-auto text-green-500" />
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleChangeUserRole(user.id, 'contractor')}
+                                    disabled={user.role === 'contractor'}
+                                    className="gap-2"
+                                  >
+                                    <FileText className="h-4 w-4 text-amber-500" />
+                                    <span>Contractor (1099)</span>
+                                    {user.role === 'contractor' && (
                                       <CheckCircle className="h-3 w-3 ml-auto text-green-500" />
                                     )}
                                   </DropdownMenuItem>
@@ -1143,7 +1160,7 @@ export default function Admin() {
                                     className="gap-2"
                                   >
                                     <ShieldCheck className="h-4 w-4 text-brand-purple" />
-                                    <span>Admin</span>
+                                    <span>Admin (W-2)</span>
                                     {user.role === 'admin' && (
                                       <CheckCircle className="h-3 w-3 ml-auto text-green-500" />
                                     )}

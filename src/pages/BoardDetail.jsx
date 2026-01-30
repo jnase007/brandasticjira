@@ -102,7 +102,6 @@ export default function BoardDetail() {
   const emptyTicketForm = {
     title: '',
     description: '',
-    priority: 'medium',
     assigned_to: '',
     estimated_hours: '',
     ticket_type: 'task',
@@ -319,7 +318,7 @@ export default function BoardDetail() {
       const ticketData = {
         title: newTicket.title,
         description: newTicket.description,
-        priority: newTicket.priority,
+        priority: 'medium',
         assigned_to: newTicket.assigned_to || null,
         estimated_hours: newTicket.estimated_hours ? parseFloat(newTicket.estimated_hours) : null,
         ticket_type: newTicket.ticket_type || 'task',
@@ -707,44 +706,24 @@ export default function BoardDetail() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Priority</Label>
-                <Select
-                  value={newTicket.priority}
-                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, priority: value }))}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Assignee</Label>
-                <Select
-                  value={newTicket.assigned_to}
-                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, assigned_to: value }))}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Unassigned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label>Assignee</Label>
+              <Select
+                value={newTicket.assigned_to}
+                onValueChange={(value) => setNewTicket((prev) => ({ ...prev, assigned_to: value }))}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

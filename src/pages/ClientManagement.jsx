@@ -1084,7 +1084,10 @@ export default function ClientManagement() {
                             {client.is_active === false && (
                               <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-[10px] px-1.5 py-0">
                                 <Pause className="h-2.5 w-2.5 mr-0.5" />
-                                Paused
+                                {client.deactivated_at 
+                                  ? `Inactive ${formatDate(client.deactivated_at)}`
+                                  : 'Inactive'
+                                }
                               </Badge>
                             )}
                           </div>
@@ -1238,23 +1241,12 @@ export default function ClientManagement() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              request.priority === 'urgent' && "border-red-500 text-red-500",
-                              request.priority === 'high' && "border-orange-500 text-orange-500"
-                            )}
-                          >
-                            {request.priority}
-                          </Badge>
-                          <Badge
-                            variant={request.status === 'pending' ? 'default' : 'secondary'}
-                            className={request.status === 'pending' ? 'bg-brand-orange' : ''}
-                          >
-                            {request.status}
-                          </Badge>
-                        </div>
+                        <Badge
+                          variant={request.status === 'pending' ? 'default' : 'secondary'}
+                          className={request.status === 'pending' ? 'bg-brand-orange' : ''}
+                        >
+                          {request.status}
+                        </Badge>
                       </div>
                     )
                   })}
@@ -1670,31 +1662,13 @@ export default function ClientManagement() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select value={requestPriority} onValueChange={setRequestPriority}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITY_OPTIONS.map(p => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <span className={p.color}>{p.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Input
-                  type="date"
-                  value={requestDueDate}
-                  onChange={(e) => setRequestDueDate(e.target.value)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Input
+                type="date"
+                value={requestDueDate}
+                onChange={(e) => setRequestDueDate(e.target.value)}
+              />
             </div>
 
             <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-100 dark:bg-white/10/50">

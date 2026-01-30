@@ -4,7 +4,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
   Clock, CheckCircle, AlertCircle, Users, Building2, 
   Plus, Filter, Eye, ArrowRight, Timer, Zap, CalendarPlus,
-  CalendarX, ListTodo, CircleDashed
+  CalendarX, ListTodo, CircleDashed, RefreshCw
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, 
@@ -32,13 +32,6 @@ import {
 } from '../components/ui/dialog'
 import { Skeleton } from '../components/ui/skeleton'
 
-const PRIORITY_COLORS = {
-  urgent: 'bg-red-500',
-  high: 'bg-orange-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-green-500',
-}
-
 const STATUS_COLORS = {
   todo: 'bg-gray-400',
   in_progress: 'bg-blue-500',
@@ -62,10 +55,28 @@ export default function Calendar() {
   const [clientFilter, setClientFilter] = useState('all') // all or client id
   const [memberFilter, setMemberFilter] = useState('all') // all or user id
   const [showUnscheduled, setShowUnscheduled] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     fetchData()
   }, [currentMonth])
+  
+  // Refetch when page becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [currentMonth])
+  
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchData()
+    setRefreshing(false)
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -312,6 +323,10 @@ export default function Calendar() {
             Today
           </Button>
           
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={refreshing || loading}>
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+          </Button>
+          
           {/* Clear filters button */}
           {(clientFilter !== 'all' || memberFilter !== 'all' || viewFilter !== 'all') && (
             <Button 
@@ -493,10 +508,7 @@ export default function Calendar() {
                           {events.tickets.slice(0, 3).map((ticket, i) => (
                             <div
                               key={i}
-                              className={cn(
-                                "w-2 h-2 rounded-full",
-                                PRIORITY_COLORS[ticket.priority] || 'bg-gray-400'
-                              )}
+                              className="w-2 h-2 rounded-full bg-brand-orange"
                               title={ticket.title}
                             />
                           ))}
@@ -586,23 +598,11 @@ export default function Calendar() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm truncate">{ticket.title}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {ticket.client && (
-                                    <Badge variant="outline" className="text-[10px] px-1.5">
-                                      {ticket.client.name}
-                                    </Badge>
-                                  )}
-                                  <Badge 
-                                    variant="outline"
-                                    className={cn(
-                                      "text-[10px] px-1.5",
-                                      ticket.priority === 'urgent' && "border-red-500 text-red-500",
-                                      ticket.priority === 'high' && "border-orange-500 text-orange-500"
-                                    )}
-                                  >
-                                    {ticket.priority}
+                                {ticket.client && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 mt-1">
+                                    {ticket.client.name}
                                   </Badge>
-                                </div>
+                                )}
                                 {ticket.assignee && (
                                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                                     <Avatar className="h-4 w-4">
@@ -676,23 +676,11 @@ export default function Calendar() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate">{ticket.title}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                {ticket.client && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {ticket.client.name}
-                                  </Badge>
-                                )}
-                                <Badge 
-                                  variant="outline"
-                                  className={cn(
-                                    "text-xs",
-                                    ticket.priority === 'urgent' && "border-red-500 text-red-500",
-                                    ticket.priority === 'high' && "border-orange-500 text-orange-500"
-                                  )}
-                                >
-                                  {ticket.priority}
+                              {ticket.client && (
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {ticket.client.name}
                                 </Badge>
-                              </div>
+                              )}
                             </div>
                             {ticket.assignee && (
                               <Avatar className="h-6 w-6">

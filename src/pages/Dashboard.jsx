@@ -269,11 +269,11 @@ export default function Dashboard({ onConfetti }) {
         try {
           const { data: myTasksData } = await supabase
             .from('tickets')
-            .select('id, title, ticket_id, status, priority, due_date, client_id, board_id')
+            .select('id, title, ticket_id, status, due_date, client_id, board_id')
             .eq('assigned_to', profile.id)
             .in('status', ['todo', 'inprogress'])
             .order('status', { ascending: false }) // inprogress first
-            .order('priority', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(10)
           
           // Enrich with client names
@@ -737,12 +737,7 @@ export default function Dashboard({ onConfetti }) {
                         
                         {/* Task Info */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate group-hover:text-brand-orange transition-colors">{task.title}</p>
-                            {task.priority === 'high' || task.priority === 'urgent' ? (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{task.priority}</Badge>
-                            ) : null}
-                          </div>
+                          <p className="font-medium truncate group-hover:text-brand-orange transition-colors">{task.title}</p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             <span className="truncate">{task.client_name}</span>
                             {task.due_date && (

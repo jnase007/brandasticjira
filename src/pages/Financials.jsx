@@ -160,8 +160,8 @@ export default function Financials() {
       // Fetch team members with cost rates
       const { data: teamData } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, avatar_url, hourly_cost, is_active')
-        .in('role', ['team', 'admin'])
+        .select('id, full_name, email, role, avatar_url, hourly_cost, is_active, title')
+        .in('role', ['team', 'admin', 'contractor'])
         .order('full_name')
 
       // Fetch time entries for the year
@@ -210,25 +210,28 @@ export default function Financials() {
     const annualRevenue = totalMonthlyRevenue * 12
     
     // Team costs calculation (only active team members)
+    // Note: Contractors (1099) don't have employer taxes, only W-2 employees do
     const teamCosts = activeTeamMembers.map(member => {
       const memberHourlyCost = member.hourly_cost || 50
+      const isContractor = member.role === 'contractor'
       const annualGross = memberHourlyCost * 2080 // 40hrs * 52 weeks
       const monthlyGross = annualGross / 12
       
-      // Burden calculations
-      const fica = annualGross * settings.ficaRate
-      const futa = Math.min(annualGross, 7000) * settings.futaRate
-      const suta = Math.min(annualGross, 7000) * settings.sutaRate
-      const workersComp = annualGross * settings.workersCompRate
-      const healthInsurance = settings.healthInsurancePerEmployee * 12
-      const ptoValue = annualGross * settings.ptoAccrualRate
+      // Burden calculations - only for W-2 employees, not contractors
+      const fica = isContractor ? 0 : annualGross * settings.ficaRate
+      const futa = isContractor ? 0 : Math.min(annualGross, 7000) * settings.futaRate
+      const suta = isContractor ? 0 : Math.min(annualGross, 7000) * settings.sutaRate
+      const workersComp = isContractor ? 0 : annualGross * settings.workersCompRate
+      const healthInsurance = isContractor ? 0 : settings.healthInsurancePerEmployee * 12
+      const ptoValue = isContractor ? 0 : annualGross * settings.ptoAccrualRate
       
       const totalBurden = fica + futa + suta + workersComp + healthInsurance + ptoValue
-      const burdenRate = totalBurden / annualGross
+      const burdenRate = annualGross > 0 ? totalBurden / annualGross : 0
       const fullyLoadedCost = annualGross + totalBurden
       
       return {
         ...member,
+        isContractor,
         hourlyRate: memberHourlyCost,
         annualGross,
         monthlyGross,
@@ -280,14 +283,20 @@ export default function Financials() {
       }
     })
     
-    // California employment taxes calculation
+    // California employment taxes calculation (only for W-2 employees, not contractors)
+    const w2Employees = teamCosts.filter(t => !t.isContractor)
+    const w2PayrollTotal = w2Employees.reduce((sum, t) => sum + t.annualGross, 0)
+    const numW2Employees = w2Employees.length || 1
+    
     const caEmployerTaxes = {
-      grossPay: totalAnnualPayroll,
-      fica: totalAnnualPayroll * settings.ficaRate,
-      futa: Math.min(totalAnnualPayroll, 7000 * numEmployees) * settings.futaRate,
-      suta: Math.min(totalAnnualPayroll, 7000 * numEmployees) * settings.sutaRate,
-      etl: totalAnnualPayroll * 0.001, // Employment Training Tax
-      sdi: totalAnnualPayroll * 0.011, // State Disability Insurance
+      grossPay: w2PayrollTotal,
+      fica: w2PayrollTotal * settings.ficaRate,
+      futa: Math.min(w2PayrollTotal, 7000 * numW2Employees) * settings.futaRate,
+      suta: Math.min(w2PayrollTotal, 7000 * numW2Employees) * settings.sutaRate,
+      etl: w2PayrollTotal * 0.001, // Employment Training Tax
+      sdi: w2PayrollTotal * 0.011, // State Disability Insurance
+      numW2Employees,
+      numContractors: teamCosts.length - numW2Employees,
     }
     caEmployerTaxes.total = caEmployerTaxes.fica + caEmployerTaxes.futa + caEmployerTaxes.suta + 
                            caEmployerTaxes.etl + caEmployerTaxes.sdi
@@ -843,7 +852,12 @@ export default function Financials() {
                   </div>
                   <div>
                     <CardTitle className="text-slate-900 dark:text-white">California Employer Taxes</CardTitle>
-                    <p className="text-slate-500 dark:text-white/40 text-sm">Estimated employer-side tax obligations</p>
+                    <p className="text-slate-500 dark:text-white/40 text-sm">
+                      Based on {financials.caEmployerTaxes.numW2Employees} W-2 employee{financials.caEmployerTaxes.numW2Employees !== 1 ? 's' : ''}
+                      {financials.caEmployerTaxes.numContractors > 0 && (
+                        <span className="text-amber-500"> · {financials.caEmployerTaxes.numContractors} contractor{financials.caEmployerTaxes.numContractors !== 1 ? 's' : ''} excluded</span>
+                      )}
+                    </p>
                   </div>
                 </div>
                 <Badge className="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/30">CA</Badge>
@@ -1211,10 +1225,23 @@ export default function Financials() {
                               <span className="text-slate-900 dark:text-white font-medium">{member.full_name}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-slate-600 dark:text-white/70">{member.title || member.role || '—'}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-600 dark:text-white/70">{member.title || member.role || '—'}</span>
+                              {member.isContractor && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                                  1099
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-3 px-4 text-right text-slate-900 dark:text-white font-mono">${member.hourlyRate}/hr</td>
-                          <td className="py-3 px-4 text-right text-purple-600 dark:text-purple-400 font-mono">
-                            {(member.burdenRate * 100).toFixed(1)}%
+                          <td className="py-3 px-4 text-right font-mono">
+                            {member.isContractor ? (
+                              <span className="text-slate-400 dark:text-white/30">N/A</span>
+                            ) : (
+                              <span className="text-purple-600 dark:text-purple-400">{(member.burdenRate * 100).toFixed(1)}%</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right text-slate-600 dark:text-white/70">10</td>
                           <td className="py-3 px-4 text-right text-green-600 dark:text-green-400 font-mono">

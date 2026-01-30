@@ -57,7 +57,6 @@ import {
   formatDuration,
   formatRelativeDate,
   getStatusInfo,
-  getPriorityInfo,
   getInitials,
   formatFileSize,
   getFileIcon,
@@ -272,7 +271,6 @@ export default function TicketDetail() {
       title: data.title,
       description: data.description,
       status: data.status,
-      priority: data.priority,
       assigned_to: data.assigned_to || null,
       due_date: data.due_date || null,
       start_date: data.start_date || null,
@@ -387,7 +385,6 @@ export default function TicketDetail() {
         title: editedTicket.title,
         description: editedTicket.description,
         status: editedTicket.status,
-        priority: editedTicket.priority,
         assigned_to: editedTicket.assigned_to || null,
         due_date: editedTicket.due_date || null,
         start_date: editedTicket.start_date || null,
@@ -630,7 +627,6 @@ export default function TicketDetail() {
     )
   }
 
-  const priorityInfo = getPriorityInfo(ticket.priority)
   const boardLink = ticket?.board_id ? `/boards/${ticket.board_id}` : '/boards'
 
   // Handle status change from pipeline
@@ -874,79 +870,60 @@ export default function TicketDetail() {
                     className="mt-1.5 min-h-[150px]"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Status</Label>
-                    <Select
-                      value={editedTicket.status}
-                      onValueChange={(value) => setEditedTicket((prev) => ({ ...prev, status: value }))}
-                    >
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">
-                          <div className="flex items-center gap-2">
-                            <Circle className="h-3 w-3 text-slate-500" />
-                            New
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="in_progress">
-                          <div className="flex items-center gap-2">
-                            <PlayCircle className="h-3 w-3 text-amber-500" />
-                            In Progress
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="internal_review">
-                          <div className="flex items-center gap-2">
-                            <Eye className="h-3 w-3 text-purple-500" />
-                            Internal Review
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="client_review">
-                          <div className="flex items-center gap-2">
-                            <UserCheck className="h-3 w-3 text-blue-500" />
-                            Client Review
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="approved">
-                          <div className="flex items-center gap-2">
-                            <ThumbsUp className="h-3 w-3 text-emerald-500" />
-                            Approved
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="ready_for_billing">
-                          <div className="flex items-center gap-2">
-                            <Receipt className="h-3 w-3 text-orange-500" />
-                            Ready for Billing
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="closed">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-3 w-3 text-green-500" />
-                            Closed
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Priority</Label>
-                    <Select
-                      value={editedTicket.priority}
-                      onValueChange={(value) => setEditedTicket((prev) => ({ ...prev, priority: value }))}
-                    >
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={editedTicket.status}
+                    onValueChange={(value) => setEditedTicket((prev) => ({ ...prev, status: value }))}
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">
+                        <div className="flex items-center gap-2">
+                          <Circle className="h-3 w-3 text-slate-500" />
+                          New
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="in_progress">
+                        <div className="flex items-center gap-2">
+                          <PlayCircle className="h-3 w-3 text-amber-500" />
+                          In Progress
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="internal_review">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-3 w-3 text-purple-500" />
+                          Internal Review
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="client_review">
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-3 w-3 text-blue-500" />
+                          Client Review
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="approved">
+                        <div className="flex items-center gap-2">
+                          <ThumbsUp className="h-3 w-3 text-emerald-500" />
+                          Approved
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ready_for_billing">
+                        <div className="flex items-center gap-2">
+                          <Receipt className="h-3 w-3 text-orange-500" />
+                          Ready for Billing
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="closed">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+                          Closed
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1036,17 +1013,6 @@ export default function TicketDetail() {
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
-                  <div 
-                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
-                    onClick={() => setEditMode(true)}
-                    title="Click to edit"
-                  >
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                      <Tag className="h-3 w-3" /> Priority
-                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                    </p>
-                    <Badge variant={ticket.priority}>{priorityInfo.label}</Badge>
-                  </div>
                   <div 
                     className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
                     onClick={() => setEditMode(true)}

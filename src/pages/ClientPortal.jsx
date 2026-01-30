@@ -127,13 +127,6 @@ const REQUEST_TYPES = {
   question: { icon: MessageCircle, color: 'text-cyan-500', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', label: 'Question' },
 }
 
-const PRIORITY_STYLES = {
-  urgent: { color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30', dot: 'bg-red-500' },
-  high: { color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/30', dot: 'bg-orange-500' },
-  medium: { color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/30', dot: 'bg-amber-500' },
-  low: { color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: 'bg-emerald-500' },
-}
-
 // Status config supporting both legacy and new 7-status workflow
 const STATUS_CONFIG = {
   // New 7-status workflow
@@ -211,7 +204,6 @@ function StatCard({ icon: Icon, iconBg, iconColor, label, value, suffix, subtext
 function TicketActivityCard({ ticket, onViewDetails, onComment, onStatusChange }) {
   const statusConfig = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.new
   const StatusIcon = statusConfig.icon
-  const priorityStyle = PRIORITY_STYLES[ticket.priority] || PRIORITY_STYLES.medium
   const isClientHomework = ticket.ticket_type === 'client_homework'
   const needsClientAction = ticket.status === 'client_review'
 
@@ -259,15 +251,6 @@ function TicketActivityCard({ ticket, onViewDetails, onComment, onStatusChange }
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {ticket.ticket_id}
                 </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs", priorityStyle.color, priorityStyle.bg, priorityStyle.border)}
-                >
-                  <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5", priorityStyle.dot)} />
-                  {ticket.priority}
-                </Badge>
               </div>
             </div>
 
@@ -439,43 +422,6 @@ function NewRequestDialog({ open, onOpenChange, clientId, userId, onSuccess }) {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select 
-                value={formData.priority} 
-                onValueChange={(v) => setFormData({ ...formData, priority: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Low - Whenever
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="medium">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      Medium - Soon
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="high">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-orange-500" />
-                      High - This Week
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="urgent">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                      Urgent - ASAP
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="space-y-2">
@@ -613,7 +559,6 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clie
 
   const statusConfig = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.new
   const StatusIcon = statusConfig.icon
-  const priorityStyle = PRIORITY_STYLES[ticket.priority] || PRIORITY_STYLES.medium
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -640,12 +585,6 @@ function TicketDetailDialog({ ticket, open, onOpenChange, userId, clientId, clie
                 </Badge>
                 <Badge className={cn(statusConfig.bg, statusConfig.color, "border-0")}>
                   {statusConfig.label}
-                </Badge>
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs", priorityStyle.color, priorityStyle.bg, priorityStyle.border)}
-                >
-                  {ticket.priority} priority
                 </Badge>
               </div>
             </div>
@@ -1446,7 +1385,6 @@ export default function ClientPortal() {
                   {requests.map((request) => {
                 const typeConfig = REQUEST_TYPES[request.type] || REQUEST_TYPES.general
                 const Icon = typeConfig.icon
-                    const priorityStyle = PRIORITY_STYLES[request.priority] || PRIORITY_STYLES.medium
                 
                 return (
                   <motion.div
@@ -1472,10 +1410,6 @@ export default function ClientPortal() {
                                       <Badge variant="outline" className={cn("text-xs", typeConfig.bg, typeConfig.color, typeConfig.border)}>
                                         {typeConfig.label}
                                       </Badge>
-                                      <Badge variant="outline" className={cn("text-xs", priorityStyle.bg, priorityStyle.color, priorityStyle.border)}>
-                                        <span className={cn("w-1.5 h-1.5 rounded-full mr-1", priorityStyle.dot)} />
-                                  {request.priority}
-                                </Badge>
                                       <span className="text-xs text-muted-foreground">
                                         {formatRelativeDate(new Date(request.created_at))}
                                       </span>

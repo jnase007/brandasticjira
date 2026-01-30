@@ -724,36 +724,19 @@ export default function ClientDashboard() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Priority</Label>
-                <Select value={requestPriority} onValueChange={setRequestPriority}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">🟢 Low</SelectItem>
-                    <SelectItem value="medium">🟡 Medium</SelectItem>
-                    <SelectItem value="high">🟠 High</SelectItem>
-                    <SelectItem value="critical">🔴 Critical</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Type</Label>
-                <Select value={requestType} onValueChange={setRequestType}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="task">Task</SelectItem>
-                    <SelectItem value="bug">Bug/Issue</SelectItem>
-                    <SelectItem value="feature">Feature Request</SelectItem>
-                    <SelectItem value="improvement">Improvement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label>Type</Label>
+              <Select value={requestType} onValueChange={setRequestType}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="task">Task</SelectItem>
+                  <SelectItem value="bug">Bug/Issue</SelectItem>
+                  <SelectItem value="feature">Feature Request</SelectItem>
+                  <SelectItem value="improvement">Improvement</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -811,12 +794,6 @@ export default function ClientDashboard() {
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Created {formatDate(selectedTicket.created_at)}</span>
                   </div>
-                  {selectedTicket.priority && (
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground capitalize">{selectedTicket.priority} priority</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Comments */}
