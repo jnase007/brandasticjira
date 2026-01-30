@@ -885,9 +885,48 @@ export default function TicketDetail() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="inprogress">In Progress</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
+                        <SelectItem value="new">
+                          <div className="flex items-center gap-2">
+                            <Circle className="h-3 w-3 text-slate-500" />
+                            New
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="in_progress">
+                          <div className="flex items-center gap-2">
+                            <PlayCircle className="h-3 w-3 text-amber-500" />
+                            In Progress
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="internal_review">
+                          <div className="flex items-center gap-2">
+                            <Eye className="h-3 w-3 text-purple-500" />
+                            Internal Review
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="client_review">
+                          <div className="flex items-center gap-2">
+                            <UserCheck className="h-3 w-3 text-blue-500" />
+                            Client Review
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="approved">
+                          <div className="flex items-center gap-2">
+                            <ThumbsUp className="h-3 w-3 text-emerald-500" />
+                            Approved
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="ready_for_billing">
+                          <div className="flex items-center gap-2">
+                            <Receipt className="h-3 w-3 text-orange-500" />
+                            Ready for Billing
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="closed">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            Closed
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
