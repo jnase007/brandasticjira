@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Plus, Timer, X, Ticket, Command, Keyboard
+  Plus, Timer, X, ClipboardList, Command, Keyboard
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import {
@@ -30,7 +30,7 @@ export function QuickActionsFAB({
     },
     { 
       id: 'task', 
-      icon: Ticket, 
+      icon: ClipboardList, 
       label: 'New Task', 
       shortcut: 'C T',
       onClick: onNewTicket,
