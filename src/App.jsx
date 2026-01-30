@@ -51,6 +51,44 @@ import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
 import { Badge } from './components/ui/badge'
 import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
 
+// Error Boundary to catch React render errors
+import { Component } from 'react'
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[50vh] flex items-center justify-center p-6">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-red-500 mb-2">Something went wrong</h2>
+            <p className="text-muted-foreground mb-4">{this.state.error?.message || 'An unexpected error occurred'}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange/90"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 // Lightweight page loading spinner for route transitions with timeout handling
 function PageLoader() {
   const [showRetry, setShowRetry] = useState(false)
@@ -671,7 +709,13 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [toggleDarkMode])
 
+  // Debug auth state on refresh
+  useEffect(() => {
+    console.log('[App] Auth state:', { loading, user: user?.email || null, profile: profile?.full_name || null })
+  }, [loading, user, profile])
+
   if (loading) {
+    console.log('[App] Showing LoadingScreen - auth still loading')
     return <LoadingScreen onRetry={retryAuth} error={authError} />
   }
 
@@ -752,7 +796,14 @@ function App() {
         <FocusModeProvider>
         <GamificationProvider>
           <MainLayout>
+            <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
+            {/* Debug: If user is set but pages still blank, check here */}
+            {!profile && (
+              <div className="fixed top-4 right-4 z-50 bg-amber-500 text-white px-3 py-1 rounded-full text-xs">
+                Loading profile...
+              </div>
+            )}
             <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               {/* Team routes */}
@@ -983,6 +1034,7 @@ function App() {
             </Routes>
             </AnimatePresence>
             </Suspense>
+            </ErrorBoundary>
           </MainLayout>
         </GamificationProvider>
         </FocusModeProvider>
