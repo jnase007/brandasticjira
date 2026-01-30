@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
@@ -82,6 +82,7 @@ const PRIORITY_COLORS = {
 export default function TaskBoard() {
   const { user, profile } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   
   const [tickets, setTickets] = useState([])
@@ -317,6 +318,10 @@ export default function TaskBoard() {
       setCreateDialogOpen(false)
       setNewTask({ title: '', description: '', client_id: '', assigned_to: '', estimated_hours: '' })
       toast({ title: '✅ Task created!', variant: 'success' })
+      
+      // Navigate to the newly created task
+      const taskId = data.ticket_id || data.id
+      navigate(`/tickets/${taskId}`)
     } catch (error) {
       console.error('Error creating task:', error)
       toast({ title: 'Error creating task', description: error.message, variant: 'destructive' })

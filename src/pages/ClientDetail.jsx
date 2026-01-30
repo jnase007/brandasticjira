@@ -1268,7 +1268,10 @@ export default function ClientDetail() {
       
       setCreateTaskOpen(false)
       setNewTask(getEmptyTaskForm())
-      fetchClientData(true)
+      
+      // Navigate to the newly created task
+      const taskId = createdTicket.ticket_id || createdTicket.id
+      navigate(`/tickets/${taskId}`)
     } catch (error) {
       console.error('Error creating task:', error)
       toast({ title: 'Error creating task', description: error.message, variant: 'destructive' })
