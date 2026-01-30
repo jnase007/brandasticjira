@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Target,
   ClipboardList,
+  RefreshCw,
 } from 'lucide-react'
 import {
   getTicket,
@@ -575,13 +576,38 @@ export default function TicketDetail() {
   if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <div className="h-8 w-48 bg-muted rounded shimmer mb-6" />
+        <div className="flex items-center gap-3 mb-6">
+          <Loader2 className="h-5 w-5 animate-spin text-brand-orange" />
+          <span className="text-muted-foreground">Loading task...</span>
+        </div>
+        <div className="h-8 w-48 bg-slate-200 dark:bg-slate-700 rounded animate-pulse mb-6" />
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
-            <div className="h-48 bg-muted rounded-xl shimmer" />
-            <div className="h-64 bg-muted rounded-xl shimmer" />
+            <div className="h-48 bg-slate-200 dark:bg-slate-700 rounded-xl animate-pulse" />
+            <div className="h-64 bg-slate-200 dark:bg-slate-700 rounded-xl animate-pulse" />
           </div>
-          <div className="h-96 bg-muted rounded-xl shimmer" />
+          <div className="h-96 bg-slate-200 dark:bg-slate-700 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <div className="p-6 text-center">
+        <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+        <h2 className="text-xl font-medium mb-2">Error loading task</h2>
+        <p className="text-muted-foreground mb-4">
+          {fetchError}
+        </p>
+        <div className="flex gap-3 justify-center">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Page
+          </Button>
+          <Button asChild>
+            <Link to="/taskboard">Back to Task Board</Link>
+          </Button>
         </div>
       </div>
     )
@@ -590,15 +616,15 @@ export default function TicketDetail() {
   if (!ticket) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-xl font-medium mb-2">Ticket not found</h2>
+        <h2 className="text-xl font-medium mb-2">Task not found</h2>
         <p className="text-muted-foreground mb-4">
-          This ticket may have been deleted or you don't have access.
+          This task may have been deleted or you don't have access.
         </p>
         <p className="text-xs text-muted-foreground mb-4 font-mono">
           Attempted ID: {ticketId}
         </p>
         <Button asChild>
-          <Link to="/boards">Back to Boards</Link>
+          <Link to="/taskboard">Back to Task Board</Link>
         </Button>
       </div>
     )
