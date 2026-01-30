@@ -1230,8 +1230,6 @@ export default function ClientDetail() {
         status: 'new',
         priority: 'medium', // Default priority
         created_by: user.id,
-        // Auto-set billing type based on client engagement type
-        billing_type: client?.engagement_type === 'retainer' ? 'retainer' : 'alacarte',
       }
       
       // Add estimated hours if provided
