@@ -111,7 +111,30 @@ export function AuthProvider({ children }) {
               const { data: refreshData } = await supabase.auth.refreshSession()
               if (refreshData?.session) {
                 console.log('[Auth] Refresh succeeded:', refreshData.session.user.email)
-                // Session will be set by onAuthStateChange
+                // Set user and profile directly instead of waiting for onAuthStateChange
+                setUser(refreshData.session.user)
+                try {
+                  const { data: profileData } = await getProfile(refreshData.session.user.id)
+                  if (profileData) {
+                    setProfile(profileData)
+                  } else {
+                    setProfile({
+                      id: refreshData.session.user.id,
+                      email: refreshData.session.user.email,
+                      full_name: refreshData.session.user.email?.split('@')[0] || 'User',
+                      role: 'team',
+                    })
+                  }
+                } catch (e) {
+                  setProfile({
+                    id: refreshData.session.user.id,
+                    email: refreshData.session.user.email,
+                    full_name: refreshData.session.user.email?.split('@')[0] || 'User',
+                    role: 'team',
+                  })
+                }
+                setLoading(false)
+                clearTimeout(safetyTimeout)
                 return
               }
             } catch (e) {
