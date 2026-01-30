@@ -18,8 +18,8 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     detectSessionInUrl: true,
     storage: localStorage, // Using localStorage (cookies break OAuth)
     storageKey: 'brandastic-auth', // Custom storage key
-    flowType: 'implicit', // Changed from 'pkce' - may fix tab switch desync issues
-    debug: true, // ENABLED: Shows GoTrueClient logs for debugging tab switch issues
+    flowType: 'implicit', // Key fix for iOS/tab switch desync issues
+    // debug: true, // Disable for production - spams console
   },
   realtime: {
     params: {

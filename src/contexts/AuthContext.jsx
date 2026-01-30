@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
       setLoading(false)
     }, isOAuthCallback ? 8000 : 5000)
 
-    // Get initial session - SIMPLE: just read from localStorage, no API calls
+    // Get initial session - with fallback to refreshSession if getSession fails
     const initAuth = async () => {
       try {
         // For OAuth callbacks, we need to wait for Supabase to parse the hash
@@ -99,9 +99,18 @@ export function AuthProvider({ children }) {
           await new Promise(resolve => setTimeout(resolve, 500))
         }
         
-        // Use getSession() - reads from localStorage, NO API call
-        // This is fast and won't cause timeouts
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // First try getSession() - reads from localStorage
+        let { data: { session }, error } = await supabase.auth.getSession()
+        
+        // If no session found but we might have a stale storage, try refreshSession
+        if (!session && !isOAuthCallback) {
+          console.log('[Auth] No session from getSession, trying refreshSession...')
+          const refreshResult = await supabase.auth.refreshSession()
+          if (refreshResult.data?.session) {
+            session = refreshResult.data.session
+            console.log('[Auth] Session recovered via refreshSession')
+          }
+        }
         
         if (error) {
           console.error('Session read error:', error)
@@ -111,7 +120,7 @@ export function AuthProvider({ children }) {
         }
         
         if (session?.user) {
-          console.log('Session found for:', session.user.email)
+          console.log('[Auth] Session found for:', session.user.email)
           setUser(session.user)
           
           // Fetch profile - single attempt only, don't retry aggressively
