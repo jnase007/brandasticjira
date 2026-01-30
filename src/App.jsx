@@ -117,8 +117,39 @@ import { FocusModeProvider } from './components/FocusMode'
 // Protected Route wrapper
 function ProtectedRoute({ children, allowedRoles = ['team', 'admin', 'client'] }) {
   const { user, profile, loading } = useAuth()
+  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false)
+  
+  // Check if we're in the middle of an OAuth callback
+  // Supabase adds auth tokens to the URL hash after OAuth redirect
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && (hash.includes('access_token') || hash.includes('refresh_token') || hash.includes('error'))) {
+      console.log('[ProtectedRoute] OAuth callback detected, waiting for auth to process...')
+      setIsProcessingOAuth(true)
+      // Give Supabase time to process the tokens
+      const timeout = setTimeout(() => {
+        setIsProcessingOAuth(false)
+        // Clean the hash from URL after processing
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        }
+      }, 3000)
+      return () => clearTimeout(timeout)
+    }
+  }, [])
+  
+  // Also stop processing if user becomes available
+  useEffect(() => {
+    if (user && isProcessingOAuth) {
+      setIsProcessingOAuth(false)
+      // Clean the hash from URL
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+  }, [user, isProcessingOAuth])
 
-  if (loading) {
+  if (loading || isProcessingOAuth) {
     return <LoadingScreen />
   }
 

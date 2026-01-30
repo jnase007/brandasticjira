@@ -78,15 +78,27 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    // Check if we're returning from OAuth (tokens in URL hash)
+    const hash = window.location.hash
+    const isOAuthCallback = hash && (hash.includes('access_token') || hash.includes('refresh_token'))
+    
     // Safety timeout - if loading takes too long, show retry option
+    // Give more time for OAuth callbacks
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth loading timeout - forcing complete')
       setLoading(false)
-    }, 5000) // 5 second max wait
+    }, isOAuthCallback ? 8000 : 5000)
 
     // Get initial session - SIMPLE: just read from localStorage, no API calls
     const initAuth = async () => {
       try {
+        // For OAuth callbacks, we need to wait for Supabase to parse the hash
+        if (isOAuthCallback) {
+          console.log('[Auth] OAuth callback detected, giving Supabase time to process...')
+          // Small delay to let Supabase process the URL hash
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
         // Use getSession() - reads from localStorage, NO API call
         // This is fast and won't cause timeouts
         const { data: { session }, error } = await supabase.auth.getSession()
