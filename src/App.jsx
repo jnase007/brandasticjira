@@ -492,7 +492,7 @@ function MainLayout({ children }) {
 }
 
 function App() {
-  const { user, loading, authError, retryAuth } = useAuth()
+  const { user, profile, loading, authError, retryAuth } = useAuth()
   const location = useLocation()
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
