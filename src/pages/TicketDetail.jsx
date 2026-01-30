@@ -671,6 +671,57 @@ export default function TicketDetail() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      {/* Client Banner - Prominent display at top */}
+      {ticket.client && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Link 
+            to={`/clients/${ticket.client_id}`}
+            className="flex items-center gap-4 p-4 rounded-xl border bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 hover:shadow-md transition-all group"
+          >
+            {/* Client Logo */}
+            {ticket.client.logo_url ? (
+              <div className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-white shadow-sm border">
+                <img 
+                  src={ticket.client.logo_url} 
+                  alt={ticket.client.name} 
+                  className="w-full h-full object-contain p-1"
+                />
+              </div>
+            ) : (
+              <div 
+                className="flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-sm"
+                style={{ backgroundColor: ticket.client.color || '#F7931E' }}
+              >
+                {ticket.client.name?.charAt(0) || 'C'}
+              </div>
+            )}
+            
+            {/* Client Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold truncate group-hover:text-brand-orange transition-colors">
+                  {ticket.client.name}
+                </h2>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Client • Click to view client details
+              </p>
+            </div>
+            
+            {/* Client Color Indicator */}
+            <div 
+              className="flex-shrink-0 w-3 h-12 rounded-full"
+              style={{ backgroundColor: ticket.client.color || '#F7931E' }}
+            />
+          </Link>
+        </motion.div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
