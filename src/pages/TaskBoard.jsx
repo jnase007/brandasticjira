@@ -6,7 +6,7 @@ import {
   Kanban, User, Users, Building2, Clock, AlertCircle,
   ChevronDown, Filter, RefreshCw, CheckCircle, Circle, 
   PlayCircle, Eye, Plus, Search, Calendar, ArrowRight,
-  UserCheck, ThumbsUp, Receipt, CheckCircle2
+  UserCheck, ThumbsUp, Receipt, CheckCircle2, Loader2
 } from 'lucide-react'
 import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -23,7 +23,10 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import { Input } from '../components/ui/input'
+import { Textarea } from '../components/ui/textarea'
 import { Skeleton } from '../components/ui/skeleton'
+import { Label } from '../components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
 import { useToast } from '../hooks/useToast'
 
 const COLUMNS = [
@@ -90,6 +93,17 @@ export default function TaskBoard() {
   const [selectedMember, setSelectedMember] = useState(searchParams.get('member') || 'me')
   const [selectedClient, setSelectedClient] = useState(searchParams.get('client') || 'all')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Create task dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(searchParams.get('new') === 'true')
+  const [creating, setCreating] = useState(false)
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    client_id: '',
+    assigned_to: '',
+    estimated_hours: '',
+  })
 
   useEffect(() => {
     if (user && profile) {
@@ -100,6 +114,17 @@ export default function TaskBoard() {
       }
     }
   }, [user, profile])
+  
+  // Handle dialog URL param
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setCreateDialogOpen(true)
+      // Clear the param
+      const newParams = new URLSearchParams(searchParams)
+      newParams.delete('new')
+      setSearchParams(newParams, { replace: true })
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Update URL params - only set non-defaults
@@ -245,6 +270,61 @@ export default function TaskBoard() {
     return grouped
   }, [filteredTickets])
 
+  // Create task handler
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim()) {
+      toast({ title: 'Please enter a task title', variant: 'destructive' })
+      return
+    }
+    if (!newTask.client_id) {
+      toast({ title: 'Please select a client', variant: 'destructive' })
+      return
+    }
+    
+    setCreating(true)
+    try {
+      const taskData = {
+        title: newTask.title.trim(),
+        description: newTask.description.trim() || null,
+        client_id: newTask.client_id,
+        assigned_to: newTask.assigned_to || user.id,
+        status: 'new',
+        priority: 'medium',
+        created_by: user.id,
+      }
+      
+      if (newTask.estimated_hours) {
+        taskData.estimated_hours = parseFloat(newTask.estimated_hours)
+      }
+      
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert(taskData)
+        .select('*')
+        .single()
+      
+      if (error) throw error
+      
+      // Enrich with client/assignee data
+      const enrichedTicket = {
+        ...data,
+        status: normalizeStatus(data.status),
+        client: clients.find(c => c.id === data.client_id) || null,
+        assignee: teamMembers.find(m => m.id === data.assigned_to) || null,
+      }
+      
+      setTickets(prev => [enrichedTicket, ...prev])
+      setCreateDialogOpen(false)
+      setNewTask({ title: '', description: '', client_id: '', assigned_to: '', estimated_hours: '' })
+      toast({ title: '✅ Task created!', variant: 'success' })
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast({ title: 'Error creating task', description: error.message, variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
   // Handle drag and drop
   const handleDragEnd = async (result) => {
     if (!result.destination) return
@@ -318,6 +398,10 @@ export default function TaskBoard() {
           <Button variant="outline" size="sm" onClick={fetchData}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
+          </Button>
+          <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            New Task
           </Button>
         </div>
       </div>
@@ -555,6 +639,130 @@ export default function TaskBoard() {
           </div>
         </DragDropContext>
       )}
+      
+      {/* Create Task Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-brand-orange" />
+              Create New Task
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="task-client">Client *</Label>
+              <Select
+                value={newTask.client_id}
+                onValueChange={(value) => setNewTask(prev => ({ ...prev, client_id: value }))}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: client.color || '#6366f1' }}
+                        />
+                        {client.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="task-title">Task Title *</Label>
+              <Input
+                id="task-title"
+                placeholder="What needs to be done?"
+                value={newTask.title}
+                onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="task-description">Description</Label>
+              <Textarea
+                id="task-description"
+                placeholder="Add more details..."
+                value={newTask.description}
+                onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                className="mt-1.5"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Assign To</Label>
+                <Select
+                  value={newTask.assigned_to || user?.id}
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, assigned_to: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select team member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={member.avatar_url} />
+                            <AvatarFallback className="text-[10px]">
+                              {member.full_name?.charAt(0) || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          {member.full_name}
+                          {member.id === user?.id && <span className="text-muted-foreground">(you)</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Estimated Hours</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="e.g., 2"
+                  value={newTask.estimated_hours}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, estimated_hours: e.target.value }))}
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTask} disabled={creating}>
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Task
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }
