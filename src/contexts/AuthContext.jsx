@@ -82,43 +82,50 @@ export function AuthProvider({ children }) {
     const hash = window.location.hash
     const isOAuthCallback = hash && (hash.includes('access_token') || hash.includes('refresh_token'))
     
-    // Safety timeout - if loading takes too long, show retry option
-    // Give more time for OAuth callbacks
+    // Safety timeout - if loading takes too long, force complete
     const safetyTimeout = setTimeout(() => {
-      console.warn('Auth loading timeout - forcing complete')
+      console.warn('[Auth] Loading timeout - forcing complete')
       setLoading(false)
-    }, isOAuthCallback ? 8000 : 5000)
+    }, isOAuthCallback ? 10000 : 6000)
 
-    // Get initial session - with fallback to refreshSession if getSession fails
+    // SIMPLIFIED AUTH INIT - Let onAuthStateChange handle everything
+    // This is the recommended Supabase pattern
     const initAuth = async () => {
+      console.log('[Auth] Initializing...')
+      
       try {
-        // For OAuth callbacks, we need to wait for Supabase to parse the hash
-        if (isOAuthCallback) {
-          console.log('[Auth] OAuth callback detected, giving Supabase time to process...')
-          // Small delay to let Supabase process the URL hash
-          await new Promise(resolve => setTimeout(resolve, 500))
-        }
+        // Give a tiny delay for Supabase client to fully initialize
+        await new Promise(resolve => setTimeout(resolve, 100))
         
-        // First try getSession() - reads from localStorage
-        let { data: { session }, error } = await supabase.auth.getSession()
+        // Get session - this triggers onAuthStateChange with INITIAL_SESSION
+        const { data: { session }, error } = await supabase.auth.getSession()
         
-        // If no session found but we might have a stale storage, try refreshSession
-        if (!session && !isOAuthCallback) {
-          console.log('[Auth] No session from getSession, trying refreshSession...')
-          const refreshResult = await supabase.auth.refreshSession()
-          if (refreshResult.data?.session) {
-            session = refreshResult.data.session
-            console.log('[Auth] Session recovered via refreshSession')
+        console.log('[Auth] getSession result:', session ? session.user.email : 'no session', error?.message || '')
+        
+        // If no session but we have a storage key, try refresh
+        if (!session) {
+          const stored = localStorage.getItem('brandastic-auth')
+          if (stored) {
+            console.log('[Auth] Found storage, attempting refresh...')
+            try {
+              const { data: refreshData } = await supabase.auth.refreshSession()
+              if (refreshData?.session) {
+                console.log('[Auth] Refresh succeeded:', refreshData.session.user.email)
+                // Session will be set by onAuthStateChange
+                return
+              }
+            } catch (e) {
+              console.log('[Auth] Refresh failed:', e.message)
+            }
           }
-        }
-        
-        if (error) {
-          console.error('Session read error:', error)
+          // No session found - finish loading
+          console.log('[Auth] No session - finishing')
           setLoading(false)
           clearTimeout(safetyTimeout)
           return
         }
         
+        // Session found
         if (session?.user) {
           console.log('[Auth] Session found for:', session.user.email)
           setUser(session.user)
