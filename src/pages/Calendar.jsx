@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
   Clock, CheckCircle, AlertCircle, Users, Building2, 
-  Plus, Filter, Eye, ArrowRight, Timer, Zap
+  Plus, Filter, Eye, ArrowRight, Timer, Zap, CalendarPlus,
+  CalendarX, ListTodo, CircleDashed
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, 
@@ -50,6 +51,7 @@ export default function Calendar() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [tickets, setTickets] = useState([])
+  const [unscheduledTickets, setUnscheduledTickets] = useState([])
   const [timeEntries, setTimeEntries] = useState([])
   const [clients, setClients] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
@@ -59,6 +61,7 @@ export default function Calendar() {
   const [viewFilter, setViewFilter] = useState('all') // all, my-tasks
   const [clientFilter, setClientFilter] = useState('all') // all or client id
   const [memberFilter, setMemberFilter] = useState('all') // all or user id
+  const [showUnscheduled, setShowUnscheduled] = useState(true)
 
   useEffect(() => {
     fetchData()
@@ -74,13 +77,22 @@ export default function Calendar() {
       const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 })
       const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
       
-      const [ticketsRes, timeRes, clientsRes, membersRes] = await Promise.all([
+      const [ticketsRes, unscheduledRes, timeRes, clientsRes, membersRes] = await Promise.all([
+        // Tickets WITH due dates in this month
         supabase
           .from('tickets')
           .select('*, client:client_id(id, name, logo_url), assignee:assigned_to(id, full_name, avatar_url)')
           .gte('due_date', calendarStart.toISOString().split('T')[0])
           .lte('due_date', calendarEnd.toISOString().split('T')[0])
           .order('due_date'),
+        // Tickets WITHOUT due dates (unscheduled) - only active ones
+        supabase
+          .from('tickets')
+          .select('*, client:client_id(id, name, logo_url), assignee:assigned_to(id, full_name, avatar_url)')
+          .is('due_date', null)
+          .not('status', 'in', '("closed","done")')
+          .order('created_at', { ascending: false })
+          .limit(50),
         supabase
           .from('time_entries')
           .select('*, client:client_id(id, name, logo_url), user:user_id(id, full_name, avatar_url)')
@@ -99,6 +111,7 @@ export default function Calendar() {
       ])
       
       setTickets(ticketsRes.data || [])
+      setUnscheduledTickets(unscheduledRes.data || [])
       setTimeEntries(timeRes.data || [])
       setClients(clientsRes.data || [])
       setTeamMembers(membersRes.data || [])
@@ -517,6 +530,114 @@ export default function Calendar() {
           )}
         </CardContent>
       </Card>
+
+      {/* Unscheduled Tasks Section */}
+      {unscheduledTickets.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarX className="h-5 w-5 text-amber-500" />
+                Unscheduled Tasks
+                <Badge variant="outline" className="ml-2 bg-amber-500/10 text-amber-600 border-amber-300">
+                  {unscheduledTickets.length}
+                </Badge>
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowUnscheduled(!showUnscheduled)}
+              >
+                {showUnscheduled ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              These tasks don't have due dates set. Click a task to add a deadline.
+            </p>
+          </CardHeader>
+          
+          <AnimatePresence>
+            {showUnscheduled && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <CardContent className="pt-2">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {unscheduledTickets
+                      .filter(t => {
+                        if (clientFilter !== 'all' && t.client_id !== clientFilter) return false
+                        if (memberFilter !== 'all' && t.assigned_to !== memberFilter) return false
+                        if (viewFilter === 'my-tasks' && t.assigned_to !== user?.id) return false
+                        return true
+                      })
+                      .map(ticket => (
+                        <Link
+                          key={ticket.id}
+                          to={`/clients/${ticket.client_id}/tickets/${ticket.ticket_id || ticket.id}`}
+                          className="block"
+                        >
+                          <div className="p-3 rounded-lg border bg-card hover:bg-accent hover:border-amber-500/50 transition-all group">
+                            <div className="flex items-start gap-3">
+                              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                                <CircleDashed className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{ticket.title}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {ticket.client && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5">
+                                      {ticket.client.name}
+                                    </Badge>
+                                  )}
+                                  <Badge 
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px] px-1.5",
+                                      ticket.priority === 'urgent' && "border-red-500 text-red-500",
+                                      ticket.priority === 'high' && "border-orange-500 text-orange-500"
+                                    )}
+                                  >
+                                    {ticket.priority}
+                                  </Badge>
+                                </div>
+                                {ticket.assignee && (
+                                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                                    <Avatar className="h-4 w-4">
+                                      <AvatarImage src={ticket.assignee.avatar_url} />
+                                      <AvatarFallback className="text-[8px]">
+                                        {ticket.assignee.full_name?.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{ticket.assignee.full_name}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <CalendarPlus className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                  </div>
+                  
+                  {unscheduledTickets.filter(t => {
+                    if (clientFilter !== 'all' && t.client_id !== clientFilter) return false
+                    if (memberFilter !== 'all' && t.assigned_to !== memberFilter) return false
+                    if (viewFilter === 'my-tasks' && t.assigned_to !== user?.id) return false
+                    return true
+                  }).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No unscheduled tasks match your current filters
+                    </p>
+                  )}
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+      )}
 
       {/* Day Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
