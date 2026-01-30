@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
   Kanban, User, Users, Building2, Clock, AlertCircle,
@@ -547,29 +547,36 @@ export default function TaskBoard() {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={cn(
-                        "flex-1 p-2 rounded-xl border-2 border-dashed transition-colors min-h-[200px]",
+                        "flex-1 p-2 rounded-xl border-2 border-dashed min-h-[200px]",
                         snapshot.isDraggingOver 
-                          ? "border-brand-orange bg-brand-orange/5" 
+                          ? "border-brand-orange bg-brand-orange/10" 
                           : "border-transparent bg-muted/30"
                       )}
+                      style={{
+                        transition: 'background-color 0.2s ease, border-color 0.2s ease',
+                      }}
                     >
-                      <AnimatePresence>
-                        {ticketsByStatus[column.id]?.map((ticket, index) => (
-                          <Draggable key={ticket.id} draggableId={ticket.id} index={index}>
-                            {(provided, snapshot) => (
-                              <motion.div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                className={cn(
-                                  "mb-2 p-3 rounded-lg bg-card border border-l-4 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing",
-                                  PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium,
-                                  snapshot.isDragging && "shadow-lg ring-2 ring-brand-orange"
-                                )}
-                              >
+                      {ticketsByStatus[column.id]?.map((ticket, index) => (
+                        <Draggable key={ticket.id} draggableId={ticket.id} index={index}>
+                          {(dragProvided, dragSnapshot) => (
+                            <div
+                              ref={dragProvided.innerRef}
+                              {...dragProvided.draggableProps}
+                              {...dragProvided.dragHandleProps}
+                              className={cn(
+                                "mb-2 p-3 rounded-lg bg-card border border-l-4 shadow-sm cursor-grab active:cursor-grabbing select-none",
+                                PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium,
+                                dragSnapshot.isDragging 
+                                  ? "shadow-xl ring-2 ring-brand-orange rotate-2 scale-105 z-50" 
+                                  : "hover:shadow-md"
+                              )}
+                              style={{
+                                ...dragProvided.draggableProps.style,
+                                transition: dragSnapshot.isDragging 
+                                  ? 'box-shadow 0.15s ease, transform 0.15s ease' 
+                                  : 'box-shadow 0.2s ease, transform 0.2s ease',
+                              }}
+                            >
                                 {/* Ticket ID */}
                                 {ticket.ticket_id && (
                                   <p className="text-xs font-mono text-muted-foreground mb-1">
@@ -610,23 +617,22 @@ export default function TaskBoard() {
                                   )}
                                 </div>
 
-                                {/* Due Date */}
-                                {ticket.due_date && (
-                                  <div className={cn(
-                                    "flex items-center gap-1 mt-2 text-xs",
-                                    new Date(ticket.due_date) < new Date() && ticket.status !== 'closed'
-                                      ? "text-red-600"
-                                      : "text-muted-foreground"
-                                  )}>
-                                    <Calendar className="h-3 w-3" />
-                                    {formatDate(ticket.due_date)}
-                                  </div>
-                                )}
-                              </motion.div>
-                            )}
-                          </Draggable>
-                        ))}
-                      </AnimatePresence>
+                              {/* Due Date */}
+                              {ticket.due_date && (
+                                <div className={cn(
+                                  "flex items-center gap-1 mt-2 text-xs",
+                                  new Date(ticket.due_date) < new Date() && ticket.status !== 'closed'
+                                    ? "text-red-600"
+                                    : "text-muted-foreground"
+                                )}>
+                                  <Calendar className="h-3 w-3" />
+                                  {formatDate(ticket.due_date)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
                       {provided.placeholder}
                       
                       {/* Empty State */}
