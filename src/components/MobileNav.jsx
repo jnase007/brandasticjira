@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, X, LayoutDashboard, Kanban, Building2, Clock, BarChart3,
-  Users2, Trophy, Settings, Shield, LogOut, Timer, Activity,
+  Users2, Trophy, User, Shield, LogOut, Timer, Activity,
   Search, ChevronRight, Zap, Bell, BookOpen, ActivitySquare,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -23,7 +23,7 @@ const navItems = [
   { path: '/team', icon: Users2, label: 'Team Hub' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/boards', icon: Kanban, label: 'Boards' },
-  { path: '/settings', icon: Settings, label: 'Settings' },
+  { path: '/settings', icon: User, label: 'My Profile' },
 ]
 
 const adminNavItems = [

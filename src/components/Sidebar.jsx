@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Kanban,
-  Settings,
+  User,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -52,7 +52,7 @@ const navItems = [
   { path: '/calendar', icon: CalendarDays, label: 'Calendar', shortcut: 'G E' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
-  { path: '/settings', icon: Settings, label: 'Settings', shortcut: 'G S' },
+  { path: '/settings', icon: User, label: 'My Profile', shortcut: 'G P' },
 ]
 
 const adminNavItems = [

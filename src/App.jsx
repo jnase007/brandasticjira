@@ -384,10 +384,6 @@ function MainLayout({ children }) {
                 <User className="h-4 w-4 mr-2" />
                 My Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <SettingsIcon className="h-4 w-4 mr-2" />
-                Settings
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/how-it-works')}>
                 <BookOpen className="h-4 w-4 mr-2" />
                 How It Works

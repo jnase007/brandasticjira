@@ -361,13 +361,54 @@ export default function Mission() {
                 {mission.vital_factors.map((factor, idx) => (
                   <div 
                     key={idx}
-                    className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10"
+                    className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-green-300 dark:hover:border-green-500/30 transition-colors"
                   >
-                    <p className="text-slate-500 dark:text-white/50 text-xs mb-1">{idx + 1}. {factor.label}</p>
-                    <p className="text-slate-900 dark:text-white font-bold text-lg">{factor.value}</p>
+                    {profile?.role === 'admin' ? (
+                      <>
+                        <Input 
+                          value={factor.label}
+                          onChange={(e) => {
+                            const newFactors = [...mission.vital_factors]
+                            newFactors[idx] = { ...newFactors[idx], label: e.target.value }
+                            setMission(m => ({ ...m, vital_factors: newFactors }))
+                          }}
+                          className="text-slate-500 dark:text-white/50 text-xs mb-1 bg-transparent border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-green-400 transition-colors h-6 px-1"
+                          placeholder="Label..."
+                        />
+                        <Input 
+                          value={factor.value}
+                          onChange={(e) => {
+                            const newFactors = [...mission.vital_factors]
+                            newFactors[idx] = { ...newFactors[idx], value: e.target.value }
+                            setMission(m => ({ ...m, vital_factors: newFactors }))
+                          }}
+                          className="text-slate-900 dark:text-white font-bold text-lg bg-transparent border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-green-400 transition-colors h-8 px-1"
+                          placeholder="Value..."
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-slate-500 dark:text-white/50 text-xs mb-1">{idx + 1}. {factor.label}</p>
+                        <p className="text-slate-900 dark:text-white font-bold text-lg">{factor.value}</p>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
+              
+              {profile?.role === 'admin' && (
+                <div className="flex justify-end pt-4">
+                  <Button 
+                    size="sm" 
+                    className="bg-green-600 hover:bg-green-700 text-white" 
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    <Save className={cn("h-4 w-4 mr-2", saving && "animate-spin")} />
+                    {saving ? 'Saving...' : 'Save Goals'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -393,11 +434,52 @@ export default function Mission() {
                     key={idx}
                     className="p-4 rounded-xl bg-yellow-50 dark:bg-white/5 border border-yellow-200 dark:border-white/10 hover:border-yellow-300 dark:hover:border-yellow-500/30 transition-colors"
                   >
-                    <h4 className="text-yellow-600 dark:text-yellow-400 font-semibold text-sm mb-2">{idx + 1}. {init.title}</h4>
-                    <p className="text-slate-600 dark:text-white/60 text-xs leading-relaxed">{init.description}</p>
+                    {profile?.role === 'admin' ? (
+                      <>
+                        <Input 
+                          value={init.title}
+                          onChange={(e) => {
+                            const newInitiatives = [...mission.initiatives]
+                            newInitiatives[idx] = { ...newInitiatives[idx], title: e.target.value }
+                            setMission(m => ({ ...m, initiatives: newInitiatives }))
+                          }}
+                          className="text-yellow-600 dark:text-yellow-400 font-semibold text-sm mb-2 bg-transparent border-transparent hover:border-yellow-300 dark:hover:border-yellow-500/30 focus:border-yellow-400 transition-colors h-7 px-1"
+                          placeholder="Title..."
+                        />
+                        <Textarea 
+                          value={init.description}
+                          onChange={(e) => {
+                            const newInitiatives = [...mission.initiatives]
+                            newInitiatives[idx] = { ...newInitiatives[idx], description: e.target.value }
+                            setMission(m => ({ ...m, initiatives: newInitiatives }))
+                          }}
+                          className="text-slate-600 dark:text-white/60 text-xs leading-relaxed bg-transparent border-transparent hover:border-yellow-300 dark:hover:border-yellow-500/30 focus:border-yellow-400 transition-colors min-h-[60px] resize-none px-1"
+                          placeholder="Description..."
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <h4 className="text-yellow-600 dark:text-yellow-400 font-semibold text-sm mb-2">{idx + 1}. {init.title}</h4>
+                        <p className="text-slate-600 dark:text-white/60 text-xs leading-relaxed">{init.description}</p>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
+              
+              {profile?.role === 'admin' && (
+                <div className="flex justify-end pt-4">
+                  <Button 
+                    size="sm" 
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white" 
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    <Save className={cn("h-4 w-4 mr-2", saving && "animate-spin")} />
+                    {saving ? 'Saving...' : 'Save Initiatives'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
