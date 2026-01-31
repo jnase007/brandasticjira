@@ -145,7 +145,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './components/ui/dropdown-menu'
-import { User, Settings as SettingsIcon, LogOut, ChevronDown, X, Eye, BookOpen } from 'lucide-react'
+import { User, LogOut, ChevronDown, X, Eye, BookOpen } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { QuickActionsFAB } from './components/QuickActions'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
