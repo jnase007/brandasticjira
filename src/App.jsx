@@ -777,7 +777,25 @@ function App() {
                 <span className="hidden sm:inline opacity-90">Refresh to get the latest features.</span>
               </div>
               <button
-                onClick={() => window.location.reload()}
+                onClick={async () => {
+                  // Clear all caches and service worker to ensure clean reload
+                  try {
+                    // Unregister service workers
+                    const registrations = await navigator.serviceWorker?.getRegistrations()
+                    for (const registration of registrations || []) {
+                      await registration.unregister()
+                    }
+                    // Clear all caches
+                    const cacheNames = await caches?.keys()
+                    for (const name of cacheNames || []) {
+                      await caches.delete(name)
+                    }
+                  } catch (e) {
+                    console.warn('Cache clear failed:', e)
+                  }
+                  // Hard reload bypassing cache
+                  window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now()
+                }}
                 className="flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors"
               >
                 <RefreshCw className="h-3.5 w-3.5" />

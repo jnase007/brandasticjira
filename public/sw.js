@@ -1,36 +1,46 @@
 // Brandastic PM Service Worker
-const CACHE_NAME = 'brandastic-v1';
+// Version is updated on each build to force cache refresh
+const CACHE_VERSION = Date.now();
+const CACHE_NAME = `brandastic-${CACHE_VERSION}`;
+
+// Only cache truly static assets that won't change between builds
 const STATIC_ASSETS = [
-  '/',
   '/favicon.svg',
   '/manifest.json'
 ];
 
-// Install event - cache static assets
+// Install event - cache static assets only
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing new service worker...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
+  // Activate immediately without waiting
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up ALL old caches
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating new service worker...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+          .filter((name) => name.startsWith('brandastic-') && name !== CACHE_NAME)
+          .map((name) => {
+            console.log('[SW] Deleting old cache:', name);
+            return caches.delete(name);
+          })
       );
     })
   );
+  // Take control of all clients immediately
   self.clients.claim();
 });
 
-// Fetch event - network first, fallback to cache
+// Fetch event - network first for HTML/JS/CSS, cache for static assets only
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -40,30 +50,60 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api')) return;
   
+  // For JS/CSS/HTML - ALWAYS go to network (these are fingerprinted by Vite)
+  // This prevents stale chunk errors after deployments
+  if (
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.html') ||
+    url.pathname === '/' ||
+    url.pathname.startsWith('/assets/')
+  ) {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        // Only fallback to cache if network fails (offline)
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
+  
+  // For static assets (favicon, manifest, images) - use cache first
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Clone the response before caching
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((response) => {
+        // Cache the response for next time
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
         });
         return response;
-      })
-      .catch(() => {
-        // If network fails, try cache
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // If not in cache, return offline page for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return new Response('Offline', { status: 503 });
-        });
-      })
+      });
+    }).catch(() => {
+      // If all else fails for navigation, return nothing (let browser handle)
+      if (event.request.mode === 'navigate') {
+        return new Response('', { status: 503, statusText: 'Offline' });
+      }
+      return new Response('Offline', { status: 503 });
+    })
   );
+});
+
+// Listen for skip waiting message from the app
+self.addEventListener('message', (event) => {
+  if (event.data === 'skipWaiting') {
+    console.log('[SW] Received skipWaiting message');
+    self.skipWaiting();
+  }
+  if (event.data === 'clearCaches') {
+    console.log('[SW] Clearing all caches...');
+    caches.keys().then((names) => {
+      names.forEach((name) => caches.delete(name));
+    });
+  }
 });
 
 // Handle push notifications
