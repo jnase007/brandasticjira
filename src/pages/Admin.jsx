@@ -592,8 +592,8 @@ export default function Admin() {
     setClientDialogOpen(true)
   }
 
-  // Handle delete client
-  const handleDeleteClient = async () => {
+  // Handle deactivate client (soft delete)
+  const handleDeactivateClient = async () => {
     if (!deletingClient) return
     
     try {
@@ -617,6 +617,51 @@ export default function Admin() {
       toast({
         title: 'Error',
         description: 'Failed to deactivate client.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Handle permanent delete client (hard delete - for test clients)
+  const handlePermanentDeleteClient = async () => {
+    if (!deletingClient) return
+    
+    try {
+      // Delete related data first (due to foreign key constraints)
+      // Delete time entries
+      await supabase.from('time_entries').delete().eq('client_id', deletingClient.id)
+      // Delete tickets (this will cascade to comments)
+      await supabase.from('tickets').delete().eq('client_id', deletingClient.id)
+      // Delete boards
+      await supabase.from('boards').delete().eq('client_id', deletingClient.id)
+      // Delete client notes
+      await supabase.from('client_notes').delete().eq('client_id', deletingClient.id)
+      // Delete activity log entries
+      await supabase.from('activity_log').delete().eq('client_id', deletingClient.id)
+      // Delete client wins
+      await supabase.from('client_wins').delete().eq('client_id', deletingClient.id)
+      // Finally delete the client
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', deletingClient.id)
+      
+      if (error) throw error
+      
+      toast({
+        title: '🗑️ Client permanently deleted',
+        description: `${deletingClient.name} and all related data have been removed.`,
+        variant: 'success',
+      })
+      
+      setDeleteDialogOpen(false)
+      setDeletingClient(null)
+      fetchData(true)
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast({
+        title: 'Error deleting client',
+        description: error.message || 'Failed to delete client. Some related data may still exist.',
         variant: 'destructive',
       })
     }
@@ -1638,23 +1683,54 @@ export default function Admin() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Deactivate Client
+              Remove Client: {deletingClient?.name}
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to deactivate <strong>{deletingClient?.name}</strong>? 
-              This will hide the client from active lists but preserve all data.
+              Choose how you want to handle this client:
             </DialogDescription>
           </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            {/* Deactivate Option */}
+            <div 
+              className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 cursor-pointer hover:border-amber-400 transition-colors"
+              onClick={handleDeactivateClient}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <Eye className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-amber-700 dark:text-amber-400">Deactivate (Recommended)</h4>
+                  <p className="text-sm text-amber-600/80 dark:text-amber-400/70">Hide from active lists but keep all data. Can be reactivated later.</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Permanent Delete Option */}
+            <div 
+              className="p-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 cursor-pointer hover:border-red-400 transition-colors"
+              onClick={handlePermanentDeleteClient}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-red-700 dark:text-red-400">Permanently Delete</h4>
+                  <p className="text-sm text-red-600/80 dark:text-red-400/70">Remove client and ALL related data forever. Cannot be undone!</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full">
               Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteClient}>
-              Deactivate Client
             </Button>
           </DialogFooter>
         </DialogContent>
