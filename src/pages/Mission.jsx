@@ -263,17 +263,17 @@ export default function Mission() {
                 {mission.vision_pillars.map((pillar, idx) => (
                   <div 
                     key={idx}
-                    className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-300 dark:hover:border-purple-500/30 transition-colors"
+                    className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-300 dark:hover:border-purple-500/30 transition-colors min-h-[80px]"
                   >
                     {profile?.role === 'admin' ? (
-                      <Input 
+                      <Textarea 
                         value={pillar.title}
                         onChange={(e) => {
                           const newPillars = [...mission.vision_pillars]
                           newPillars[idx] = { ...newPillars[idx], title: e.target.value }
                           setMission(m => ({ ...m, vision_pillars: newPillars }))
                         }}
-                        className="text-slate-600 dark:text-white/70 text-sm bg-transparent border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-purple-400 transition-colors"
+                        className="text-slate-600 dark:text-white/70 text-sm bg-transparent border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-purple-400 transition-colors min-h-[60px] resize-none"
                       />
                     ) : (
                       <p className="text-slate-600 dark:text-white/70 text-sm">{pillar.title}</p>
