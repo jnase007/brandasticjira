@@ -1118,21 +1118,6 @@ export default function ClientManagement() {
                     >
                       {/* Action buttons - top right */}
                       <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-                        {/* Delete button - admin only */}
-                        {profile?.role === 'admin' && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setDeletingClient(client)
-                              setDeleteDialogOpen(true)
-                            }}
-                            className="p-1.5 rounded-lg transition-all bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/40 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white"
-                            title="Delete client"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
                         {/* Pin button */}
                         <button
                           onClick={(e) => {
