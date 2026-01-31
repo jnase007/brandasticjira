@@ -1822,7 +1822,7 @@ function PayrollReport({ employees, timeEntries }) {
     // Logo on left (contains BRANDASTIC text already)
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 28
+      const logoHeight = 11
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
       doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 22, logoWidth, logoHeight, undefined, 'FAST')
     }
@@ -2410,7 +2410,7 @@ export default function Reports() {
     // Logo on left (contains BRANDASTIC text already)
     if (logoDataUrl) {
       const logoProps = doc.getImageProperties(logoDataUrl)
-      const logoHeight = 28
+      const logoHeight = 11
       const logoWidth = (logoProps.width / logoProps.height) * logoHeight
       doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 22, logoWidth, logoHeight, undefined, 'FAST')
     }
