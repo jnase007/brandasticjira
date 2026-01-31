@@ -837,7 +837,7 @@ export default function ClientDialog({
                             <SelectContent>
                               <SelectItem value="prospect">Prospect</SelectItem>
                               <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive / Churned</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground mt-1">
