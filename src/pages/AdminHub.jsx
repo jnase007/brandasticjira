@@ -200,7 +200,7 @@ export default function AdminHub() {
 
       // Fetch all data
       const [clientsRes, teamRes, ticketsRes, completedRes, timeThisMonthRes, timeLastMonthRes, missionRes, settingsRes, notesRes, announcementsRes] = await Promise.all([
-        supabase.from('clients').select('id, name, monthly_hours, estimated_monthly_hours, contract_value, is_active, color, created_at'),
+        supabase.from('clients').select('*'),
         supabase.from('profiles').select('id, full_name, avatar_url, role, is_active, hourly_cost'),
         supabase.from('tickets').select('id, status, priority, assigned_to, due_date').neq('status', 'closed'),
         supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'closed').gte('updated_at', startOfMonth.toISOString()),
@@ -221,9 +221,10 @@ export default function AdminHub() {
       console.log('Mission:', missionRes.error ? `ERROR: ${missionRes.error.message}` : missionRes.data)
 
       const allClients = clientsRes.data || []
-      const activeClients = allClients.filter(c => c.is_active !== false)
+      // Match ClientManagement filtering: active status AND not a prospect
+      const activeClients = allClients.filter(c => c.is_active !== false && c.client_status !== 'prospect')
       
-      console.log('All clients:', allClients.length, 'Active clients:', activeClients.length)
+      console.log('All clients:', allClients.length, 'Active clients:', activeClients.length, 'Sample:', allClients[0])
       const allTeamMembers = teamRes.data || []
       const teamMembers = allTeamMembers.filter(t => t.is_active !== false)
       const tickets = ticketsRes.data || []
@@ -251,8 +252,8 @@ export default function AdminHub() {
       const lastMonthRevenue = monthlyRevenue * 0.92 // Simulate 8% growth
       const revenueChange = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0
       
-      // Team metrics
-      const activeTeamMembers = teamMembers.filter(t => t.role === 'team' || t.role === 'admin')
+      // Team metrics (include contractors in team size)
+      const activeTeamMembers = teamMembers.filter(t => t.role === 'team' || t.role === 'admin' || t.role === 'contractor')
       const revenuePerEmployee = activeTeamMembers.length > 0 ? annualRevenue / activeTeamMembers.length : 0
       
       // Time tracking
