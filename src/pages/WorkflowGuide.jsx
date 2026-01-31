@@ -921,6 +921,105 @@ export default function WorkflowGuide() {
         </Card>
       </motion.div>
 
+      {/* What's New Section */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card className="border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-brand-orange" />
+              What's New
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            
+            {/* Contractor Role */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <FileText className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-medium">Contractor (1099) Role</p>
+                <p className="text-muted-foreground">
+                  Tag team members as <strong>W-2 employees</strong> or <strong>1099 contractors</strong> in Admin → Team. 
+                  Contractors are excluded from employer tax calculations in Financials.
+                </p>
+              </div>
+            </div>
+
+            {/* Client Deactivation */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                <Calendar className="h-4 w-4 text-red-600" />
+              </div>
+              <div>
+                <p className="font-medium">Client Deactivation Tracking</p>
+                <p className="text-muted-foreground">
+                  When a client ends their retainer, set them to <strong>Inactive</strong> with an end date and reason. 
+                  This is tracked for financials and they're hidden from active lists.
+                </p>
+              </div>
+            </div>
+
+            {/* Task Sorting */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <GripVertical className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium">Task Sorting</p>
+                <p className="text-muted-foreground">
+                  On any client's Tasks tab, use the <strong>Sort by</strong> dropdown to organize tasks by 
+                  newest, oldest, due date, or assignee.
+                </p>
+              </div>
+            </div>
+
+            {/* Mission Page */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <Target className="h-4 w-4 text-green-600" />
+              </div>
+              <div>
+                <p className="font-medium">Editable Mission & Goals</p>
+                <p className="text-muted-foreground">
+                  Admins can now edit <strong>Vital Factors Goals</strong> and <strong>Initiatives</strong> directly 
+                  on the Mission page. Click any field to edit, then save.
+                </p>
+              </div>
+            </div>
+
+            {/* Permanent Delete */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="font-medium">Permanent Delete for Clients</p>
+                <p className="text-muted-foreground">
+                  In Admin → Clients, you can now choose to <strong>deactivate</strong> (keeps data) or 
+                  <strong> permanently delete</strong> a client and all their data (for test accounts).
+                </p>
+              </div>
+            </div>
+
+            {/* Calendar Refresh */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                <Calendar className="h-4 w-4 text-cyan-600" />
+              </div>
+              <div>
+                <p className="font-medium">Calendar Auto-Refresh</p>
+                <p className="text-muted-foreground">
+                  The Calendar now auto-refreshes when you navigate to it and includes a manual 
+                  <strong> Refresh</strong> button to see newly created tasks with due dates.
+                </p>
+              </div>
+            </div>
+
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Navigation Buttons */}
       <motion.div initial="hidden" animate="visible" variants={SECTION} className="flex flex-wrap gap-3">
         <Button asChild>
