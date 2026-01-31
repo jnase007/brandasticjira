@@ -157,6 +157,10 @@ export default function ClientDetail() {
   // Edit client state
   const [editClientOpen, setEditClientOpen] = useState(false)
   
+  // Delete client state
+  const [deleteClientOpen, setDeleteClientOpen] = useState(false)
+  const [deletingClient, setDeletingClient] = useState(false)
+  
   // Task sorting state
   const [taskSort, setTaskSort] = useState('newest') // 'newest' | 'oldest' | 'due_date' | 'assignee'
   
@@ -579,6 +583,75 @@ export default function ClientDetail() {
       toast({ title: 'Unable to create link', description: error.message, variant: 'destructive' })
     } finally {
       setSharingLink(false)
+    }
+  }
+
+  // Deactivate client (soft delete)
+  const handleDeactivateClient = async () => {
+    if (!resolvedClientId) return
+    setDeletingClient(true)
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_active: false, client_status: 'inactive' })
+        .eq('id', resolvedClientId)
+      
+      if (error) throw error
+      
+      toast({
+        title: 'Client deactivated',
+        description: `${client.name} has been deactivated.`,
+        variant: 'success',
+      })
+      setDeleteClientOpen(false)
+      navigate('/clients')
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to deactivate client.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingClient(false)
+    }
+  }
+
+  // Permanently delete client (hard delete)
+  const handlePermanentDeleteClient = async () => {
+    if (!resolvedClientId) return
+    setDeletingClient(true)
+    try {
+      // Delete related data first (due to foreign key constraints)
+      await supabase.from('time_entries').delete().eq('client_id', resolvedClientId)
+      await supabase.from('tickets').delete().eq('client_id', resolvedClientId)
+      await supabase.from('boards').delete().eq('client_id', resolvedClientId)
+      await supabase.from('client_notes').delete().eq('client_id', resolvedClientId)
+      await supabase.from('activity_log').delete().eq('client_id', resolvedClientId)
+      await supabase.from('client_wins').delete().eq('client_id', resolvedClientId)
+      
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', resolvedClientId)
+      
+      if (error) throw error
+      
+      toast({
+        title: '🗑️ Client permanently deleted',
+        description: `${client.name} and all related data have been removed.`,
+        variant: 'success',
+      })
+      setDeleteClientOpen(false)
+      navigate('/clients')
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast({
+        title: 'Error deleting client',
+        description: error.message || 'Failed to delete client.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingClient(false)
     }
   }
 
@@ -1707,6 +1780,17 @@ export default function ClientDetail() {
                       <Edit2 className="h-4 w-4" />
                       <span className="ml-2 hidden sm:inline">Edit</span>
                     </Button>
+                    {profile?.role === 'admin' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteClientOpen(true)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="ml-2 hidden sm:inline">Delete</span>
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -3814,6 +3898,60 @@ export default function ClientDetail() {
           toast({ title: 'Client updated!', variant: 'success' })
         }}
       />
+
+      {/* Delete Client Dialog */}
+      <Dialog open={deleteClientOpen} onOpenChange={setDeleteClientOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Remove Client: {client?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            {/* Deactivate Option */}
+            <button 
+              className="w-full p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 cursor-pointer hover:border-amber-400 transition-colors text-left"
+              onClick={handleDeactivateClient}
+              disabled={deletingClient}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <Eye className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-amber-700 dark:text-amber-400">Deactivate (Recommended)</h4>
+                  <p className="text-sm text-amber-600/80 dark:text-amber-400/70">Hide from active lists but keep all data. Can be reactivated later.</p>
+                </div>
+              </div>
+            </button>
+            
+            {/* Permanent Delete Option */}
+            <button 
+              className="w-full p-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 cursor-pointer hover:border-red-400 transition-colors text-left"
+              onClick={handlePermanentDeleteClient}
+              disabled={deletingClient}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-red-700 dark:text-red-400">Permanently Delete</h4>
+                  <p className="text-sm text-red-600/80 dark:text-red-400/70">Remove client and ALL related data forever. Cannot be undone!</p>
+                </div>
+              </div>
+            </button>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteClientOpen(false)} className="w-full" disabled={deletingClient}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }
