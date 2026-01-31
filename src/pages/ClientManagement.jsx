@@ -133,6 +133,11 @@ export default function ClientManagement() {
   const [pinnedClients, setPinnedClients] = useState([])
   const [favoritesLoading, setFavoritesLoading] = useState(false)
   
+  // Delete client state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingClient, setDeletingClient] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
   // Fetch user's favorite clients from database
   const fetchFavorites = async () => {
     if (!user?.id) return
@@ -163,6 +168,77 @@ export default function ClientManagement() {
     }
   }
   
+  // Deactivate client (soft delete)
+  const handleDeactivateClient = async () => {
+    if (!deletingClient) return
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_active: false, client_status: 'inactive' })
+        .eq('id', deletingClient.id)
+      
+      if (error) throw error
+      
+      toast({
+        title: 'Client deactivated',
+        description: `${deletingClient.name} has been deactivated.`,
+        variant: 'success',
+      })
+      setDeleteDialogOpen(false)
+      setDeletingClient(null)
+      fetchData(true)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to deactivate client.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Permanently delete client (hard delete)
+  const handlePermanentDeleteClient = async () => {
+    if (!deletingClient) return
+    setIsDeleting(true)
+    try {
+      // Delete related data first
+      await supabase.from('time_entries').delete().eq('client_id', deletingClient.id)
+      await supabase.from('tickets').delete().eq('client_id', deletingClient.id)
+      await supabase.from('boards').delete().eq('client_id', deletingClient.id)
+      await supabase.from('client_notes').delete().eq('client_id', deletingClient.id)
+      await supabase.from('activity_log').delete().eq('client_id', deletingClient.id)
+      await supabase.from('client_wins').delete().eq('client_id', deletingClient.id)
+      
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', deletingClient.id)
+      
+      if (error) throw error
+      
+      toast({
+        title: '🗑️ Client permanently deleted',
+        description: `${deletingClient.name} and all related data have been removed.`,
+        variant: 'success',
+      })
+      setDeleteDialogOpen(false)
+      setDeletingClient(null)
+      fetchData(true)
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast({
+        title: 'Error deleting client',
+        description: error.message || 'Failed to delete client.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const togglePinClient = async (clientId) => {
     if (!user?.id) return
     
@@ -1040,23 +1116,41 @@ export default function ClientManagement() {
                         client.is_active === false && "opacity-75 border-dashed"
                       )}
                     >
-                      {/* Pin button */}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          togglePinClient(client.id)
-                        }}
-                        className={cn(
-                          "absolute top-2 right-2 p-1.5 rounded-lg transition-all z-10",
-                          isPinned(client.id) 
-                            ? "bg-yellow-500 text-white" 
-                            : "bg-slate-100 dark:bg-white/10/50 text-slate-500 dark:text-white/50 opacity-0 group-hover:opacity-100 hover:bg-yellow-500 hover:text-white"
+                      {/* Action buttons - top right */}
+                      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                        {/* Delete button - admin only */}
+                        {profile?.role === 'admin' && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setDeletingClient(client)
+                              setDeleteDialogOpen(true)
+                            }}
+                            className="p-1.5 rounded-lg transition-all bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/40 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white"
+                            title="Delete client"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         )}
-                        title={isPinned(client.id) ? "Unpin client" : "Pin client"}
-                      >
-                        <Star className={cn("h-4 w-4", isPinned(client.id) && "fill-current")} />
-                      </button>
+                        {/* Pin button */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            togglePinClient(client.id)
+                          }}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-all",
+                            isPinned(client.id) 
+                              ? "bg-yellow-500 text-white" 
+                              : "bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 opacity-0 group-hover:opacity-100 hover:bg-yellow-500 hover:text-white"
+                          )}
+                          title={isPinned(client.id) ? "Unpin client" : "Pin client"}
+                        >
+                          <Star className={cn("h-4 w-4", isPinned(client.id) && "fill-current")} />
+                        </button>
+                      </div>
                       
                       <div className="flex items-center gap-3 mb-3">
                         {client.logo_url ? (
@@ -1938,6 +2032,60 @@ export default function ClientManagement() {
           setClientDialogOpen(false)
         }}
       />
+
+      {/* Delete Client Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Remove Client: {deletingClient?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            {/* Deactivate Option */}
+            <button 
+              className="w-full p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 cursor-pointer hover:border-amber-400 transition-colors text-left"
+              onClick={handleDeactivateClient}
+              disabled={isDeleting}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <Eye className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-amber-700 dark:text-amber-400">Deactivate (Recommended)</h4>
+                  <p className="text-sm text-amber-600/80 dark:text-amber-400/70">Hide from active lists but keep all data. Can be reactivated later.</p>
+                </div>
+              </div>
+            </button>
+            
+            {/* Permanent Delete Option */}
+            <button 
+              className="w-full p-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 cursor-pointer hover:border-red-400 transition-colors text-left"
+              onClick={handlePermanentDeleteClient}
+              disabled={isDeleting}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-red-700 dark:text-red-400">Permanently Delete</h4>
+                  <p className="text-sm text-red-600/80 dark:text-red-400/70">Remove client and ALL related data forever. Cannot be undone!</p>
+                </div>
+              </div>
+            </button>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full" disabled={isDeleting}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
     </div>
   )
