@@ -44,11 +44,19 @@ export default function DescriptionEditor({
   // Upload a single file
   const uploadFile = async (file) => {
     const fileId = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-    const filePath = folder ? `${folder}/${fileId}` : fileId
+    
+    // Use 'images' bucket for image files, 'documents' for others
+    const isImage = file.type?.startsWith('image/')
+    const targetBucket = isImage ? 'images' : bucket
+    
+    // For images, use a simpler path structure that the images bucket expects
+    const filePath = isImage 
+      ? `attachments/${fileId}`
+      : (folder ? `${folder}/${fileId}` : fileId)
 
     try {
       const { data, error } = await supabase.storage
-        .from(bucket)
+        .from(targetBucket)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
@@ -56,19 +64,28 @@ export default function DescriptionEditor({
 
       if (error) throw error
 
-      // Get URL - prefer signed URL for private buckets
+      // Get URL - images bucket is public, documents may need signed URLs
       let fileUrl = null
-      const { data: signed } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(filePath, 60 * 60 * 24 * 7) // 7 days
-      
-      if (signed?.signedUrl) {
-        fileUrl = signed.signedUrl
-      } else {
+      if (isImage) {
+        // Images bucket is public
         const { data: { publicUrl } } = supabase.storage
-          .from(bucket)
+          .from(targetBucket)
           .getPublicUrl(filePath)
         fileUrl = publicUrl
+      } else {
+        // Try signed URL for private buckets
+        const { data: signed } = await supabase.storage
+          .from(targetBucket)
+          .createSignedUrl(filePath, 60 * 60 * 24 * 7) // 7 days
+        
+        if (signed?.signedUrl) {
+          fileUrl = signed.signedUrl
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from(targetBucket)
+            .getPublicUrl(filePath)
+          fileUrl = publicUrl
+        }
       }
 
       const uploadedFile = {
@@ -78,6 +95,7 @@ export default function DescriptionEditor({
         type: file.type,
         url: fileUrl,
         path: filePath,
+        bucket: targetBucket,
         uploadedAt: new Date().toISOString(),
       }
 
