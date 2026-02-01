@@ -1027,7 +1027,7 @@ export default function FloatingTimer({
                       </div>
 
                       {/* Results List */}
-                      <div ref={listRef} className="max-h-64 overflow-y-auto">
+                      <div ref={listRef} className="max-h-80 overflow-y-auto">
                         {searchResults.length === 0 ? (
                           <div className="p-6 text-center">
                             {selectionStep === 'client' ? (
