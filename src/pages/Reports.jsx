@@ -1648,7 +1648,7 @@ function PayrollReport({ employees, timeEntries }) {
       case 'month':
         start = new Date(today.setMonth(today.getMonth() - 1)).toISOString().split('T')[0]
         break
-      case 'lastPayroll':
+      case 'lastPayroll': {
         // Assuming bi-weekly payroll, find last period
         const dayOfMonth = new Date().getDate()
         if (dayOfMonth <= 15) {
@@ -1659,6 +1659,7 @@ function PayrollReport({ employees, timeEntries }) {
           setEndDate(new Date(today.getFullYear(), today.getMonth(), 15).toISOString().split('T')[0])
         }
         break
+      }
       default:
         start = new Date(today.setDate(today.getDate() - 14)).toISOString().split('T')[0]
     }

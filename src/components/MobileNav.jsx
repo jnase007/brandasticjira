@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, X, LayoutDashboard, Kanban, Building2, Clock, BarChart3,
   Users2, Trophy, User, Shield, LogOut, Timer, Activity,
-  Search, ChevronRight, Zap, Bell, BookOpen, ActivitySquare,
+  Search, ChevronRight, Zap, Bell, BookOpen, ActivitySquare, Settings,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'

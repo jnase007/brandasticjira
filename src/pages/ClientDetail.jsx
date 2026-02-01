@@ -1536,13 +1536,14 @@ export default function ClientDetail() {
           if (!a.due_date && b.due_date) return 1
           if (!a.due_date && !b.due_date) return new Date(b.created_at) - new Date(a.created_at)
           return new Date(a.due_date) - new Date(b.due_date)
-        case 'assignee':
+        case 'assignee': {
           const aName = a.assigned_user?.full_name || 'zzz' // Unassigned at bottom
           const bName = b.assigned_user?.full_name || 'zzz'
           const nameCompare = aName.localeCompare(bName)
           if (nameCompare !== 0) return nameCompare
           // Secondary sort by newest
           return new Date(b.created_at) - new Date(a.created_at)
+        }
         default:
           return new Date(b.created_at) - new Date(a.created_at)
       }
