@@ -160,4 +160,57 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+/**
+ * Undo toast - shows a toast with an undo button
+ * The action is delayed and can be cancelled
+ * 
+ * @param {Object} options
+ * @param {string} options.title - Toast title
+ * @param {string} options.description - Toast description
+ * @param {Function} options.action - The destructive action to perform
+ * @param {Function} options.onUndo - Callback when undo is clicked (optional)
+ * @param {number} options.duration - Time before action executes (default 5000ms)
+ * @returns {Promise} Resolves when action completes, rejects if undone
+ */
+function undoableToast({ title, description, action, onUndo, duration = 5000 }) {
+  return new Promise((resolve, reject) => {
+    let cancelled = false
+    let timeoutId = null
+    
+    const { dismiss, update } = toast({
+      title,
+      description,
+      duration: duration + 1000, // Keep toast visible slightly longer
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          cancelled = true
+          if (timeoutId) clearTimeout(timeoutId)
+          dismiss()
+          onUndo?.()
+          reject(new Error('Action cancelled by user'))
+        }
+      },
+      variant: 'default',
+    })
+    
+    // Execute action after delay
+    timeoutId = setTimeout(async () => {
+      if (!cancelled) {
+        try {
+          await action()
+          resolve()
+        } catch (error) {
+          update({
+            title: 'Action failed',
+            description: error.message,
+            variant: 'destructive',
+          })
+          reject(error)
+        }
+      }
+    }, duration)
+  })
+}
+
+export { useToast, toast, undoableToast }

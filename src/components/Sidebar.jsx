@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -30,6 +30,9 @@ import {
   CalendarDays,
   CheckCircle,
   Crown,
+  History,
+  Hash,
+  X,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -75,11 +78,55 @@ export default function Sidebar({
   const navigate = useNavigate()
   const { signOut, isAdmin, isActualAdmin, viewMode, toggleViewMode, toggleClientPreview, clientPreviewMode } = useAuth()
   const [gamificationExpanded, setGamificationExpanded] = useState(false)
+  const [recentlyViewed, setRecentlyViewed] = useState([])
+  const [showRecent, setShowRecent] = useState(true)
+
+  // Load recently viewed items
+  useEffect(() => {
+    const loadRecent = () => {
+      const recent = JSON.parse(localStorage.getItem('recentlyViewed') || '[]')
+      setRecentlyViewed(recent.slice(0, 5))
+    }
+    loadRecent()
+    
+    // Listen for storage changes (from command palette)
+    const handleStorage = (e) => {
+      if (e.key === 'recentlyViewed') {
+        loadRecent()
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    
+    // Also poll periodically for same-tab updates
+    const interval = setInterval(loadRecent, 2000)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      clearInterval(interval)
+    }
+  }, [])
 
   const handleSignOut = async () => {
     await signOut()
     // Use hard redirect to ensure all cached state is cleared
     window.location.href = '/login'
+  }
+  
+  const getRecentIcon = (type) => {
+    switch (type) {
+      case 'client': return Building2
+      case 'ticket': return Hash
+      case 'member': return User
+      case 'board': return Kanban
+      default: return History
+    }
+  }
+  
+  const clearRecentlyViewed = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    localStorage.removeItem('recentlyViewed')
+    setRecentlyViewed([])
   }
 
   return (
@@ -384,6 +431,47 @@ export default function Sidebar({
               )}
             </div>
           </>
+        )}
+
+        {/* Recently Viewed Section */}
+        {!collapsed && recentlyViewed.length > 0 && showRecent && (
+          <div className="pt-4 border-t mt-4">
+            <div className="flex items-center justify-between px-3 mb-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <History className="h-3 w-3" />
+                Recent
+              </p>
+              <button
+                onClick={clearRecentlyViewed}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="Clear recent"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            <AnimatePresence>
+              {recentlyViewed.map((item, idx) => {
+                const IconComponent = getRecentIcon(item.type)
+                return (
+                  <motion.div
+                    key={`${item.type}-${item.id}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ delay: idx * 0.05 }}
+                  >
+                    <Link
+                      to={item.path}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-all group"
+                    >
+                      <IconComponent className="h-3.5 w-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />
+                      <span className="truncate flex-1">{item.name}</span>
+                    </Link>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+          </div>
         )}
 
         <div className="pt-4 border-t mt-4">

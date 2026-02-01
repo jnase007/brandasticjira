@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
   Kanban, User, Users, Building2, Clock, AlertCircle,
   ChevronDown, Filter, RefreshCw, CheckCircle, Circle, 
   PlayCircle, Eye, Plus, Search, Calendar, ArrowRight,
-  UserCheck, ThumbsUp, Receipt, CheckCircle2, Loader2
+  UserCheck, ThumbsUp, Receipt, CheckCircle2, Loader2,
+  CheckSquare, Square, X, Trash2, UserPlus, MoveRight
 } from 'lucide-react'
 import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -99,6 +100,102 @@ export default function TaskBoard() {
     assigned_to: '',
     estimated_hours: '',
   })
+  
+  // Multi-select / Bulk actions
+  const [selectedTasks, setSelectedTasks] = useState(new Set())
+  const [bulkActionLoading, setBulkActionLoading] = useState(false)
+  const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false)
+  const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false)
+  const [bulkAssignTo, setBulkAssignTo] = useState('')
+  const [bulkMoveStatus, setBulkMoveStatus] = useState('')
+  
+  // Toggle task selection
+  const toggleTaskSelection = useCallback((taskId, e) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    setSelectedTasks(prev => {
+      const next = new Set(prev)
+      if (next.has(taskId)) {
+        next.delete(taskId)
+      } else {
+        next.add(taskId)
+      }
+      return next
+    })
+  }, [])
+  
+  // Select all visible tasks
+  const selectAllVisible = useCallback(() => {
+    const allIds = filteredTickets.map(t => t.id)
+    setSelectedTasks(new Set(allIds))
+  }, [filteredTickets])
+  
+  // Clear selection
+  const clearSelection = useCallback(() => {
+    setSelectedTasks(new Set())
+  }, [])
+  
+  // Bulk assign
+  const handleBulkAssign = async () => {
+    if (!bulkAssignTo || selectedTasks.size === 0) return
+    setBulkActionLoading(true)
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .update({ assigned_to: bulkAssignTo })
+        .in('id', Array.from(selectedTasks))
+      
+      if (error) throw error
+      
+      toast({
+        title: `${selectedTasks.size} tasks reassigned`,
+        variant: 'success',
+      })
+      
+      clearSelection()
+      setBulkAssignDialogOpen(false)
+      fetchData()
+    } catch (error) {
+      toast({
+        title: 'Failed to reassign tasks',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+  
+  // Bulk move status
+  const handleBulkMove = async () => {
+    if (!bulkMoveStatus || selectedTasks.size === 0) return
+    setBulkActionLoading(true)
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .update({ status: bulkMoveStatus })
+        .in('id', Array.from(selectedTasks))
+      
+      if (error) throw error
+      
+      toast({
+        title: `${selectedTasks.size} tasks moved to ${COLUMNS.find(c => c.id === bulkMoveStatus)?.title}`,
+        variant: 'success',
+      })
+      
+      clearSelection()
+      setBulkMoveDialogOpen(false)
+      fetchData()
+    } catch (error) {
+      toast({
+        title: 'Failed to move tasks',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (user && profile) {
@@ -467,6 +564,64 @@ export default function TaskBoard() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <AnimatePresence>
+        {selectedTasks.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            className="mb-4"
+          >
+            <div className="flex items-center justify-between p-3 bg-brand-orange/10 border border-brand-orange/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <CheckSquare className="h-5 w-5 text-brand-orange" />
+                <span className="font-medium text-brand-orange">
+                  {selectedTasks.size} task{selectedTasks.size !== 1 ? 's' : ''} selected
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllVisible}
+                  className="text-xs"
+                >
+                  Select All ({filteredTickets.length})
+                </Button>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkAssignDialogOpen(true)}
+                  className="gap-1.5"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Reassign
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkMoveDialogOpen(true)}
+                  className="gap-1.5"
+                >
+                  <MoveRight className="h-4 w-4" />
+                  Move to
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  className="text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Stats Bar */}
       <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
         <div className="flex items-center gap-2">
@@ -558,10 +713,11 @@ export default function TaskBoard() {
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
                               className={cn(
-                                "mb-2 p-3 rounded-lg bg-card border shadow-sm cursor-grab active:cursor-grabbing select-none",
+                                "mb-2 p-3 rounded-lg bg-card border shadow-sm cursor-grab active:cursor-grabbing select-none group/card relative",
                                 dragSnapshot.isDragging 
                                   ? "shadow-xl ring-2 ring-brand-orange rotate-2 scale-105 z-50" 
-                                  : "hover:shadow-md"
+                                  : "hover:shadow-md",
+                                selectedTasks.has(ticket.id) && "ring-2 ring-brand-orange bg-brand-orange/5"
                               )}
                               style={{
                                 ...dragProvided.draggableProps.style,
@@ -570,6 +726,23 @@ export default function TaskBoard() {
                                   : 'box-shadow 0.2s ease, transform 0.2s ease',
                               }}
                             >
+                                {/* Selection Checkbox */}
+                                <button
+                                  onClick={(e) => toggleTaskSelection(ticket.id, e)}
+                                  className={cn(
+                                    "absolute -left-1 -top-1 p-0.5 rounded bg-white dark:bg-slate-800 border shadow-sm transition-all z-10",
+                                    selectedTasks.has(ticket.id) 
+                                      ? "opacity-100 border-brand-orange" 
+                                      : "opacity-0 group-hover/card:opacity-100 border-slate-300"
+                                  )}
+                                >
+                                  {selectedTasks.has(ticket.id) ? (
+                                    <CheckSquare className="h-4 w-4 text-brand-orange" />
+                                  ) : (
+                                    <Square className="h-4 w-4 text-slate-400" />
+                                  )}
+                                </button>
+                                
                                 {/* Ticket ID */}
                                 {ticket.ticket_id && (
                                   <p className="text-xs font-mono text-muted-foreground mb-1">
@@ -762,6 +935,99 @@ export default function TaskBoard() {
                   <Plus className="h-4 w-4 mr-2" />
                   Create Task
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Bulk Assign Dialog */}
+      <Dialog open={bulkAssignDialogOpen} onOpenChange={setBulkAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-brand-orange" />
+              Reassign {selectedTasks.size} Task{selectedTasks.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Label>Assign to team member</Label>
+            <Select value={bulkAssignTo} onValueChange={setBulkAssignTo}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Select team member" />
+              </SelectTrigger>
+              <SelectContent>
+                {teamMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={member.avatar_url} />
+                        <AvatarFallback className="text-[10px]">
+                          {member.full_name?.charAt(0) || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      {member.full_name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkAssignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkAssign} disabled={bulkActionLoading || !bulkAssignTo}>
+              {bulkActionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Reassign Tasks'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Bulk Move Dialog */}
+      <Dialog open={bulkMoveDialogOpen} onOpenChange={setBulkMoveDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MoveRight className="h-5 w-5 text-brand-orange" />
+              Move {selectedTasks.size} Task{selectedTasks.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Label>Move to status</Label>
+            <Select value={bulkMoveStatus} onValueChange={setBulkMoveStatus}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {COLUMNS.map((column) => (
+                  <SelectItem key={column.id} value={column.id}>
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", column.color)} />
+                      {column.title}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkMoveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkMove} disabled={bulkActionLoading || !bulkMoveStatus}>
+              {bulkActionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Move Tasks'
               )}
             </Button>
           </DialogFooter>

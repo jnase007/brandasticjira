@@ -27,6 +27,10 @@ import {
   Users2,
   Hash,
   Loader2,
+  User,
+  History,
+  Play,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
@@ -60,6 +64,16 @@ const COMMANDS = [
   { id: 'logout', label: 'Sign Out', icon: LogOut, action: 'custom', category: 'Account' },
 ]
 
+// Helper to format minutes as hours
+function formatMinutes(minutes) {
+  if (!minutes) return '0m'
+  const hrs = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (hrs === 0) return `${mins}m`
+  if (mins === 0) return `${hrs}h`
+  return `${hrs}h ${mins}m`
+}
+
 export default function CommandPalette({ open, onOpenChange, onAction }) {
   const navigate = useNavigate()
   const inputRef = useRef(null)
@@ -68,6 +82,40 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
   const searchTimeoutRef = useRef(null)
+
+  // Load recently viewed items from localStorage
+  const [recentlyViewed, setRecentlyViewed] = useState([])
+  const [recentTimeEntries, setRecentTimeEntries] = useState([])
+  
+  // Load recent data on mount
+  useEffect(() => {
+    if (open) {
+      // Load recently viewed
+      const recent = JSON.parse(localStorage.getItem('recentlyViewed') || '[]')
+      setRecentlyViewed(recent.slice(0, 5))
+      
+      // Load recent time entries for "continue working" suggestions
+      loadRecentTimeEntries()
+    }
+  }, [open])
+  
+  const loadRecentTimeEntries = async () => {
+    try {
+      const { data } = await supabase
+        .from('time_entries')
+        .select(`
+          id, description, minutes, date,
+          client:client_id(id, name),
+          ticket:ticket_id(id, title, ticket_id)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(3)
+      
+      setRecentTimeEntries(data || [])
+    } catch (e) {
+      console.error('Error loading recent time entries:', e)
+    }
+  }
 
   // Search tickets when query changes
   useEffect(() => {
@@ -84,51 +132,101 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
     searchTimeoutRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        // Search by ticket_id or title
-        const { data: tickets } = await supabase
-          .from('tickets')
-          .select('id, ticket_id, title, client_id, client:client_id(name)')
-          .or(`ticket_id.ilike.%${query}%,title.ilike.%${query}%`)
-          .limit(5)
-
-        // Also search clients
-        const { data: clients } = await supabase
-          .from('clients')
-          .select('id, name')
-          .ilike('name', `%${query}%`)
-          .limit(3)
+        // Parallel searches for better performance
+        const [ticketsRes, clientsRes, teamRes, boardsRes] = await Promise.all([
+          // Search tickets
+          supabase
+            .from('tickets')
+            .select('id, ticket_id, title, client_id, client:client_id(name)')
+            .or(`ticket_id.ilike.%${query}%,title.ilike.%${query}%`)
+            .limit(5),
+          // Search clients
+          supabase
+            .from('clients')
+            .select('id, name, color')
+            .ilike('name', `%${query}%`)
+            .eq('is_active', true)
+            .limit(4),
+          // Search team members
+          supabase
+            .from('profiles')
+            .select('id, full_name, email, avatar_url, role')
+            .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+            .eq('is_active', true)
+            .limit(3),
+          // Search boards
+          supabase
+            .from('boards')
+            .select('id, name, client_id, clients(name)')
+            .ilike('name', `%${query}%`)
+            .limit(3)
+        ])
 
         const results = []
         
-        // Add ticket results
-        if (tickets?.length) {
-          tickets.forEach(t => {
-            results.push({
-              id: `ticket-${t.id}`,
-              type: 'ticket',
-              label: t.title,
-              sublabel: `${t.ticket_id || 'No ID'} • ${t.client?.name || 'Unknown Client'}`,
-              ticketId: t.ticket_id,
-              icon: Hash,
-              action: 'navigate',
-              path: `/clients/${t.client_id}/tickets/${t.id}`,
-              category: 'Tickets',
-            })
-          })
-        }
-
-        // Add client results
-        if (clients?.length) {
-          clients.forEach(c => {
+        // Add client results first (more likely to be searched)
+        if (clientsRes.data?.length) {
+          clientsRes.data.forEach(c => {
             results.push({
               id: `client-${c.id}`,
               type: 'client',
               label: c.name,
               sublabel: 'Client',
               icon: Building2,
+              color: c.color,
               action: 'navigate',
               path: `/clients/${c.id}`,
-              category: 'Clients',
+              category: '🏢 Clients',
+            })
+          })
+        }
+
+        // Add ticket results
+        if (ticketsRes.data?.length) {
+          ticketsRes.data.forEach(t => {
+            results.push({
+              id: `ticket-${t.id}`,
+              type: 'ticket',
+              label: t.title,
+              sublabel: `${t.ticket_id || 'Task'} • ${t.client?.name || 'Unknown'}`,
+              ticketId: t.ticket_id,
+              icon: Hash,
+              action: 'navigate',
+              path: `/clients/${t.client_id}/tickets/${t.id}`,
+              category: '📋 Tasks',
+            })
+          })
+        }
+        
+        // Add team member results
+        if (teamRes.data?.length) {
+          teamRes.data.forEach(m => {
+            results.push({
+              id: `member-${m.id}`,
+              type: 'member',
+              label: m.full_name,
+              sublabel: m.role === 'admin' ? 'Admin' : m.role === 'contractor' ? 'Contractor' : 'Team Member',
+              icon: User,
+              avatarUrl: m.avatar_url,
+              action: 'navigate',
+              path: `/team/${m.id}`,
+              category: '👥 Team',
+            })
+          })
+        }
+        
+        // Add board results
+        if (boardsRes.data?.length) {
+          boardsRes.data.forEach(b => {
+            results.push({
+              id: `board-${b.id}`,
+              type: 'board',
+              label: b.name,
+              sublabel: b.clients?.name || 'Board',
+              icon: Kanban,
+              action: 'navigate',
+              path: `/boards/${b.id}`,
+              category: '📌 Boards',
             })
           })
         }
@@ -139,7 +237,7 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
       } finally {
         setSearching(false)
       }
-    }, 200)
+    }, 150) // Faster debounce
 
     return () => {
       if (searchTimeoutRef.current) {
@@ -158,20 +256,57 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
   const groupedCommands = useMemo(() => {
     const grouped = {}
     
-    // Add search results first
+    // If no query, show smart suggestions first
+    if (!query.trim()) {
+      // Continue working suggestions from recent time entries
+      if (recentTimeEntries.length > 0) {
+        grouped['⚡ Continue Working'] = recentTimeEntries.slice(0, 2).map(entry => ({
+          id: `continue-${entry.id}`,
+          type: 'continue',
+          label: entry.description || entry.ticket?.title || 'Continue work',
+          sublabel: `${entry.client?.name || 'Client'} • ${formatMinutes(entry.minutes)} logged`,
+          icon: Play,
+          action: 'custom',
+          clientId: entry.client?.id,
+          clientName: entry.client?.name,
+          ticketId: entry.ticket?.id,
+          category: '⚡ Continue Working',
+        }))
+      }
+      
+      // Recently viewed
+      if (recentlyViewed.length > 0) {
+        grouped['🕐 Recently Viewed'] = recentlyViewed.map(item => ({
+          id: `recent-${item.type}-${item.id}`,
+          type: item.type,
+          label: item.name,
+          sublabel: item.sublabel || (item.type === 'client' ? 'Client' : item.type === 'ticket' ? 'Task' : 'Team Member'),
+          icon: item.type === 'client' ? Building2 : item.type === 'ticket' ? Hash : User,
+          action: 'navigate',
+          path: item.path,
+          category: '🕐 Recently Viewed',
+        }))
+      }
+    }
+    
+    // Add search results
     searchResults.forEach(result => {
       if (!grouped[result.category]) grouped[result.category] = []
       grouped[result.category].push(result)
     })
     
-    // Add filtered commands
-    filteredCommands.forEach(cmd => {
+    // Add filtered commands (but not all when no query - just quick actions)
+    const commandsToShow = query.trim() 
+      ? filteredCommands 
+      : filteredCommands.filter(cmd => cmd.category === 'Quick Actions' || cmd.category === 'Navigation').slice(0, 6)
+    
+    commandsToShow.forEach(cmd => {
       if (!grouped[cmd.category]) grouped[cmd.category] = []
       grouped[cmd.category].push(cmd)
     })
     
     return grouped
-  }, [filteredCommands, searchResults])
+  }, [filteredCommands, searchResults, query, recentlyViewed, recentTimeEntries])
 
   // Flatten for keyboard navigation
   const flatCommands = Object.values(groupedCommands).flat()
@@ -215,9 +350,31 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  // Track recently viewed
+  const trackRecentlyViewed = useCallback((item) => {
+    const recent = JSON.parse(localStorage.getItem('recentlyViewed') || '[]')
+    // Remove if already exists
+    const filtered = recent.filter(r => !(r.type === item.type && r.id === item.id))
+    // Add to front
+    filtered.unshift(item)
+    // Keep only 10
+    localStorage.setItem('recentlyViewed', JSON.stringify(filtered.slice(0, 10)))
+  }, [])
+
   // Execute command
   const executeCommand = (cmd) => {
     onOpenChange(false)
+    
+    // Track recently viewed for searchable items
+    if (cmd.type === 'client' || cmd.type === 'ticket' || cmd.type === 'member' || cmd.type === 'board') {
+      trackRecentlyViewed({
+        type: cmd.type,
+        id: cmd.id.replace(`${cmd.type}-`, ''),
+        name: cmd.label,
+        sublabel: cmd.sublabel,
+        path: cmd.path,
+      })
+    }
     
     switch (cmd.action) {
       case 'navigate':
@@ -227,7 +384,17 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
         document.documentElement.classList.toggle('dark')
         break
       case 'custom':
-        onAction?.(cmd.id)
+        // For "continue working" items, pass the client/ticket context
+        if (cmd.type === 'continue') {
+          onAction?.('start-timer', { 
+            clientId: cmd.clientId, 
+            clientName: cmd.clientName,
+            ticketId: cmd.ticketId,
+            description: cmd.label 
+          })
+        } else {
+          onAction?.(cmd.id)
+        }
         break
     }
   }
@@ -276,7 +443,7 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search tickets (BRA-1), clients, commands..."
+                  placeholder="Search clients, tasks, team, boards..."
                   value={query}
                   onChange={(e) => {
                     setQuery(e.target.value)
@@ -304,6 +471,7 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
                       </div>
                       {commands.map((cmd) => {
                         const isSelected = flatCommands[selectedIndex]?.id === cmd.id
+                        const IconComponent = cmd.icon
                         return (
                           <button
                             key={cmd.id}
@@ -313,10 +481,30 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
                               "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
                               isSelected
                                 ? "bg-brand-orange text-white"
-                                : "hover:bg-muted"
+                                : "hover:bg-muted",
+                              cmd.type === 'continue' && !isSelected && "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20"
                             )}
                           >
-                            <cmd.icon className={cn("h-5 w-5 flex-shrink-0", isSelected ? "text-white" : "text-muted-foreground")} />
+                            {/* Show avatar for team members, color dot for clients, or icon */}
+                            {cmd.avatarUrl ? (
+                              <img 
+                                src={cmd.avatarUrl} 
+                                alt="" 
+                                className="h-6 w-6 rounded-full object-cover flex-shrink-0"
+                              />
+                            ) : cmd.color ? (
+                              <div 
+                                className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center"
+                                style={{ backgroundColor: cmd.color }}
+                              >
+                                <IconComponent className="h-3 w-3 text-white" />
+                              </div>
+                            ) : (
+                              <IconComponent className={cn(
+                                "h-5 w-5 flex-shrink-0", 
+                                isSelected ? "text-white" : cmd.type === 'continue' ? "text-green-600" : "text-muted-foreground"
+                              )} />
+                            )}
                             <div className="flex-1 min-w-0">
                               <span className="font-medium block truncate">{cmd.label}</span>
                               {cmd.sublabel && (
@@ -333,10 +521,22 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
                                 variant="outline" 
                                 className={cn(
                                   "font-mono text-xs flex-shrink-0",
-                                  isSelected ? "bg-white/20 text-white border-white/30" : "bg-blue-50 text-blue-700 border-blue-200"
+                                  isSelected ? "bg-white/20 text-white border-white/30" : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300"
                                 )}
                               >
                                 {cmd.ticketId}
+                              </Badge>
+                            )}
+                            {cmd.type === 'continue' && (
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "text-xs flex-shrink-0",
+                                  isSelected ? "bg-white/20 text-white border-white/30" : "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300"
+                                )}
+                              >
+                                <Play className="h-3 w-3 mr-1" />
+                                Resume
                               </Badge>
                             )}
                             {cmd.shortcut && (
