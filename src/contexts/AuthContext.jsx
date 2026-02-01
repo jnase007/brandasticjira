@@ -92,8 +92,87 @@ export function AuthProvider({ children }) {
     // This is the recommended Supabase pattern
     const initAuth = async () => {
       console.log('[Auth] Initializing...')
+      console.log('[Auth] URL hash present:', !!hash)
+      console.log('[Auth] Is OAuth callback:', isOAuthCallback)
       
       try {
+        // EXPLICIT OAuth callback handling - process tokens BEFORE anything else
+        // This is critical for incognito mode where detectSessionInUrl might not work reliably
+        if (isOAuthCallback) {
+          console.log('[Auth] Processing OAuth callback tokens from URL hash...')
+          
+          // Parse the hash parameters
+          const hashParams = new URLSearchParams(hash.substring(1))
+          const accessToken = hashParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token')
+          
+          if (accessToken && refreshToken) {
+            console.log('[Auth] Found tokens, setting session manually...')
+            
+            try {
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              })
+              
+              if (sessionError) {
+                console.error('[Auth] setSession error:', sessionError.message)
+              } else if (sessionData?.session?.user) {
+                console.log('[Auth] Session established via manual token:', sessionData.session.user.email)
+                
+                // Clear the hash from URL
+                window.history.replaceState(null, '', window.location.pathname + window.location.search)
+                
+                // Set state immediately
+                setUser(sessionData.session.user)
+                
+                // Fetch profile
+                try {
+                  const { data: profileData } = await getProfile(sessionData.session.user.id)
+                  if (profileData) {
+                    setProfile(profileData)
+                  } else {
+                    // Create profile if it doesn't exist
+                    await supabase.from('profiles').upsert({
+                      id: sessionData.session.user.id,
+                      email: sessionData.session.user.email,
+                      full_name: sessionData.session.user.user_metadata?.full_name || 
+                                 sessionData.session.user.user_metadata?.name || 
+                                 sessionData.session.user.email?.split('@')[0] || 'User',
+                      role: 'team',
+                      avatar_url: sessionData.session.user.user_metadata?.avatar_url || 
+                                  sessionData.session.user.user_metadata?.picture || null,
+                    }, { onConflict: 'id' })
+                    
+                    const { data: newProfile } = await getProfile(sessionData.session.user.id)
+                    setProfile(newProfile || {
+                      id: sessionData.session.user.id,
+                      email: sessionData.session.user.email,
+                      full_name: sessionData.session.user.email?.split('@')[0] || 'User',
+                      role: 'team',
+                    })
+                  }
+                } catch (profileErr) {
+                  console.warn('[Auth] Profile error:', profileErr)
+                  setProfile({
+                    id: sessionData.session.user.id,
+                    email: sessionData.session.user.email,
+                    full_name: sessionData.session.user.email?.split('@')[0] || 'User',
+                    role: 'team',
+                  })
+                }
+                
+                setJustLoggedIn(true)
+                setLoading(false)
+                clearTimeout(safetyTimeout)
+                return // Early exit - we're done
+              }
+            } catch (e) {
+              console.error('[Auth] Manual token processing failed:', e)
+            }
+          }
+        }
+        
         // Give a tiny delay for Supabase client to fully initialize
         await new Promise(resolve => setTimeout(resolve, 100))
         
@@ -369,7 +448,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     })
     return { data, error }
