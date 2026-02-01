@@ -3,6 +3,32 @@ import { supabase, getProfile, onSessionHealthChange, onTabSync } from '../lib/s
 
 const AuthContext = createContext({})
 
+// Safe localStorage wrapper for Safari private mode
+const safeLocalStorage = {
+  getItem: (key) => {
+    try {
+      return localStorage.getItem(key)
+    } catch (e) {
+      console.warn('[Auth] localStorage.getItem failed:', e)
+      return null
+    }
+  },
+  setItem: (key, value) => {
+    try {
+      localStorage.setItem(key, value)
+    } catch (e) {
+      console.warn('[Auth] localStorage.setItem failed:', e)
+    }
+  },
+  removeItem: (key) => {
+    try {
+      localStorage.removeItem(key)
+    } catch (e) {
+      console.warn('[Auth] localStorage.removeItem failed:', e)
+    }
+  },
+}
+
 // Event for profile sync notification
 const profileSyncEvent = new CustomEvent('profileSynced', { detail: {} })
 
@@ -28,7 +54,7 @@ export function AuthProvider({ children }) {
   
   // View mode toggle (admin can switch between admin and team view)
   const [viewMode, setViewMode] = useState(() => {
-    return localStorage.getItem('viewMode') || 'default'
+    return safeLocalStorage.getItem('viewMode') || 'default'
   })
   
   // Listen for session health changes from the Supabase module
@@ -183,7 +209,7 @@ export function AuthProvider({ children }) {
         
         // If no session but we have a storage key, try refresh
         if (!session) {
-          const stored = localStorage.getItem('brandastic-auth')
+          const stored = safeLocalStorage.getItem('brandastic-auth')
           if (stored) {
             console.log('[Auth] Found storage, attempting refresh...')
             try {
@@ -463,7 +489,7 @@ export function AuthProvider({ children }) {
       setLoading(false)
       
       // Clear all custom cached data
-      localStorage.removeItem('viewMode')
+      safeLocalStorage.removeItem('viewMode')
       
       // Call Supabase signOut with global scope to clear all sessions
       const { error } = await supabase.auth.signOut({ scope: 'global' })
@@ -681,7 +707,7 @@ export function AuthProvider({ children }) {
       console.log('[Auth] Trying localStorage restore...')
       try {
         const storageKey = 'brandastic-auth'
-        const stored = localStorage.getItem(storageKey)
+        const stored = safeLocalStorage.getItem(storageKey)
         
         if (stored) {
           const parsed = JSON.parse(stored)
@@ -859,7 +885,7 @@ export function AuthProvider({ children }) {
   const toggleViewMode = useCallback(() => {
     setViewMode(prev => {
       const newMode = prev === 'team' ? 'default' : 'team'
-      localStorage.setItem('viewMode', newMode)
+      safeLocalStorage.setItem('viewMode', newMode)
       return newMode
     })
   }, [])

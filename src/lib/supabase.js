@@ -7,16 +7,80 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.')
 }
 
+// ============================================
+// SAFE STORAGE - Works in Safari Private Mode
+// ============================================
+// Safari private mode can block or throw on localStorage access
+// This wrapper provides a fallback to in-memory storage
+
+const createSafeStorage = () => {
+  // In-memory fallback storage
+  const memoryStorage = new Map()
+  
+  // Test if localStorage is available and working
+  const isLocalStorageAvailable = () => {
+    try {
+      const testKey = '__storage_test__'
+      localStorage.setItem(testKey, testKey)
+      localStorage.removeItem(testKey)
+      return true
+    } catch (e) {
+      console.warn('[Storage] localStorage not available, using memory fallback')
+      return false
+    }
+  }
+  
+  const useLocalStorage = isLocalStorageAvailable()
+  
+  return {
+    getItem: (key) => {
+      try {
+        if (useLocalStorage) {
+          return localStorage.getItem(key)
+        }
+        return memoryStorage.get(key) || null
+      } catch (e) {
+        console.warn('[Storage] getItem failed:', e)
+        return memoryStorage.get(key) || null
+      }
+    },
+    setItem: (key, value) => {
+      try {
+        if (useLocalStorage) {
+          localStorage.setItem(key, value)
+        }
+        memoryStorage.set(key, value)
+      } catch (e) {
+        console.warn('[Storage] setItem failed:', e)
+        memoryStorage.set(key, value)
+      }
+    },
+    removeItem: (key) => {
+      try {
+        if (useLocalStorage) {
+          localStorage.removeItem(key)
+        }
+        memoryStorage.delete(key)
+      } catch (e) {
+        console.warn('[Storage] removeItem failed:', e)
+        memoryStorage.delete(key)
+      }
+    },
+  }
+}
+
+const safeStorage = createSafeStorage()
+
 // NOTE: Cookie storage was attempted but breaks Google OAuth due to cookie size limits
 // Session tokens can be 3-4KB which exceeds cookie limits
-// Keeping localStorage but with robust getUser() recovery on resume
+// Using safe storage wrapper that falls back to memory in private browsing
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storage: localStorage, // Using localStorage (cookies break OAuth)
+    storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'implicit', // Key fix for iOS/tab switch desync issues
     // debug: true, // Disable for production - spams console
