@@ -64,6 +64,7 @@ import {
 } from '../lib/utils'
 import TimeTracker from '../components/TimeTracker'
 import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
+import DescriptionEditor from '../components/DescriptionEditor'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -864,10 +865,31 @@ export default function TicketDetail() {
                 </div>
                 <div>
                   <Label>Description</Label>
-                  <Textarea
+                  <DescriptionEditor
                     value={editedTicket.description || ''}
-                    onChange={(e) => setEditedTicket((prev) => ({ ...prev, description: e.target.value }))}
-                    className="mt-1.5 min-h-[150px]"
+                    onChange={(value) => setEditedTicket((prev) => ({ ...prev, description: value }))}
+                    onFileUpload={async (file) => {
+                      // Add dropped file to ticket attachments
+                      const updatedAttachments = [
+                        ...(ticket.attachments || []),
+                        {
+                          name: file.name,
+                          url: file.url,
+                          type: file.type,
+                          size: file.size,
+                          path: file.path,
+                          uploadedAt: file.uploadedAt,
+                        },
+                      ]
+                      const { error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+                      if (!error) {
+                        setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+                      }
+                    }}
+                    bucket="documents"
+                    folder={`${ticket.client_id}/${activeTicketId || ticketId}`}
+                    className="mt-1.5"
+                    minHeight="150px"
                   />
                 </div>
                 <div>
