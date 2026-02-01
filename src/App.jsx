@@ -35,6 +35,7 @@ const Mission = lazy(() => import('./pages/Mission'))
 const Financials = lazy(() => import('./pages/Financials'))
 const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
 const AdminHub = lazy(() => import('./pages/AdminHub'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -730,6 +731,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/client-login" element={<ClientLogin />} />
               <Route path="/demo" element={<Demo />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </AnimatePresence>
@@ -1061,6 +1063,7 @@ function App() {
             <Route path="/client-dashboard" element={<ClientDashboard />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/client-view/:token" element={<ClientPublic />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </AnimatePresence>
