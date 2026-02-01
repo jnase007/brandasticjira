@@ -124,78 +124,10 @@ export default function TaskBoard() {
     })
   }, [])
   
-  // Select all visible tasks
-  const selectAllVisible = useCallback(() => {
-    const allIds = filteredTickets.map(t => t.id)
-    setSelectedTasks(new Set(allIds))
-  }, [filteredTickets])
-  
   // Clear selection
   const clearSelection = useCallback(() => {
     setSelectedTasks(new Set())
   }, [])
-  
-  // Bulk assign
-  const handleBulkAssign = async () => {
-    if (!bulkAssignTo || selectedTasks.size === 0) return
-    setBulkActionLoading(true)
-    try {
-      const { error } = await supabase
-        .from('tickets')
-        .update({ assigned_to: bulkAssignTo })
-        .in('id', Array.from(selectedTasks))
-      
-      if (error) throw error
-      
-      toast({
-        title: `${selectedTasks.size} tasks reassigned`,
-        variant: 'success',
-      })
-      
-      clearSelection()
-      setBulkAssignDialogOpen(false)
-      fetchData()
-    } catch (error) {
-      toast({
-        title: 'Failed to reassign tasks',
-        description: error.message,
-        variant: 'destructive',
-      })
-    } finally {
-      setBulkActionLoading(false)
-    }
-  }
-  
-  // Bulk move status
-  const handleBulkMove = async () => {
-    if (!bulkMoveStatus || selectedTasks.size === 0) return
-    setBulkActionLoading(true)
-    try {
-      const { error } = await supabase
-        .from('tickets')
-        .update({ status: bulkMoveStatus })
-        .in('id', Array.from(selectedTasks))
-      
-      if (error) throw error
-      
-      toast({
-        title: `${selectedTasks.size} tasks moved to ${COLUMNS.find(c => c.id === bulkMoveStatus)?.title}`,
-        variant: 'success',
-      })
-      
-      clearSelection()
-      setBulkMoveDialogOpen(false)
-      fetchData()
-    } catch (error) {
-      toast({
-        title: 'Failed to move tasks',
-        description: error.message,
-        variant: 'destructive',
-      })
-    } finally {
-      setBulkActionLoading(false)
-    }
-  }
 
   useEffect(() => {
     if (user && profile) {
@@ -361,6 +293,74 @@ export default function TaskBoard() {
     })
     return grouped
   }, [filteredTickets])
+
+  // Select all visible tasks (defined after filteredTickets)
+  const selectAllVisible = useCallback(() => {
+    const allIds = filteredTickets.map(t => t.id)
+    setSelectedTasks(new Set(allIds))
+  }, [filteredTickets])
+  
+  // Bulk assign
+  const handleBulkAssign = async () => {
+    if (!bulkAssignTo || selectedTasks.size === 0) return
+    setBulkActionLoading(true)
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .update({ assigned_to: bulkAssignTo })
+        .in('id', Array.from(selectedTasks))
+      
+      if (error) throw error
+      
+      toast({
+        title: `${selectedTasks.size} tasks reassigned`,
+        variant: 'success',
+      })
+      
+      clearSelection()
+      setBulkAssignDialogOpen(false)
+      fetchData()
+    } catch (error) {
+      toast({
+        title: 'Failed to reassign tasks',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+  
+  // Bulk move status
+  const handleBulkMove = async () => {
+    if (!bulkMoveStatus || selectedTasks.size === 0) return
+    setBulkActionLoading(true)
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .update({ status: bulkMoveStatus })
+        .in('id', Array.from(selectedTasks))
+      
+      if (error) throw error
+      
+      toast({
+        title: `${selectedTasks.size} tasks moved to ${COLUMNS.find(c => c.id === bulkMoveStatus)?.title}`,
+        variant: 'success',
+      })
+      
+      clearSelection()
+      setBulkMoveDialogOpen(false)
+      fetchData()
+    } catch (error) {
+      toast({
+        title: 'Failed to move tasks',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
 
   // Create task handler
   const handleCreateTask = async () => {
