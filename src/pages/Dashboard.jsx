@@ -112,6 +112,31 @@ export default function Dashboard({ onConfetti }) {
     
     try {
       console.log('[Dashboard] Starting data fetch...')
+      console.log('[Dashboard] User ID:', user?.id)
+      console.log('[Dashboard] Profile ID:', profile?.id)
+      
+      // Ensure we have a valid session token by checking with getUser()
+      // This is more reliable than getSession() as it hits the server
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !userData?.user) {
+        console.error('[Dashboard] getUser failed:', userError?.message)
+        
+        // Try refreshing the session
+        console.log('[Dashboard] Attempting session refresh...')
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        
+        if (refreshError || !refreshData?.session) {
+          console.error('[Dashboard] Session refresh failed:', refreshError?.message)
+          setFetchError('Session expired. Please log in again.')
+          setLoading(false)
+          setRefreshing(false)
+          return
+        }
+        console.log('[Dashboard] Session refreshed successfully')
+      } else {
+        console.log('[Dashboard] Session validated for:', userData.user.email)
+      }
       
       // Validate session before fetching - this refreshes token if expiring
       const sessionValid = await ensureValidSession()
@@ -146,6 +171,28 @@ export default function Dashboard({ onConfetti }) {
         ]),
       ])
 
+      // Log results status
+      console.log('[Dashboard] Query results:', {
+        clients: clientsRes.status,
+        boards: boardsRes.status,
+        hours: hoursRes.status,
+        tickets: ticketsRes.status,
+      })
+      
+      // Log any errors
+      if (clientsRes.status === 'rejected') {
+        console.error('[Dashboard] Clients query failed:', clientsRes.reason)
+      }
+      if (boardsRes.status === 'rejected') {
+        console.error('[Dashboard] Boards query failed:', boardsRes.reason)
+      }
+      if (clientsRes.status === 'fulfilled' && clientsRes.value?.error) {
+        console.error('[Dashboard] Clients query error:', clientsRes.value.error)
+      }
+      if (boardsRes.status === 'fulfilled' && boardsRes.value?.error) {
+        console.error('[Dashboard] Boards query error:', boardsRes.value.error)
+      }
+      
       // Extract data, defaulting to empty arrays on failure
       const clientsData = clientsRes.status === 'fulfilled' && clientsRes.value?.data ? clientsRes.value.data : []
       const boardsData = boardsRes.status === 'fulfilled' && boardsRes.value?.data ? boardsRes.value.data : []
@@ -291,7 +338,10 @@ export default function Dashboard({ onConfetti }) {
       
       // Only show error if ALL critical data failed
       if (clientsRes.status === 'rejected' && boardsRes.status === 'rejected') {
-        setFetchError('Some data failed to load. Try refreshing.')
+        const clientsError = clientsRes.reason?.message || 'Unknown error'
+        const boardsError = boardsRes.reason?.message || 'Unknown error'
+        console.error('[Dashboard] Both queries failed:', { clientsError, boardsError })
+        setFetchError(`Data load failed. Clients: ${clientsError}. Try refreshing.`)
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
