@@ -719,8 +719,8 @@ function App() {
   // Confetti component
   const confetti = <Confetti trigger={confettiTrigger} />
 
-  // Public routes (Login, Demo) - no sidebar
-  if (!user && (location.pathname === '/login' || location.pathname === '/demo')) {
+  // Public routes (Login, Demo, Auth Callback) - no sidebar
+  if (!user && (location.pathname === '/login' || location.pathname === '/demo' || location.pathname === '/auth/callback')) {
     return (
       <div className="min-h-screen bg-background">
         <PageLoadingBar isLoading={isNavigating} />
