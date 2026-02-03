@@ -407,8 +407,8 @@ export function AuthProvider({ children }) {
       // Clear all custom cached data
       safeLocalStorage.removeItem('viewMode')
       
-      // Call Supabase signOut with global scope to clear all sessions
-      const { error } = await supabase.auth.signOut({ scope: 'global' })
+      // Call Supabase signOut with local scope (only this browser)
+      const { error } = await supabase.auth.signOut({ scope: 'local' })
       
       if (error) {
         console.error('Supabase signOut error:', error)
@@ -702,8 +702,10 @@ export function AuthProvider({ children }) {
         const restored = await restoreSession()
         
         if (!restored && user) {
-          console.warn('[Auth] Cannot restore session - reloading page')
-          window.location.reload()
+          console.warn('[Auth] Cannot restore session - showing error instead of reload')
+          // Don't reload - just show the error and let user decide
+          setAuthError('Session could not be restored. Please sign in again if issues persist.')
+          setSessionHealthy(false)
         }
       }
     }
@@ -745,8 +747,8 @@ export function AuthProvider({ children }) {
     }
   }, [user])
   
-  // AGGRESSIVE HEARTBEAT - uses getUser() which FORCES server check
-  // This keeps the session alive and catches desyncs proactively
+  // GENTLE HEARTBEAT - refreshes session periodically to keep it alive
+  // Less aggressive than before - every 5 minutes, and no page reloads
   useEffect(() => {
     let heartbeatCount = 0
     
@@ -755,39 +757,40 @@ export function AuthProvider({ children }) {
       if (document.visibilityState !== 'visible' || !user) return
       
       heartbeatCount++
-      console.log(`[Auth] Heartbeat #${heartbeatCount}`)
+      // Only log every 5th heartbeat to reduce noise
+      if (heartbeatCount % 5 === 0) {
+        console.log(`[Auth] Heartbeat #${heartbeatCount}`)
+      }
       
       try {
-        // Use getUser() - this HITS THE SERVER and forces token refresh if needed
-        // Much more reliable than getSession() which just reads memory/localStorage
-        const { data: userData, error: userError } = await supabase.auth.getUser()
+        // Just check getSession - don't hit the server aggressively
+        const { data: sessionData } = await supabase.auth.getSession()
         
-        if (userError || !userData?.user) {
-          console.warn('[Auth] Heartbeat: getUser() failed, trying recovery...')
+        if (!sessionData?.session) {
+          console.warn('[Auth] Heartbeat: No session found, trying silent refresh...')
           
-          // Try refreshSession
+          // Try refreshSession silently
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
           
           if (refreshError || !refreshData?.session) {
-            console.error('[Auth] Heartbeat: refresh also failed - reloading page')
-            window.location.reload()
+            console.warn('[Auth] Heartbeat: refresh failed - setting error state')
+            // Don't reload - just show error state and let user decide
+            setSessionHealthy(false)
+            setAuthError('Your session may have expired. Click "Refresh Session" or sign in again.')
             return
           }
           
           // Refresh succeeded - update state
           setUser(refreshData.session.user)
+          setSessionHealthy(true)
+          setAuthError(null)
           console.log('[Auth] Heartbeat: recovered via refreshSession')
-        } else {
-          // getUser succeeded - session is definitely valid
-          // This "poke" keeps the internal client state fresh
-          if (userData.user.id !== user?.id) {
-            setUser(userData.user)
-          }
         }
       } catch (e) {
-        console.error('[Auth] Heartbeat error:', e)
+        console.warn('[Auth] Heartbeat error (non-fatal):', e.message)
+        // Don't crash or reload on heartbeat errors
       }
-    }, 30 * 1000) // Every 30 seconds when visible - aggressive but necessary
+    }, 5 * 60 * 1000) // Every 5 minutes - much less aggressive
     
     return () => clearInterval(heartbeat)
   }, [user])

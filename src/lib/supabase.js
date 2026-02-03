@@ -292,22 +292,22 @@ export async function ensureValidSession() {
 export async function safeQuery(queryFn, options = {}) {
   const maxRetries = 3
   
-  // AGGRESSIVE: Before EVERY query, ensure session is fresh
-  // This is the key to fixing tab switch issues - we don't trust the cached session
+  // Before queries, check session is valid
+  // This helps with tab switch issues
   try {
-    console.log('[SafeQuery] Pre-query session check')
+    // Reduced logging to avoid console spam
     
     // First check if session exists in memory
     const { data: sessionCheck } = await supabase.auth.getSession()
     
     if (!sessionCheck?.session) {
-      console.log('[SafeQuery] Session null in memory - forcing refresh')
+      // Session not in memory - try to refresh
       
       // Try refreshSession first (uses refresh token from storage)
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
       
       if (refreshError || !refreshData?.session) {
-        console.log('[SafeQuery] refreshSession failed, trying getUser()...')
+        // refreshSession failed, trying getUser() as last resort
         
         // getUser() hits the server directly - last resort
         const { data: userData, error: userError } = await supabase.auth.getUser()
