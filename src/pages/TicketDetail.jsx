@@ -65,6 +65,7 @@ import {
 import TimeTracker from '../components/TimeTracker'
 import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import DescriptionEditor from '../components/DescriptionEditor'
+import MarkdownContent from '../components/MarkdownContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -1094,13 +1095,10 @@ export default function TicketDetail() {
                     Edit
                   </Button>
                 </div>
-                <p 
-                  className="text-muted-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors"
+                <MarkdownContent 
+                  content={ticket.description}
                   onClick={() => setEditMode(true)}
-                  title="Click to edit"
-                >
-                  {ticket.description || 'No description provided. Click to add one.'}
-                </p>
+                />
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-6 pt-6 border-t">
                   <div 
