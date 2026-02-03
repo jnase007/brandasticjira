@@ -1044,6 +1044,9 @@ function App() {
                 }
               />
 
+              {/* Auth callback - needs to be here too in case user is already set */}
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              
               {/* Default redirect */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
