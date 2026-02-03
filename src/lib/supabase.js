@@ -540,7 +540,7 @@ export async function getBoard(boardId) {
     .from('boards')
     .select(`
       *,
-      client:clients(id, name, color, logo_url, slug, monthly_hours)
+      client:clients(id, name, color, logo_url, slug, monthly_hours, engagement_type)
     `)
     .eq('id', boardId)
     .single()
@@ -1222,6 +1222,7 @@ export async function getTeamMembers() {
     .from('profiles')
     .select('*')
     .in('role', ['team', 'admin'])
+    .eq('is_active', true)
     .order('full_name')
   return { data, error }
 }

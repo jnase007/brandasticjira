@@ -7,7 +7,8 @@ import {
   ChevronDown, Filter, RefreshCw, CheckCircle, Circle, 
   PlayCircle, Eye, Plus, Search, Calendar, ArrowRight,
   UserCheck, ThumbsUp, Receipt, CheckCircle2, Loader2,
-  CheckSquare, Square, X, Trash2, UserPlus, MoveRight
+  CheckSquare, Square, X, Trash2, UserPlus, MoveRight,
+  CalendarDays, ClipboardList, DollarSign
 } from 'lucide-react'
 import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -93,13 +94,25 @@ export default function TaskBoard() {
   // Create task dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(searchParams.get('new') === 'true')
   const [creating, setCreating] = useState(false)
-  const [newTask, setNewTask] = useState({
+  const emptyTaskForm = {
     title: '',
     description: '',
     client_id: '',
     assigned_to: '',
+    reporter_id: '',  // Will default to current user
     estimated_hours: '',
-  })
+    due_date: '',
+    ticket_type: 'task',
+  }
+  const [newTask, setNewTask] = useState(emptyTaskForm)
+  
+  // Reset form when dialog closes
+  const handleCreateDialogChange = (open) => {
+    setCreateDialogOpen(open)
+    if (!open) {
+      setNewTask(emptyTaskForm)
+    }
+  }
   
   // Multi-select / Bulk actions
   const [selectedTasks, setSelectedTasks] = useState(new Set())
@@ -182,7 +195,7 @@ export default function TaskBoard() {
           .eq('is_active', true),
         supabase
           .from('clients')
-          .select('id, name, color, logo_url')
+          .select('id, name, color, logo_url, engagement_type')
           .eq('is_active', true)
           .order('name')
       ])
@@ -380,9 +393,12 @@ export default function TaskBoard() {
         description: newTask.description.trim() || null,
         client_id: newTask.client_id,
         assigned_to: newTask.assigned_to || user.id,
+        reporter_id: newTask.reporter_id || user.id,  // Default to current user
         status: 'new',
         priority: 'medium',
         created_by: user.id,
+        ticket_type: newTask.ticket_type || 'task',
+        due_date: newTask.due_date || null,
       }
       
       if (newTask.estimated_hours) {
@@ -406,8 +422,7 @@ export default function TaskBoard() {
       }
       
       setTickets(prev => [enrichedTicket, ...prev])
-      setCreateDialogOpen(false)
-      setNewTask({ title: '', description: '', client_id: '', assigned_to: '', estimated_hours: '' })
+      handleCreateDialogChange(false)
       toast({ title: '✅ Task created!', variant: 'success' })
       
       // Navigate to the newly created task
@@ -818,13 +833,34 @@ export default function TaskBoard() {
       )}
       
       {/* Create Task Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={handleCreateDialogChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-brand-orange" />
               Create New Task
             </DialogTitle>
+            {/* Show billing type when client is selected */}
+            {newTask.client_id && (() => {
+              const selectedClient = clients.find(c => c.id === newTask.client_id)
+              return selectedClient?.engagement_type ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <div className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-medium",
+                    selectedClient.engagement_type === 'retainer' 
+                      ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400"
+                      : "bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400"
+                  )}>
+                    {selectedClient.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 A La Carte'}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedClient.engagement_type === 'retainer' 
+                      ? 'Time will be tracked against monthly retainer'
+                      : 'This will be billed as project work'}
+                  </span>
+                </div>
+              ) : null
+            })()}
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -846,6 +882,11 @@ export default function TaskBoard() {
                           style={{ backgroundColor: client.color || '#6366f1' }}
                         />
                         {client.name}
+                        {client.engagement_type && (
+                          <span className="text-xs text-muted-foreground">
+                            ({client.engagement_type === 'retainer' ? 'Retainer' : 'Project'})
+                          </span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
@@ -906,6 +947,37 @@ export default function TaskBoard() {
               </div>
               
               <div>
+                <Label>Reporter</Label>
+                <Select
+                  value={newTask.reporter_id || user?.id}
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, reporter_id: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select reporter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={member.avatar_url} />
+                            <AvatarFallback className="text-[10px]">
+                              {member.full_name?.charAt(0) || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          {member.full_name}
+                          {member.id === user?.id && <span className="text-muted-foreground">(you)</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Defaults to you</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <Label>Estimated Hours</Label>
                 <Input
                   type="number"
@@ -917,11 +989,51 @@ export default function TaskBoard() {
                   className="mt-1.5"
                 />
               </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Type</Label>
+                <Select
+                  value={newTask.ticket_type}
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, ticket_type: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="task">
+                      <span className="flex items-center gap-2">
+                        <ClipboardList className="h-4 w-4" />
+                        Task
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="client_homework">
+                      <span className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-orange-500" />
+                        Client Homework
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  Due Date
+                </Label>
+                <Input
+                  type="date"
+                  value={newTask.due_date}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
+                  className="mt-1.5"
+                />
+              </div>
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+            <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateTask} disabled={creating}>

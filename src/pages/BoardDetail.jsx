@@ -27,6 +27,7 @@ import {
   Palette,
   Loader2,
   DollarSign,
+  CalendarDays,
 } from 'lucide-react'
 import { 
   getBoard, 
@@ -103,9 +104,11 @@ export default function BoardDetail() {
     title: '',
     description: '',
     assigned_to: '',
+    reporter_id: '',  // Will default to current user
     estimated_hours: '',
     ticket_type: 'task',
     category_id: '',
+    due_date: '',
   }
   const [newTicket, setNewTicket] = useState(emptyTicketForm)
   
@@ -320,9 +323,11 @@ export default function BoardDetail() {
         description: newTicket.description,
         priority: 'medium',
         assigned_to: newTicket.assigned_to || null,
+        reporter_id: newTicket.reporter_id || user.id,  // Default to current user
         estimated_hours: newTicket.estimated_hours ? parseFloat(newTicket.estimated_hours) : null,
         ticket_type: newTicket.ticket_type || 'task',
         category_id: newTicket.category_id || null,
+        due_date: newTicket.due_date || null,
         board_id: boardId,
         client_id: board.client_id,
         created_by: user.id,
@@ -345,15 +350,7 @@ export default function BoardDetail() {
         metadata: { board_id: boardId },
       })
       setCreateDialogOpen(false)
-      setNewTicket({
-        title: '',
-        description: '',
-        priority: 'medium',
-        assigned_to: '',
-        estimated_hours: '',
-        ticket_type: 'task',
-        category_id: '',
-      })
+      setNewTicket(emptyTicketForm)
 
       toast({
         title: 'Task created',
@@ -673,13 +670,26 @@ export default function BoardDetail() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>Create New Task</DialogTitle>
-              {/* Client Rate Reminder */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                <DollarSign className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                  ${clientRate}/hr
-                </span>
-                <span className="text-xs text-green-600 dark:text-green-500">rate</span>
+              <div className="flex items-center gap-2">
+                {/* Billing Type Indicator */}
+                {board?.client?.engagement_type && (
+                  <div className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-medium",
+                    board.client.engagement_type === 'retainer' 
+                      ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400"
+                      : "bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400"
+                  )}>
+                    {board.client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 A La Carte'}
+                  </div>
+                )}
+                {/* Client Rate Reminder */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                  <DollarSign className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                    ${clientRate}/hr
+                  </span>
+                  <span className="text-xs text-green-600 dark:text-green-500">rate</span>
+                </div>
               </div>
             </div>
           </DialogHeader>
@@ -706,24 +716,47 @@ export default function BoardDetail() {
               />
             </div>
 
-            <div>
-              <Label>Assignee</Label>
-              <Select
-                value={newTicket.assigned_to}
-                onValueChange={(value) => setNewTicket((prev) => ({ ...prev, assigned_to: value }))}
-              >
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Assignee</Label>
+                <Select
+                  value={newTicket.assigned_to}
+                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, assigned_to: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Reporter</Label>
+                <Select
+                  value={newTicket.reporter_id || user?.id || ''}
+                  onValueChange={(value) => setNewTicket((prev) => ({ ...prev, reporter_id: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select reporter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name}
+                        {member.id === user?.id && <span className="text-muted-foreground ml-1">(you)</span>}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Defaults to you</p>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -768,6 +801,21 @@ export default function BoardDetail() {
               </div>
             </div>
 
+            {/* Due Date */}
+            <div>
+              <Label className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Due Date
+                <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                type="date"
+                value={newTicket.due_date}
+                onChange={(e) => setNewTicket((prev) => ({ ...prev, due_date: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+
             {/* Category */}
             <div>
               <Label>Category</Label>
@@ -793,7 +841,7 @@ export default function BoardDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+            <Button variant="outline" onClick={() => handleDialogChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateTicket} disabled={saving}>

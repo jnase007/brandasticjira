@@ -273,6 +273,7 @@ export default function TicketDetail() {
       description: data.description,
       status: data.status,
       assigned_to: data.assigned_to || null,
+      reporter_id: data.reporter_id || null,
       due_date: data.due_date || null,
       start_date: data.start_date || null,
       estimated_hours: data.estimated_hours || null,
@@ -330,7 +331,15 @@ export default function TicketDetail() {
       ])
 
       if (commentsRes.data) setComments(commentsRes.data)
-      if (teamRes.data) setTeamMembers(teamRes.data)
+      if (teamRes.data) {
+        let members = teamRes.data
+        // Ensure the assigned user is in the list even if they aren't a standard team member
+        // This fixes the bug where assigned users don't show in the dropdown
+        if (ticketRes.data?.assigned_user && !members.find(m => m.id === ticketRes.data.assigned_to)) {
+          members = [...members, ticketRes.data.assigned_user]
+        }
+        setTeamMembers(members)
+      }
       if (timeRes.data) {
         const normalizedEntries = timeRes.data.map((entry) => ({
           ...entry,
@@ -387,6 +396,7 @@ export default function TicketDetail() {
         description: editedTicket.description,
         status: editedTicket.status,
         assigned_to: editedTicket.assigned_to || null,
+        reporter_id: editedTicket.reporter_id || null,
         due_date: editedTicket.due_date || null,
         start_date: editedTicket.start_date || null,
         estimated_hours: editedTicket.estimated_hours || null,
@@ -981,6 +991,38 @@ export default function TicketDetail() {
                     </Select>
                   </div>
                   <div>
+                    <Label>Reporter</Label>
+                    <Select
+                      value={editedTicket.reporter_id || 'unassigned'}
+                      onValueChange={(value) => setEditedTicket((prev) => ({ 
+                        ...prev, 
+                        reporter_id: value === 'unassigned' ? null : value 
+                      }))}
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Select reporter..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">
+                          <span className="text-muted-foreground">No reporter</span>
+                        </SelectItem>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage src={member.avatar_url} />
+                                <AvatarFallback className="text-[8px]">
+                                  {getInitials(member.full_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {member.full_name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <Label>Start Date</Label>
                     <Input
                       type="date"
@@ -1034,7 +1076,7 @@ export default function TicketDetail() {
                   {ticket.description || 'No description provided. Click to add one.'}
                 </p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-6 pt-6 border-t">
                   <div 
                     className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
                     onClick={() => setEditMode(true)}
@@ -1057,6 +1099,32 @@ export default function TicketDetail() {
                     ) : (
                       <span className="text-sm text-brand-orange font-medium">Click to assign</span>
                     )}
+                  </div>
+                  <div 
+                    className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
+                    onClick={() => setEditMode(true)}
+                    title="Click to edit reporter"
+                  >
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                      <User className="h-3 w-3" /> Reporter
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                    </p>
+                    {(() => {
+                      const reporter = teamMembers.find(m => m.id === ticket.reporter_id)
+                      return reporter ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={reporter.avatar_url} />
+                            <AvatarFallback className="text-[10px]">
+                              {getInitials(reporter.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm">{reporter.full_name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Not set</span>
+                      )
+                    })()}
                   </div>
                   <div 
                     className="cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors group"
