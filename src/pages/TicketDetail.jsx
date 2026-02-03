@@ -738,10 +738,32 @@ export default function TicketDetail() {
             </Link>
           </Button>
           <div>
-            <span className="font-mono text-sm text-muted-foreground">
-              {ticket.ticket_id}
-            </span>
-            <h1 className="text-2xl font-display font-bold mt-1">{ticket.title}</h1>
+            {/* Ticket Key - Prominent with copy button */}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-lg font-bold text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded-md">
+                {ticket.ticket_id}
+              </span>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-brand-orange"
+                onClick={() => {
+                  const shortUrl = `${window.location.origin}/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id}`
+                  navigator.clipboard.writeText(shortUrl)
+                  toast({
+                    title: 'Link copied!',
+                    description: `${ticket.ticket_id} link copied to clipboard`,
+                    variant: 'success',
+                  })
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                </svg>
+              </Button>
+            </div>
+            <h1 className="text-2xl font-display font-bold">{ticket.title}</h1>
           </div>
         </div>
 

@@ -192,7 +192,7 @@ export default function CommandPalette({ open, onOpenChange, onAction }) {
               ticketId: t.ticket_id,
               icon: Hash,
               action: 'navigate',
-              path: `/clients/${t.client_id}/tickets/${t.id}`,
+              path: `/clients/${t.client_id}/tickets/${t.ticket_id || t.id}`,
               category: '📋 Tasks',
             })
           })
