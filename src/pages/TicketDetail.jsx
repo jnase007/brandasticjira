@@ -732,10 +732,14 @@ export default function TicketDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to={boardLink}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate(-1)}
+            className="gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back</span>
           </Button>
           <div>
             {/* Ticket Key - Prominent with copy button */}
