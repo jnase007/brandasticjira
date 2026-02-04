@@ -6,99 +6,86 @@ import { Loader2 } from 'lucide-react'
 /**
  * OAuth Callback Handler
  * This page handles the redirect from Google OAuth.
- * Supabase automatically processes tokens via detectSessionInUrl.
- * This component just waits for the session to be ready and redirects.
+ * It waits for Supabase to process the tokens and establish a session.
  */
 export default function AuthCallback() {
   const navigate = useNavigate()
   const [error, setError] = useState(null)
-  const [status, setStatus] = useState('Processing...')
+  const [status, setStatus] = useState('Completing sign in...')
 
   useEffect(() => {
     let mounted = true
-    let retryCount = 0
-    const maxRetries = 10
+    let checkCount = 0
+    const maxChecks = 20
+    let checkInterval = null
+
+    // Check for OAuth error in URL params
+    const params = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const errorParam = params.get('error') || hashParams.get('error')
+    const errorDescription = params.get('error_description') || hashParams.get('error_description')
     
-    const checkSession = async () => {
-      try {
-        console.log('[AuthCallback] Checking session... (attempt', retryCount + 1, ')')
-        
-        // Check for error in URL
-        const params = new URLSearchParams(window.location.search)
-        const errorParam = params.get('error')
-        const errorDescription = params.get('error_description')
-        
-        if (errorParam) {
-          console.error('[AuthCallback] OAuth error in URL:', errorParam)
-          if (mounted) {
-            setError(errorDescription || errorParam)
-          }
-          return
-        }
-        
-        // Check if session exists (Supabase should have processed tokens automatically)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError) {
-          console.error('[AuthCallback] Session error:', sessionError.message)
-          if (mounted) {
-            setError(sessionError.message)
-          }
-          return
-        }
-        
-        if (session?.user) {
-          console.log('[AuthCallback] Session found for:', session.user.email)
-          // Clear hash from URL
-          if (window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname)
-          }
-          if (mounted) {
-            navigate('/dashboard', { replace: true })
-          }
-          return
-        }
-        
-        // No session yet - if we have tokens in URL, Supabase might still be processing
-        const hash = window.location.hash
-        if (hash && hash.includes('access_token')) {
-          retryCount++
-          if (retryCount < maxRetries) {
-            console.log('[AuthCallback] Tokens in URL but no session yet, waiting...')
-            if (mounted) {
-              setStatus(`Establishing session... (${retryCount}/${maxRetries})`)
-            }
-            setTimeout(checkSession, 500)
-            return
-          } else {
-            console.error('[AuthCallback] Max retries reached, tokens not processed')
-            if (mounted) {
-              setError('Unable to process authentication. Please try again.')
-            }
-            return
-          }
-        }
-        
-        // No tokens and no session - redirect to login
-        console.log('[AuthCallback] No session or tokens, redirecting to login')
-        if (mounted) {
-          navigate('/login', { replace: true })
-        }
-        
-      } catch (err) {
-        console.error('[AuthCallback] Error:', err)
-        if (mounted) {
-          setError(err.message || 'An unexpected error occurred')
-        }
-      }
+    if (errorParam) {
+      console.error('[AuthCallback] OAuth error:', errorParam, errorDescription)
+      setError(errorDescription || errorParam)
+      return
     }
 
-    // Small delay to let Supabase process tokens first
-    const timer = setTimeout(checkSession, 300)
-    
+    // Listen for auth state changes - this is the most reliable way
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthCallback] Auth state change:', event, session?.user?.email)
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('[AuthCallback] Signed in, redirecting to dashboard')
+        // Clean up URL
+        if (window.location.hash || window.location.search.includes('code=')) {
+          window.history.replaceState(null, '', '/dashboard')
+        }
+        if (mounted) {
+          clearInterval(checkInterval)
+          navigate('/dashboard', { replace: true })
+        }
+      }
+    })
+
+    // Also poll for session in case onAuthStateChange doesn't fire
+    checkInterval = setInterval(async () => {
+      checkCount++
+      
+      if (!mounted) {
+        clearInterval(checkInterval)
+        return
+      }
+      
+      if (checkCount > maxChecks) {
+        clearInterval(checkInterval)
+        console.error('[AuthCallback] Timed out waiting for session')
+        setError('Sign in timed out. Please try again.')
+        return
+      }
+
+      try {
+        setStatus(`Verifying session... (${checkCount}/${maxChecks})`)
+        
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session?.user) {
+          console.log('[AuthCallback] Session found via polling:', session.user.email)
+          clearInterval(checkInterval)
+          // Clean up URL
+          window.history.replaceState(null, '', '/dashboard')
+          navigate('/dashboard', { replace: true })
+        }
+      } catch (err) {
+        // Ignore errors during polling - they're usually just timing issues
+        console.log('[AuthCallback] Poll check error (ignoring):', err.message)
+      }
+    }, 500)
+
     return () => {
       mounted = false
-      clearTimeout(timer)
+      clearInterval(checkInterval)
+      subscription.unsubscribe()
     }
   }, [navigate])
 
@@ -118,18 +105,18 @@ export default function AuthCallback() {
           </p>
           <div className="space-y-2">
             <button
-              onClick={() => {
-                // Clear URL and try login again
-                window.history.replaceState(null, '', '/login')
-                navigate('/login', { replace: true })
-              }}
+              onClick={() => navigate('/login', { replace: true })}
               className="w-full px-4 py-2 bg-brand-orange text-white rounded-lg hover:opacity-90"
             >
               Back to Login
             </button>
             <button
-              onClick={() => window.location.reload()}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={() => {
+                setError(null)
+                setStatus('Retrying...')
+                window.location.href = '/auth/callback' + window.location.hash
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Try Again
             </button>
