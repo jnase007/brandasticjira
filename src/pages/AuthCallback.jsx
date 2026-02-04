@@ -5,87 +5,91 @@ import { Loader2 } from 'lucide-react'
 
 /**
  * OAuth Callback Handler
- * This page handles the redirect from Google OAuth.
- * It waits for Supabase to process the tokens and establish a session.
+ * Handles the redirect from Google OAuth and establishes the session.
  */
 export default function AuthCallback() {
   const navigate = useNavigate()
   const [error, setError] = useState(null)
-  const [status, setStatus] = useState('Completing sign in...')
+  const [status, setStatus] = useState('Processing login...')
 
   useEffect(() => {
     let mounted = true
-    let checkCount = 0
-    const maxChecks = 20
-    let checkInterval = null
 
-    // Check for OAuth error in URL params
-    const params = new URLSearchParams(window.location.search)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const errorParam = params.get('error') || hashParams.get('error')
-    const errorDescription = params.get('error_description') || hashParams.get('error_description')
-    
-    if (errorParam) {
-      console.error('[AuthCallback] OAuth error:', errorParam, errorDescription)
-      setError(errorDescription || errorParam)
-      return
-    }
-
-    // Listen for auth state changes - this is the most reliable way
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthCallback] Auth state change:', event, session?.user?.email)
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('[AuthCallback] Signed in, redirecting to dashboard')
-        // Clean up URL
-        if (window.location.hash || window.location.search.includes('code=')) {
-          window.history.replaceState(null, '', '/dashboard')
-        }
-        if (mounted) {
-          clearInterval(checkInterval)
-          navigate('/dashboard', { replace: true })
-        }
-      }
-    })
-
-    // Also poll for session in case onAuthStateChange doesn't fire
-    checkInterval = setInterval(async () => {
-      checkCount++
-      
-      if (!mounted) {
-        clearInterval(checkInterval)
-        return
-      }
-      
-      if (checkCount > maxChecks) {
-        clearInterval(checkInterval)
-        console.error('[AuthCallback] Timed out waiting for session')
-        setError('Sign in timed out. Please try again.')
-        return
-      }
-
+    const handleCallback = async () => {
       try {
-        setStatus(`Verifying session... (${checkCount}/${maxChecks})`)
+        // Check for OAuth error in URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const queryParams = new URLSearchParams(window.location.search)
+        
+        const errorParam = hashParams.get('error') || queryParams.get('error')
+        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
+        
+        if (errorParam) {
+          console.error('[AuthCallback] OAuth error:', errorParam)
+          if (mounted) setError(errorDescription || errorParam)
+          return
+        }
+
+        // Get tokens from URL hash
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+
+        if (accessToken) {
+          console.log('[AuthCallback] Found tokens in URL, setting session...')
+          if (mounted) setStatus('Establishing session...')
+          
+          // Manually set the session with tokens from URL
+          const { data, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          })
+
+          if (sessionError) {
+            console.error('[AuthCallback] setSession error:', sessionError)
+            if (mounted) setError(sessionError.message)
+            return
+          }
+
+          if (data?.session?.user) {
+            console.log('[AuthCallback] Session established for:', data.session.user.email)
+            // Clean up URL
+            window.history.replaceState(null, '', '/dashboard')
+            if (mounted) navigate('/dashboard', { replace: true })
+            return
+          }
+        }
+
+        // No tokens in URL - check if session already exists
+        console.log('[AuthCallback] No tokens in URL, checking existing session...')
+        if (mounted) setStatus('Checking session...')
         
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
-          console.log('[AuthCallback] Session found via polling:', session.user.email)
-          clearInterval(checkInterval)
-          // Clean up URL
+          console.log('[AuthCallback] Existing session found:', session.user.email)
           window.history.replaceState(null, '', '/dashboard')
-          navigate('/dashboard', { replace: true })
+          if (mounted) navigate('/dashboard', { replace: true })
+          return
         }
+
+        // No session found at all - might be a stale callback URL
+        console.log('[AuthCallback] No session found, redirecting to login')
+        if (mounted) {
+          setError('No active session found. Please try logging in again.')
+        }
+
       } catch (err) {
-        // Ignore errors during polling - they're usually just timing issues
-        console.log('[AuthCallback] Poll check error (ignoring):', err.message)
+        console.error('[AuthCallback] Error:', err)
+        if (mounted) setError(err.message || 'An unexpected error occurred')
       }
-    }, 500)
+    }
+
+    // Small delay to ensure page is fully loaded
+    const timer = setTimeout(handleCallback, 100)
 
     return () => {
       mounted = false
-      clearInterval(checkInterval)
-      subscription.unsubscribe()
+      clearTimeout(timer)
     }
   }, [navigate])
 
@@ -98,25 +102,24 @@ export default function AuthCallback() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold mb-2">Authentication Error</h2>
+          <h2 className="text-xl font-bold mb-2">Sign In Issue</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <p className="text-sm text-muted-foreground mb-4">
-            This may happen in incognito/private browsing mode due to cookie restrictions.
+          <p className="text-sm text-muted-foreground mb-6">
+            If this keeps happening, try using a regular browser window (not incognito/private).
           </p>
           <div className="space-y-2">
             <button
-              onClick={() => navigate('/login', { replace: true })}
-              className="w-full px-4 py-2 bg-brand-orange text-white rounded-lg hover:opacity-90"
+              onClick={() => {
+                window.history.replaceState(null, '', '/login')
+                navigate('/login', { replace: true })
+              }}
+              className="w-full px-4 py-3 bg-brand-orange text-white rounded-lg hover:opacity-90 font-medium"
             >
               Back to Login
             </button>
             <button
-              onClick={() => {
-                setError(null)
-                setStatus('Retrying...')
-                window.location.href = '/auth/callback' + window.location.hash
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              onClick={() => window.location.reload()}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Try Again
             </button>
@@ -130,8 +133,8 @@ export default function AuthCallback() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <Loader2 className="h-12 w-12 animate-spin text-brand-orange mx-auto mb-4" />
-        <p className="text-muted-foreground">{status}</p>
-        <p className="text-xs text-muted-foreground mt-2">Please wait...</p>
+        <p className="text-lg font-medium text-foreground mb-1">{status}</p>
+        <p className="text-sm text-muted-foreground">This should only take a moment...</p>
       </div>
     </div>
   )
