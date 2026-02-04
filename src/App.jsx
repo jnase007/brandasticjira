@@ -720,8 +720,8 @@ function App() {
   // Confetti component
   const confetti = <Confetti trigger={confettiTrigger} />
 
-  // Public routes (Login, Demo, Auth Callback) - no sidebar
-  if (!user && (location.pathname === '/login' || location.pathname === '/demo' || location.pathname === '/auth/callback')) {
+  // Public routes (Login, Demo, Auth Callback, Email Templates) - no sidebar
+  if (!user && (location.pathname === '/login' || location.pathname === '/demo' || location.pathname === '/auth/callback' || location.pathname === '/email-templates')) {
     return (
       <div className="min-h-screen bg-background">
         <PageLoadingBar isLoading={isNavigating} />
@@ -733,6 +733,7 @@ function App() {
               <Route path="/client-login" element={<ClientLogin />} />
               <Route path="/demo" element={<Demo />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/email-templates" element={<EmailTemplates />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </AnimatePresence>
