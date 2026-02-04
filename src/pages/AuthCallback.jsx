@@ -6,130 +6,100 @@ import { Loader2 } from 'lucide-react'
 /**
  * OAuth Callback Handler
  * This page handles the redirect from Google OAuth.
- * It explicitly processes the tokens from the URL hash before navigating.
+ * Supabase automatically processes tokens via detectSessionInUrl.
+ * This component just waits for the session to be ready and redirects.
  */
 export default function AuthCallback() {
   const navigate = useNavigate()
   const [error, setError] = useState(null)
-  const [processing, setProcessing] = useState(true)
+  const [status, setStatus] = useState('Processing...')
 
   useEffect(() => {
-    const handleCallback = async () => {
+    let mounted = true
+    let retryCount = 0
+    const maxRetries = 10
+    
+    const checkSession = async () => {
       try {
-        console.log('[AuthCallback] Processing OAuth callback...')
-        console.log('[AuthCallback] URL hash:', window.location.hash ? 'present' : 'empty')
-        console.log('[AuthCallback] URL search:', window.location.search ? 'present' : 'empty')
+        console.log('[AuthCallback] Checking session... (attempt', retryCount + 1, ')')
         
-        // Check for error in URL (OAuth error)
+        // Check for error in URL
         const params = new URLSearchParams(window.location.search)
         const errorParam = params.get('error')
         const errorDescription = params.get('error_description')
         
         if (errorParam) {
-          console.error('[AuthCallback] OAuth error:', errorParam, errorDescription)
-          setError(errorDescription || errorParam)
-          setProcessing(false)
+          console.error('[AuthCallback] OAuth error in URL:', errorParam)
+          if (mounted) {
+            setError(errorDescription || errorParam)
+          }
           return
         }
-
-        // Check for tokens in hash (implicit flow)
-        const hash = window.location.hash
-        if (hash && (hash.includes('access_token') || hash.includes('refresh_token'))) {
-          console.log('[AuthCallback] Tokens found in URL hash')
-          
-          // Supabase should automatically pick these up via detectSessionInUrl
-          // But let's give it a moment and verify
-          await new Promise(resolve => setTimeout(resolve, 500))
-          
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-          
-          if (sessionError) {
-            console.error('[AuthCallback] Session error:', sessionError)
+        
+        // Check if session exists (Supabase should have processed tokens automatically)
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('[AuthCallback] Session error:', sessionError.message)
+          if (mounted) {
             setError(sessionError.message)
-            setProcessing(false)
-            return
           }
-          
-          if (session?.user) {
-            console.log('[AuthCallback] Session established for:', session.user.email)
-            // Clear the hash from URL for cleanliness
-            window.history.replaceState(null, '', window.location.pathname)
-            navigate('/dashboard', { replace: true })
-            return
-          }
-          
-          console.log('[AuthCallback] No session after hash processing, trying manual extraction...')
-          
-          // Manual token extraction as fallback
-          const hashParams = new URLSearchParams(hash.substring(1))
-          const accessToken = hashParams.get('access_token')
-          const refreshToken = hashParams.get('refresh_token')
-          
-          if (accessToken && refreshToken) {
-            console.log('[AuthCallback] Manually setting session from tokens...')
-            const { data, error: setError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            })
-            
-            if (setError) {
-              console.error('[AuthCallback] setSession error:', setError)
-              setError(setError.message)
-              setProcessing(false)
-              return
-            }
-            
-            if (data?.session?.user) {
-              console.log('[AuthCallback] Session manually established for:', data.session.user.email)
-              window.history.replaceState(null, '', window.location.pathname)
-              navigate('/dashboard', { replace: true })
-              return
-            }
-          }
+          return
         }
-        
-        // Check for code in query params (PKCE flow)
-        const code = params.get('code')
-        if (code) {
-          console.log('[AuthCallback] Authorization code found, exchanging...')
-          
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          
-          if (exchangeError) {
-            console.error('[AuthCallback] Code exchange error:', exchangeError)
-            setError(exchangeError.message)
-            setProcessing(false)
-            return
-          }
-          
-          if (data?.session?.user) {
-            console.log('[AuthCallback] Session established via code exchange:', data.session.user.email)
-            navigate('/dashboard', { replace: true })
-            return
-          }
-        }
-        
-        // No tokens or codes found - check if user is already logged in
-        const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
-          console.log('[AuthCallback] User already logged in:', session.user.email)
-          navigate('/dashboard', { replace: true })
+          console.log('[AuthCallback] Session found for:', session.user.email)
+          // Clear hash from URL
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname)
+          }
+          if (mounted) {
+            navigate('/dashboard', { replace: true })
+          }
           return
         }
         
-        // Nothing worked - redirect to login
-        console.log('[AuthCallback] No auth data found, redirecting to login')
-        navigate('/login', { replace: true })
+        // No session yet - if we have tokens in URL, Supabase might still be processing
+        const hash = window.location.hash
+        if (hash && hash.includes('access_token')) {
+          retryCount++
+          if (retryCount < maxRetries) {
+            console.log('[AuthCallback] Tokens in URL but no session yet, waiting...')
+            if (mounted) {
+              setStatus(`Establishing session... (${retryCount}/${maxRetries})`)
+            }
+            setTimeout(checkSession, 500)
+            return
+          } else {
+            console.error('[AuthCallback] Max retries reached, tokens not processed')
+            if (mounted) {
+              setError('Unable to process authentication. Please try again.')
+            }
+            return
+          }
+        }
+        
+        // No tokens and no session - redirect to login
+        console.log('[AuthCallback] No session or tokens, redirecting to login')
+        if (mounted) {
+          navigate('/login', { replace: true })
+        }
         
       } catch (err) {
-        console.error('[AuthCallback] Unexpected error:', err)
-        setError(err.message || 'An unexpected error occurred')
-        setProcessing(false)
+        console.error('[AuthCallback] Error:', err)
+        if (mounted) {
+          setError(err.message || 'An unexpected error occurred')
+        }
       }
     }
 
-    handleCallback()
+    // Small delay to let Supabase process tokens first
+    const timer = setTimeout(checkSession, 300)
+    
+    return () => {
+      mounted = false
+      clearTimeout(timer)
+    }
   }, [navigate])
 
   if (error) {
@@ -146,12 +116,24 @@ export default function AuthCallback() {
           <p className="text-sm text-muted-foreground mb-4">
             This may happen in incognito/private browsing mode due to cookie restrictions.
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="px-4 py-2 bg-brand-orange text-white rounded-lg hover:opacity-90"
-          >
-            Back to Login
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                // Clear URL and try login again
+                window.history.replaceState(null, '', '/login')
+                navigate('/login', { replace: true })
+              }}
+              className="w-full px-4 py-2 bg-brand-orange text-white rounded-lg hover:opacity-90"
+            >
+              Back to Login
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -161,7 +143,8 @@ export default function AuthCallback() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <Loader2 className="h-12 w-12 animate-spin text-brand-orange mx-auto mb-4" />
-        <p className="text-muted-foreground">Completing sign in...</p>
+        <p className="text-muted-foreground">{status}</p>
+        <p className="text-xs text-muted-foreground mt-2">Please wait...</p>
       </div>
     </div>
   )
