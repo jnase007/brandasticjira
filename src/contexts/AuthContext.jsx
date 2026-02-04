@@ -747,53 +747,11 @@ export function AuthProvider({ children }) {
     }
   }, [user])
   
-  // GENTLE HEARTBEAT - refreshes session periodically to keep it alive
-  // Less aggressive than before - every 5 minutes, and no page reloads
-  useEffect(() => {
-    let heartbeatCount = 0
-    
-    const heartbeat = setInterval(async () => {
-      // Only run when tab is visible and user is logged in
-      if (document.visibilityState !== 'visible' || !user) return
-      
-      heartbeatCount++
-      // Only log every 5th heartbeat to reduce noise
-      if (heartbeatCount % 5 === 0) {
-        console.log(`[Auth] Heartbeat #${heartbeatCount}`)
-      }
-      
-      try {
-        // Just check getSession - don't hit the server aggressively
-        const { data: sessionData } = await supabase.auth.getSession()
-        
-        if (!sessionData?.session) {
-          console.warn('[Auth] Heartbeat: No session found, trying silent refresh...')
-          
-          // Try refreshSession silently
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (refreshError || !refreshData?.session) {
-            console.warn('[Auth] Heartbeat: refresh failed - setting error state')
-            // Don't reload - just show error state and let user decide
-            setSessionHealthy(false)
-            setAuthError('Your session may have expired. Click "Refresh Session" or sign in again.')
-            return
-          }
-          
-          // Refresh succeeded - update state
-          setUser(refreshData.session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
-          console.log('[Auth] Heartbeat: recovered via refreshSession')
-        }
-      } catch (e) {
-        console.warn('[Auth] Heartbeat error (non-fatal):', e.message)
-        // Don't crash or reload on heartbeat errors
-      }
-    }, 5 * 60 * 1000) // Every 5 minutes - much less aggressive
-    
-    return () => clearInterval(heartbeat)
-  }, [user])
+  // HEARTBEAT DISABLED - Supabase's autoRefreshToken handles this automatically
+  // The previous heartbeat was causing logout issues when it tried to refresh sessions
+  // and triggered onAuthStateChange events with no session
+  // 
+  // If session issues persist, the SessionStatus component will show a retry button
 
   // Retry auth (for when stuck on loading) - just reload the page for clean state
   const retryAuth = useCallback(() => {
