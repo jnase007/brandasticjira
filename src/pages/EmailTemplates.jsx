@@ -790,7 +790,7 @@ export default function EmailTemplates() {
               </CardContent>
             </Card>
 
-            {/* SendGrid Instructions */}
+            {/* Resend Instructions */}
             <Card className="bg-gradient-to-br from-brand-orange/5 to-brand-coral/5 dark:from-brand-orange/10 dark:to-brand-coral/10 border-brand-orange/20">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
@@ -799,12 +799,18 @@ export default function EmailTemplates() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-slate-900 dark:text-white text-sm">
-                      SendGrid Setup
+                      Resend.com Integration
                     </h4>
-                    <p className="text-xs text-slate-600 dark:text-white/60 mt-1">
-                      Use these previews as reference when creating Dynamic Templates in SendGrid. 
-                      Variables like <code className="bg-white/50 dark:bg-white/10 px-1 rounded">{'{{task_title}}'}</code> should be set up as Handlebars substitutions.
+                    <p className="text-xs text-slate-600 dark:text-white/60 mt-1 mb-2">
+                      Emails are sent automatically via Resend. To enable:
                     </p>
+                    <ol className="text-xs text-slate-600 dark:text-white/60 space-y-1 list-decimal list-inside">
+                      <li>Create account at <a href="https://resend.com" target="_blank" rel="noopener" className="text-brand-orange hover:underline">resend.com</a></li>
+                      <li>Verify <strong>brandastic.co</strong> domain</li>
+                      <li>Add <code className="bg-white/50 dark:bg-white/10 px-1 rounded">RESEND_API_KEY</code> to Supabase secrets</li>
+                      <li>Run <code className="bg-white/50 dark:bg-white/10 px-1 rounded">email-notifications-setup.sql</code></li>
+                      <li>Deploy edge function: <code className="bg-white/50 dark:bg-white/10 px-1 rounded">supabase functions deploy send-emails</code></li>
+                    </ol>
                   </div>
                 </div>
               </CardContent>
