@@ -245,27 +245,36 @@ export default function TimeTracking() {
         userMap = (users || []).reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
       }
 
-      // Fetch tickets for display
+      // Fetch tickets for display (including client_id)
       const ticketIds = [...new Set(filteredEntries.map(e => e.ticket_id).filter(Boolean))]
       let ticketMap = {}
       if (ticketIds.length > 0) {
         const { data: tickets } = await supabase
           .from('tickets')
-          .select('id, title, ticket_id')
+          .select('id, title, ticket_id, client_id')
           .in('id', ticketIds)
         ticketMap = (tickets || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {})
       }
 
-      const normalizedEntries = filteredEntries.map((entry) => ({
-        ...entry,
-        minutes: entry.minutes ?? entry.duration_minutes ?? 0,
-        date:
-          entry.date ||
-          (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
-        billable: entry.billable ?? true,
-        user: userMap[entry.user_id] || null,
-        ticket: ticketMap[entry.ticket_id] || null,
-      }))
+      // Build client map for quick lookup
+      const clientMap = (clientsRes.data || []).reduce((acc, c) => ({ ...acc, [c.id]: c }), {})
+
+      const normalizedEntries = filteredEntries.map((entry) => {
+        const ticket = ticketMap[entry.ticket_id] || null
+        const client = ticket?.client_id ? clientMap[ticket.client_id] : null
+        
+        return {
+          ...entry,
+          minutes: entry.minutes ?? entry.duration_minutes ?? 0,
+          date:
+            entry.date ||
+            (entry.start_time ? entry.start_time.split('T')[0] : entry.created_at?.split('T')[0]),
+          billable: entry.billable ?? true,
+          user: userMap[entry.user_id] || null,
+          ticket,
+          client,
+        }
+      })
 
       setEmployees(employeesRes.data || [])
       setClients(clientsRes.data || [])
@@ -1094,6 +1103,7 @@ export default function TimeTracking() {
                       <tr>
                         <th className="text-left py-3 px-4 font-medium">Date</th>
                         <th className="text-left py-3 px-4 font-medium">Employee</th>
+                        <th className="text-left py-3 px-4 font-medium">Client</th>
                         <th className="text-left py-3 px-4 font-medium">Task/Description</th>
                         <th className="text-right py-3 px-4 font-medium">Duration</th>
                         <th className="text-center py-3 px-4 font-medium">Billable</th>
@@ -1103,7 +1113,7 @@ export default function TimeTracking() {
                     <tbody>
                       {visibleTimeEntries.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                          <td colSpan={7} className="text-center py-12 text-muted-foreground">
                             No time entries for this month
                           </td>
                         </tr>
@@ -1134,6 +1144,29 @@ export default function TimeTracking() {
                                   </Avatar>
                                   <span className="text-sm">{entry.user?.full_name}</span>
                                 </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                {entry.client ? (
+                                  <div className="flex items-center gap-2">
+                                    {entry.client.logo_url ? (
+                                      <img 
+                                        src={entry.client.logo_url} 
+                                        alt={entry.client.name}
+                                        className="h-7 w-7 rounded-md object-contain bg-white border"
+                                      />
+                                    ) : (
+                                      <div 
+                                        className="h-7 w-7 rounded-md flex items-center justify-center text-white text-xs font-bold"
+                                        style={{ backgroundColor: entry.client.color || '#F7931E' }}
+                                      >
+                                        {entry.client.name?.charAt(0)}
+                                      </div>
+                                    )}
+                                    <span className="text-sm truncate max-w-[120px]">{entry.client.name}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
                               </td>
                               <td className="py-3 px-4 text-sm max-w-xs">
                                 <div>
