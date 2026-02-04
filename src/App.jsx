@@ -36,6 +36,7 @@ const Financials = lazy(() => import('./pages/Financials'))
 const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
 const AdminHub = lazy(() => import('./pages/AdminHub'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
 
 // Components
 import Sidebar from './components/Sidebar'
@@ -1040,6 +1041,16 @@ function App() {
                 element={
                   <AdminRoute>
                     <AdminHub />
+                  </AdminRoute>
+                }
+              />
+
+              {/* Email Templates */}
+              <Route
+                path="/email-templates"
+                element={
+                  <AdminRoute>
+                    <EmailTemplates />
                   </AdminRoute>
                 }
               />

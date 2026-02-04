@@ -33,6 +33,7 @@ import {
   History,
   Hash,
   X,
+  Mail,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -63,6 +64,7 @@ const adminNavItems = [
   { path: '/mission', icon: Target, label: 'Mission', shortcut: 'G M' },
   { path: '/financials', icon: BarChart3, label: 'Financials', shortcut: 'G F' },
   { path: '/working', icon: CheckCircle, label: 'Working/Not', shortcut: 'G W' },
+  { path: '/email-templates', icon: Mail, label: 'Email Templates', shortcut: 'G E' },
   { path: '/admin', icon: Shield, label: 'Users', shortcut: 'G A' },
   { path: '/import', icon: Upload, label: 'JIRA Import', shortcut: 'G I' },
 ]
