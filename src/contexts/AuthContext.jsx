@@ -123,6 +123,8 @@ export function AuthProvider({ children }) {
         console.log('[Auth] On auth callback route, deferring to AuthCallback component')
         // Don't call getSession() - let the AuthCallback handle token processing
         // The onAuthStateChange listener below will pick up the session once it's established
+        setLoading(false) // CRITICAL: Set loading to false so AuthCallback can render!
+        clearTimeout(safetyTimeout)
         return
       }
       
