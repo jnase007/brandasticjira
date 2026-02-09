@@ -20,41 +20,49 @@ export default function AuthCallback() {
 
   useEffect(() => {
     let mounted = true
+    let subscription = null
+    let initTimer = null
     
-    // Check for OAuth error in URL first
+    // Get URL params outside try block so they're accessible throughout
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
     const queryParams = new URLSearchParams(window.location.search)
     
-    const errorParam = hashParams.get('error') || queryParams.get('error')
-    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
+    console.log('[AuthCallback] Component mounted, URL:', window.location.href)
     
-    if (errorParam) {
-      console.error('[AuthCallback] OAuth error:', errorParam)
-      setError(errorDescription || errorParam)
-      return
-    }
-
-    // Listen for auth state changes - Supabase emits SIGNED_IN or INITIAL_SESSION when tokens are processed
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[AuthCallback] Auth event:', event, session?.user?.email || 'no user')
+    try {
+      // Check for OAuth error in URL first
       
-      if (hasProcessedRef.current) return // Prevent double processing
+      const errorParam = hashParams.get('error') || queryParams.get('error')
+      const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
       
-      // Handle both SIGNED_IN and INITIAL_SESSION events (Supabase can emit either)
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        hasProcessedRef.current = true
-        console.log('[AuthCallback] Session established for:', session.user.email)
-        
-        // Clear timeout since we got the session
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-        }
-        
-        // Clean URL and redirect
-        window.history.replaceState(null, '', '/dashboard')
-        if (mounted) navigate('/dashboard', { replace: true })
+      if (errorParam) {
+        console.error('[AuthCallback] OAuth error:', errorParam)
+        setError(errorDescription || errorParam)
+        return
       }
-    })
+
+      // Listen for auth state changes - Supabase emits SIGNED_IN or INITIAL_SESSION when tokens are processed
+      const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('[AuthCallback] Auth event:', event, session?.user?.email || 'no user')
+        
+        if (hasProcessedRef.current) return // Prevent double processing
+        
+        // Handle both SIGNED_IN and INITIAL_SESSION events (Supabase can emit either)
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          hasProcessedRef.current = true
+          console.log('[AuthCallback] Session established for:', session.user.email)
+          
+          // Clear timeout since we got the session
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+          }
+          
+          // Clean URL and redirect
+          window.history.replaceState(null, '', '/dashboard')
+          if (mounted) navigate('/dashboard', { replace: true })
+        }
+      })
+      subscription = authListener.data.subscription
 
     // Also check if session already exists (user might already be logged in)
     const checkExistingSession = async () => {
@@ -107,7 +115,7 @@ export default function AuthCallback() {
     }
 
     // Start checking after a brief delay to let Supabase initialize
-    const initTimer = setTimeout(async () => {
+    initTimer = setTimeout(async () => {
       if (mounted) setStatus('Establishing session...')
       await checkExistingSession()
     }, 100)
@@ -124,10 +132,15 @@ export default function AuthCallback() {
       }
     }, 8000)
 
+    } catch (err) {
+      console.error('[AuthCallback] Setup error:', err)
+      if (mounted) setError('An error occurred during sign in. Please try again.')
+    }
+
     return () => {
       mounted = false
-      subscription.unsubscribe()
-      clearTimeout(initTimer)
+      if (subscription) subscription.unsubscribe()
+      if (initTimer) clearTimeout(initTimer)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [navigate])
@@ -173,12 +186,34 @@ export default function AuthCallback() {
     )
   }
 
+  // Use inline styles as fallback in case CSS doesn't load
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-orange mx-auto mb-4" />
-        <p className="text-lg font-medium text-foreground mb-1">{status}</p>
-        <p className="text-sm text-muted-foreground">This should only take a moment...</p>
+    <div 
+      className="min-h-screen flex items-center justify-center bg-background"
+      style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: '#f8fafc',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}
+    >
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <div 
+          style={{ 
+            width: '48px', 
+            height: '48px', 
+            border: '4px solid #e2e8f0',
+            borderTopColor: '#f97316',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }} 
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ fontSize: '18px', fontWeight: '500', marginBottom: '4px', color: '#1e293b' }}>{status}</p>
+        <p style={{ fontSize: '14px', color: '#64748b' }}>This should only take a moment...</p>
       </div>
     </div>
   )
