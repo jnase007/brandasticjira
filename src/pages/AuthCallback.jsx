@@ -1,95 +1,134 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Loader2 } from 'lucide-react'
 
 /**
  * OAuth Callback Handler
- * Handles the redirect from Google OAuth and establishes the session.
+ * Handles the redirect from Google OAuth.
+ * 
+ * With flowType: 'implicit' and detectSessionInUrl: true, 
+ * Supabase auto-processes hash tokens. This component waits for
+ * the auth state change event rather than polling getSession().
  */
 export default function AuthCallback() {
   const navigate = useNavigate()
   const [error, setError] = useState(null)
   const [status, setStatus] = useState('Processing login...')
+  const hasProcessedRef = useRef(false)
+  const timeoutRef = useRef(null)
 
   useEffect(() => {
     let mounted = true
+    
+    // Check for OAuth error in URL first
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const queryParams = new URLSearchParams(window.location.search)
+    
+    const errorParam = hashParams.get('error') || queryParams.get('error')
+    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
+    
+    if (errorParam) {
+      console.error('[AuthCallback] OAuth error:', errorParam)
+      setError(errorDescription || errorParam)
+      return
+    }
 
-    const handleCallback = async () => {
-      try {
-        // Check for OAuth error in URL
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const queryParams = new URLSearchParams(window.location.search)
+    // Listen for auth state changes - Supabase emits SIGNED_IN or INITIAL_SESSION when tokens are processed
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthCallback] Auth event:', event, session?.user?.email || 'no user')
+      
+      if (hasProcessedRef.current) return // Prevent double processing
+      
+      // Handle both SIGNED_IN and INITIAL_SESSION events (Supabase can emit either)
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        hasProcessedRef.current = true
+        console.log('[AuthCallback] Session established for:', session.user.email)
         
-        const errorParam = hashParams.get('error') || queryParams.get('error')
-        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
-        
-        if (errorParam) {
-          console.error('[AuthCallback] OAuth error:', errorParam)
-          if (mounted) setError(errorDescription || errorParam)
-          return
+        // Clear timeout since we got the session
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
         }
+        
+        // Clean URL and redirect
+        window.history.replaceState(null, '', '/dashboard')
+        if (mounted) navigate('/dashboard', { replace: true })
+      }
+    })
 
-        // Get tokens from URL hash
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
+    // Also check if session already exists (user might already be logged in)
+    const checkExistingSession = async () => {
+      if (hasProcessedRef.current) return
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session?.user && !hasProcessedRef.current) {
+          hasProcessedRef.current = true
+          console.log('[AuthCallback] Existing session found:', session.user.email)
+          window.history.replaceState(null, '', '/dashboard')
+          if (mounted) navigate('/dashboard', { replace: true })
+        }
+      } catch (err) {
+        // Ignore errors here - the auth state listener will handle it
+        console.warn('[AuthCallback] Initial session check warning:', err.message)
+      }
+    }
 
-        if (accessToken) {
-          console.log('[AuthCallback] Found tokens in URL, setting session...')
-          if (mounted) setStatus('Establishing session...')
-          
-          // Manually set the session with tokens from URL
+    // Try manual token extraction as fallback if Supabase doesn't process automatically
+    const tryManualTokenExtraction = async () => {
+      if (hasProcessedRef.current) return
+      
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      
+      if (accessToken) {
+        console.log('[AuthCallback] Attempting manual session set...')
+        if (mounted) setStatus('Finalizing login...')
+        
+        try {
           const { data, error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken || '',
           })
 
-          if (sessionError) {
-            console.error('[AuthCallback] setSession error:', sessionError)
-            if (mounted) setError(sessionError.message)
-            return
-          }
-
-          if (data?.session?.user) {
-            console.log('[AuthCallback] Session established for:', data.session.user.email)
-            // Clean up URL
+          if (!sessionError && data?.session?.user && !hasProcessedRef.current) {
+            hasProcessedRef.current = true
+            console.log('[AuthCallback] Manual session established:', data.session.user.email)
             window.history.replaceState(null, '', '/dashboard')
             if (mounted) navigate('/dashboard', { replace: true })
-            return
+            return true
           }
+        } catch (e) {
+          console.error('[AuthCallback] Manual session failed:', e)
         }
-
-        // No tokens in URL - check if session already exists
-        console.log('[AuthCallback] No tokens in URL, checking existing session...')
-        if (mounted) setStatus('Checking session...')
-        
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session?.user) {
-          console.log('[AuthCallback] Existing session found:', session.user.email)
-          window.history.replaceState(null, '', '/dashboard')
-          if (mounted) navigate('/dashboard', { replace: true })
-          return
-        }
-
-        // No session found at all - might be a stale callback URL
-        console.log('[AuthCallback] No session found, redirecting to login')
-        if (mounted) {
-          setError('No active session found. Please try logging in again.')
-        }
-
-      } catch (err) {
-        console.error('[AuthCallback] Error:', err)
-        if (mounted) setError(err.message || 'An unexpected error occurred')
       }
+      return false
     }
 
-    // Small delay to ensure page is fully loaded
-    const timer = setTimeout(handleCallback, 100)
+    // Start checking after a brief delay to let Supabase initialize
+    const initTimer = setTimeout(async () => {
+      if (mounted) setStatus('Establishing session...')
+      await checkExistingSession()
+    }, 100)
+
+    // Set a timeout - if no session after 8 seconds, try manual extraction then show error
+    timeoutRef.current = setTimeout(async () => {
+      if (hasProcessedRef.current) return
+      
+      console.warn('[AuthCallback] Timeout reached, trying manual extraction...')
+      const success = await tryManualTokenExtraction()
+      
+      if (!success && mounted && !hasProcessedRef.current) {
+        setError('Unable to complete sign in. Please try again.')
+      }
+    }, 8000)
 
     return () => {
       mounted = false
-      clearTimeout(timer)
+      subscription.unsubscribe()
+      clearTimeout(initTimer)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [navigate])
 
@@ -118,7 +157,12 @@ export default function AuthCallback() {
               Back to Login
             </button>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                hasProcessedRef.current = false
+                setError(null)
+                setStatus('Retrying...')
+                window.location.reload()
+              }}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Try Again

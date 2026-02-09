@@ -83,7 +83,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'implicit', // Key fix for iOS/tab switch desync issues
-    // debug: true, // Disable for production - spams console
+    debug: import.meta.env.DEV, // Only enable debug in development
   },
   realtime: {
     params: {
@@ -428,7 +428,7 @@ export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/dashboard`,
+      redirectTo: `${window.location.origin}/auth/callback`,
     },
   })
   return { data, error }

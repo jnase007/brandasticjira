@@ -114,6 +114,18 @@ export function AuthProvider({ children }) {
     const initAuth = async () => {
       console.log('[Auth] Initializing...')
       
+      // Check if we're on the auth callback route - if so, let AuthCallback handle it
+      // This prevents race conditions that cause "signal is aborted" errors
+      const isAuthCallback = window.location.pathname === '/auth/callback'
+      const hasAuthTokens = window.location.hash?.includes('access_token')
+      
+      if (isAuthCallback || hasAuthTokens) {
+        console.log('[Auth] On auth callback route, deferring to AuthCallback component')
+        // Don't call getSession() - let the AuthCallback handle token processing
+        // The onAuthStateChange listener below will pick up the session once it's established
+        return
+      }
+      
       try {
         // Small delay to let Supabase process any OAuth tokens in URL
         await new Promise(resolve => setTimeout(resolve, 100))
