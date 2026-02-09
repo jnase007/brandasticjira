@@ -29,6 +29,23 @@ export default function AuthCallback() {
     
     console.log('[AuthCallback] Component mounted, URL:', window.location.href)
     
+    // If we have fresh tokens in the URL, clear any stale cached auth data first
+    // This prevents "signal is aborted" errors from conflicting sessions
+    const hasTokens = hashParams.get('access_token')
+    if (hasTokens) {
+      console.log('[AuthCallback] Fresh tokens detected, clearing stale auth cache...')
+      try {
+        localStorage.removeItem('brandastic-auth')
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('supabase')) {
+            localStorage.removeItem(key)
+          }
+        })
+      } catch (e) {
+        console.warn('[AuthCallback] Could not clear stale cache:', e)
+      }
+    }
+    
     try {
       // Check for OAuth error in URL first
       
@@ -134,6 +151,24 @@ export default function AuthCallback() {
 
     } catch (err) {
       console.error('[AuthCallback] Setup error:', err)
+      
+      // If it's an abort error, try clearing cached auth data and retry once
+      if (err.message?.includes('abort') || err.name === 'AbortError') {
+        console.log('[AuthCallback] Abort error detected, clearing cached auth data...')
+        try {
+          localStorage.removeItem('brandastic-auth')
+          localStorage.removeItem('supabase.auth.token')
+          // Clear any other Supabase auth keys
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') || key.includes('supabase')) {
+              localStorage.removeItem(key)
+            }
+          })
+        } catch (e) {
+          console.warn('[AuthCallback] Could not clear localStorage:', e)
+        }
+      }
+      
       if (mounted) setError('An error occurred during sign in. Please try again.')
     }
 
@@ -171,6 +206,20 @@ export default function AuthCallback() {
             </button>
             <button
               onClick={() => {
+                // Clear all cached auth data before retrying
+                try {
+                  localStorage.removeItem('brandastic-auth')
+                  localStorage.removeItem('supabase.auth.token')
+                  Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('sb-') || key.includes('supabase')) {
+                      localStorage.removeItem(key)
+                    }
+                  })
+                  // Also clear session storage
+                  sessionStorage.clear()
+                } catch (e) {
+                  console.warn('Could not clear storage:', e)
+                }
                 hasProcessedRef.current = false
                 setError(null)
                 setStatus('Retrying...')
