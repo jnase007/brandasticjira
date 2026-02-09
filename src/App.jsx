@@ -35,7 +35,8 @@ const Mission = lazy(() => import('./pages/Mission'))
 const Financials = lazy(() => import('./pages/Financials'))
 const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
 const AdminHub = lazy(() => import('./pages/AdminHub'))
-const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+// AuthCallback loaded directly (not lazy) for reliability during OAuth flow
+import AuthCallback from './pages/AuthCallback'
 const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
 
 // Components
