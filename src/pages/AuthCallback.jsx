@@ -1,233 +1,257 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Loader2 } from 'lucide-react'
 
 /**
- * OAuth Callback Handler
- * Handles the redirect from Google OAuth.
+ * OAuth Callback Handler - Minimal and robust
  * 
- * With flowType: 'implicit' and detectSessionInUrl: true, 
- * Supabase auto-processes hash tokens. This component waits for
- * the auth state change event rather than polling getSession().
+ * This component handles the redirect from Google OAuth.
+ * With flowType: 'implicit' and detectSessionInUrl: true,
+ * Supabase auto-processes hash tokens.
+ * 
+ * Strategy:
+ * 1. Show loading state immediately
+ * 2. Force getSession() to process hash tokens
+ * 3. Listen for auth state changes
+ * 4. Only show error after timeout (not immediately)
  */
 export default function AuthCallback() {
   const navigate = useNavigate()
-  const [error, setError] = useState(null)
-  const [status, setStatus] = useState('Processing login...')
-  const hasProcessedRef = useRef(false)
-  const timeoutRef = useRef(null)
+  const [status, setStatus] = useState('Completing Google login...')
+  const [showError, setShowError] = useState(false)
+  const [debugInfo, setDebugInfo] = useState('')
 
   useEffect(() => {
     let mounted = true
-    let subscription = null
-    let initTimer = null
-    
-    // Get URL params outside try block so they're accessible throughout
+    let errorTimeout = null
+
+    // Debug: Log what's in the URL
+    console.log('[AuthCallback] Mounted. URL:', window.location.href)
+    console.log('[AuthCallback] Hash:', window.location.hash)
+    console.log('[AuthCallback] Search:', window.location.search)
+
+    // Check for tokens in hash
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const queryParams = new URLSearchParams(window.location.search)
+    const hasTokens = hashParams.has('access_token')
     
-    console.log('[AuthCallback] Component mounted, URL:', window.location.href)
-    
-    // If we have fresh tokens in the URL, clear any stale cached auth data first
-    // This prevents "signal is aborted" errors from conflicting sessions
-    const hasTokens = hashParams.get('access_token')
     if (hasTokens) {
-      console.log('[AuthCallback] Fresh tokens detected, clearing stale auth cache...')
-      try {
-        localStorage.removeItem('brandastic-auth')
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') || key.includes('supabase')) {
-            localStorage.removeItem(key)
-          }
-        })
-      } catch (e) {
-        console.warn('[AuthCallback] Could not clear stale cache:', e)
-      }
+      console.log('[AuthCallback] Tokens detected in hash, processing...')
+      setDebugInfo('Tokens found in URL')
     }
+
+    // Check for OAuth error in URL
+    const errorParam = hashParams.get('error') || new URLSearchParams(window.location.search).get('error')
+    const errorDescription = hashParams.get('error_description') || new URLSearchParams(window.location.search).get('error_description')
     
-    try {
-      // Check for OAuth error in URL first
-      
-      const errorParam = hashParams.get('error') || queryParams.get('error')
-      const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
-      
-      if (errorParam) {
-        console.error('[AuthCallback] OAuth error:', errorParam)
-        setError(errorDescription || errorParam)
-        return
-      }
+    if (errorParam) {
+      console.error('[AuthCallback] OAuth error in URL:', errorParam, errorDescription)
+      setStatus('Sign in failed')
+      setDebugInfo(`OAuth error: ${errorDescription || errorParam}`)
+      setShowError(true)
+      return
+    }
 
-      // Listen for auth state changes - Supabase emits SIGNED_IN or INITIAL_SESSION when tokens are processed
-      const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('[AuthCallback] Auth event:', event, session?.user?.email || 'no user')
-        
-        if (hasProcessedRef.current) return // Prevent double processing
-        
-        // Handle both SIGNED_IN and INITIAL_SESSION events (Supabase can emit either)
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-          hasProcessedRef.current = true
-          console.log('[AuthCallback] Session established for:', session.user.email)
-          
-          // Clear timeout since we got the session
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
-          }
-          
-          // Clean URL and redirect
-          window.history.replaceState(null, '', '/dashboard')
-          if (mounted) navigate('/dashboard', { replace: true })
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthCallback] Auth event:', event, session?.user?.email || 'no session')
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('[AuthCallback] SIGNED_IN - redirecting to dashboard')
+        // Clean hash from URL
+        if (window.location.hash) {
+          window.history.replaceState({}, document.title, '/dashboard')
         }
-      })
-      subscription = authListener.data.subscription
+        if (mounted) {
+          navigate('/dashboard', { replace: true })
+        }
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('[AuthCallback] TOKEN_REFRESHED - redirecting to dashboard')
+        if (mounted) {
+          navigate('/dashboard', { replace: true })
+        }
+      } else if (event === 'INITIAL_SESSION' && session?.user) {
+        console.log('[AuthCallback] INITIAL_SESSION with user - redirecting to dashboard')
+        if (mounted) {
+          navigate('/dashboard', { replace: true })
+        }
+      }
+    })
 
-    // Also check if session already exists (user might already be logged in)
-    const checkExistingSession = async () => {
-      if (hasProcessedRef.current) return
-      
+    // Force getSession to process hash tokens
+    const processSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        setStatus('Establishing session...')
+        console.log('[AuthCallback] Calling getSession()...')
         
-        if (session?.user && !hasProcessedRef.current) {
-          hasProcessedRef.current = true
-          console.log('[AuthCallback] Existing session found:', session.user.email)
-          window.history.replaceState(null, '', '/dashboard')
-          if (mounted) navigate('/dashboard', { replace: true })
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        console.log('[AuthCallback] getSession result:', {
+          hasSession: !!session,
+          userEmail: session?.user?.email,
+          error: error?.message
+        })
+
+        if (error) {
+          console.error('[AuthCallback] getSession error:', error)
+          setDebugInfo(`getSession error: ${error.message}`)
+          // Don't show error immediately - wait for auth listener
+        }
+
+        if (session?.user) {
+          console.log('[AuthCallback] Session already exists, redirecting...')
+          window.history.replaceState({}, document.title, '/dashboard')
+          if (mounted) {
+            navigate('/dashboard', { replace: true })
+          }
+          return
+        }
+
+        // If we have tokens but no session yet, try setSession manually
+        if (hasTokens && !session) {
+          console.log('[AuthCallback] Tokens present but no session, trying manual setSession...')
+          setStatus('Finalizing login...')
+          
+          const accessToken = hashParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token')
+          
+          if (accessToken) {
+            const { data, error: setError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || ''
+            })
+            
+            console.log('[AuthCallback] setSession result:', {
+              hasSession: !!data?.session,
+              userEmail: data?.session?.user?.email,
+              error: setError?.message
+            })
+            
+            if (data?.session?.user) {
+              window.history.replaceState({}, document.title, '/dashboard')
+              if (mounted) {
+                navigate('/dashboard', { replace: true })
+              }
+              return
+            }
+          }
         }
       } catch (err) {
-        // Ignore errors here - the auth state listener will handle it
-        console.warn('[AuthCallback] Initial session check warning:', err.message)
+        console.error('[AuthCallback] processSession error:', err)
+        setDebugInfo(`Error: ${err.message}`)
       }
     }
 
-    // Try manual token extraction as fallback if Supabase doesn't process automatically
-    const tryManualTokenExtraction = async () => {
-      if (hasProcessedRef.current) return
-      
-      const accessToken = hashParams.get('access_token')
-      const refreshToken = hashParams.get('refresh_token')
-      
-      if (accessToken) {
-        console.log('[AuthCallback] Attempting manual session set...')
-        if (mounted) setStatus('Finalizing login...')
-        
-        try {
-          const { data, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || '',
-          })
+    // Start processing after a brief delay to let Supabase initialize
+    const initTimeout = setTimeout(processSession, 100)
 
-          if (!sessionError && data?.session?.user && !hasProcessedRef.current) {
-            hasProcessedRef.current = true
-            console.log('[AuthCallback] Manual session established:', data.session.user.email)
-            window.history.replaceState(null, '', '/dashboard')
-            if (mounted) navigate('/dashboard', { replace: true })
-            return true
-          }
-        } catch (e) {
-          console.error('[AuthCallback] Manual session failed:', e)
-        }
+    // Only show error after 10 seconds (give plenty of time)
+    errorTimeout = setTimeout(() => {
+      if (mounted) {
+        console.warn('[AuthCallback] Timeout - showing error UI')
+        setShowError(true)
+        setStatus('Sign in taking longer than expected')
       }
-      return false
-    }
-
-    // Start checking after a brief delay to let Supabase initialize
-    initTimer = setTimeout(async () => {
-      if (mounted) setStatus('Establishing session...')
-      await checkExistingSession()
-    }, 100)
-
-    // Set a timeout - if no session after 8 seconds, try manual extraction then show error
-    timeoutRef.current = setTimeout(async () => {
-      if (hasProcessedRef.current) return
-      
-      console.warn('[AuthCallback] Timeout reached, trying manual extraction...')
-      const success = await tryManualTokenExtraction()
-      
-      if (!success && mounted && !hasProcessedRef.current) {
-        setError('Unable to complete sign in. Please try again.')
-      }
-    }, 8000)
-
-    } catch (err) {
-      console.error('[AuthCallback] Setup error:', err)
-      
-      // If it's an abort error, try clearing cached auth data and retry once
-      if (err.message?.includes('abort') || err.name === 'AbortError') {
-        console.log('[AuthCallback] Abort error detected, clearing cached auth data...')
-        try {
-          localStorage.removeItem('brandastic-auth')
-          localStorage.removeItem('supabase.auth.token')
-          // Clear any other Supabase auth keys
-          Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('sb-') || key.includes('supabase')) {
-              localStorage.removeItem(key)
-            }
-          })
-        } catch (e) {
-          console.warn('[AuthCallback] Could not clear localStorage:', e)
-        }
-      }
-      
-      if (mounted) setError('An error occurred during sign in. Please try again.')
-    }
+    }, 10000)
 
     return () => {
       mounted = false
-      if (subscription) subscription.unsubscribe()
-      if (initTimer) clearTimeout(initTimer)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      subscription.unsubscribe()
+      clearTimeout(initTimeout)
+      if (errorTimeout) clearTimeout(errorTimeout)
     }
   }, [navigate])
 
-  if (error) {
+  // Error state - only shown after timeout
+  if (showError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-8 max-w-md">
-          <div className="text-red-500 mb-4">
-            <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold mb-2">Sign In Issue</h2>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <p className="text-sm text-muted-foreground mb-6">
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f8fafc',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center', padding: '20px', maxWidth: '400px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px', color: '#1e293b' }}>
+            Sign In Issue
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>
+            {status}
+          </p>
+          {debugInfo && (
+            <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px', fontFamily: 'monospace' }}>
+              Debug: {debugInfo}
+            </p>
+          )}
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>
             If this keeps happening, try using a regular browser window (not incognito/private).
           </p>
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
               onClick={() => {
-                window.history.replaceState(null, '', '/login')
+                window.history.replaceState({}, document.title, '/login')
                 navigate('/login', { replace: true })
               }}
-              className="w-full px-4 py-3 bg-brand-orange text-white rounded-lg hover:opacity-90 font-medium"
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#f97316',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
             >
               Back to Login
             </button>
             <button
               onClick={() => {
-                // Clear all cached auth data before retrying
+                // Clear all auth cache and retry
                 try {
                   localStorage.removeItem('brandastic-auth')
-                  localStorage.removeItem('supabase.auth.token')
                   Object.keys(localStorage).forEach(key => {
                     if (key.startsWith('sb-') || key.includes('supabase')) {
                       localStorage.removeItem(key)
                     }
                   })
-                  // Also clear session storage
-                  sessionStorage.clear()
-                } catch (e) {
-                  console.warn('Could not clear storage:', e)
-                }
-                hasProcessedRef.current = false
-                setError(null)
-                setStatus('Retrying...')
+                } catch (e) {}
                 window.location.reload()
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              style={{
+                padding: '12px 24px',
+                backgroundColor: 'transparent',
+                color: '#475569',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
             >
-              Try Again
+              Clear Cache & Retry
+            </button>
+            <button
+              onClick={async () => {
+                // Debug button - manually try getSession
+                console.log('[Debug] Manual getSession attempt...')
+                console.log('[Debug] Current hash:', window.location.hash)
+                const { data, error } = await supabase.auth.getSession()
+                console.log('[Debug] getSession result:', data, error)
+                alert(`Session: ${data?.session?.user?.email || 'none'}\nError: ${error?.message || 'none'}`)
+              }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#94a3b8',
+                border: 'none',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              Debug: Check Session
             </button>
           </div>
         </div>
@@ -235,19 +259,16 @@ export default function AuthCallback() {
     )
   }
 
-  // Use inline styles as fallback in case CSS doesn't load
+  // Loading state - shown while processing
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center bg-background"
-      style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#f8fafc',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
-      }}
-    >
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8fafc',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
       <div style={{ textAlign: 'center', padding: '20px' }}>
         <div 
           style={{ 
@@ -261,8 +282,17 @@ export default function AuthCallback() {
           }} 
         />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <p style={{ fontSize: '18px', fontWeight: '500', marginBottom: '4px', color: '#1e293b' }}>{status}</p>
-        <p style={{ fontSize: '14px', color: '#64748b' }}>This should only take a moment...</p>
+        <p style={{ fontSize: '16px', fontWeight: '500', color: '#1e293b', marginBottom: '4px' }}>
+          {status}
+        </p>
+        <p style={{ fontSize: '14px', color: '#64748b' }}>
+          This should only take a moment...
+        </p>
+        {debugInfo && (
+          <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px', fontFamily: 'monospace' }}>
+            {debugInfo}
+          </p>
+        )}
       </div>
     </div>
   )

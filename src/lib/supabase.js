@@ -83,7 +83,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'implicit', // Key fix for iOS/tab switch desync issues
-    debug: import.meta.env.DEV, // Only enable debug in development
+    debug: true, // Temporarily enabled to diagnose OAuth callback issues
   },
   realtime: {
     params: {

@@ -713,9 +713,20 @@ function App() {
     console.log('[App] Auth state:', { loading, user: user?.email || null, profile: profile?.full_name || null })
   }, [loading, user, profile])
 
-  if (loading) {
+  // Skip loading screen on auth callback - let AuthCallback handle its own loading
+  if (loading && location.pathname !== '/auth/callback') {
     console.log('[App] Showing LoadingScreen - auth still loading')
     return <LoadingScreen onRetry={retryAuth} error={authError} />
+  }
+  
+  // If loading but on auth callback, render AuthCallback directly
+  if (loading && location.pathname === '/auth/callback') {
+    console.log('[App] On auth/callback route - rendering AuthCallback directly')
+    return (
+      <div className="min-h-screen bg-background">
+        <AuthCallback />
+      </div>
+    )
   }
 
   // Confetti component
