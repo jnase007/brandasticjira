@@ -301,18 +301,46 @@ export function AuthProvider({ children }) {
             
             if (!existingProfile) {
               // Create profile for OAuth users or if somehow missing
-              await supabase
+              console.log('[Auth] No profile found for user, creating one with role: team')
+              const { data: upsertData, error: upsertError } = await supabase
                 .from('profiles')
                 .upsert({
                   id: session.user.id,
                   email: session.user.email,
-                  full_name: googleName,
+                  full_name: googleName || session.user.email?.split('@')[0] || 'User',
                   role: 'team',
                   avatar_url: googleAvatar,
                 }, { onConflict: 'id' })
+                .select()
+                .single()
+              
+              if (upsertError) {
+                console.error('[Auth] Failed to create profile:', upsertError)
+                // Try a simple insert as fallback
+                const { error: insertError } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: session.user.id,
+                    email: session.user.email,
+                    full_name: googleName || session.user.email?.split('@')[0] || 'User',
+                    role: 'team',
+                    avatar_url: googleAvatar,
+                  })
+                
+                if (insertError) {
+                  console.error('[Auth] Failed to insert profile:', insertError)
+                } else {
+                  console.log('[Auth] Profile created via insert')
+                }
+              } else {
+                console.log('[Auth] Profile created/updated:', upsertData?.email)
+              }
               
               // Fetch the newly created profile
-              const { data: newProfile } = await getProfile(session.user.id)
+              const { data: newProfile, error: fetchError } = await getProfile(session.user.id)
+              if (fetchError) {
+                console.error('[Auth] Failed to fetch new profile:', fetchError)
+              }
               setProfile(newProfile)
               setJustLoggedIn(true)
               setProfileSynced(true)
