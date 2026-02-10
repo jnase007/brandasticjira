@@ -94,28 +94,15 @@ export default function AuthCallback() {
         return
       }
       
-      // We have tokens - clear any stale auth data first
-      console.log('[AuthCallback] Clearing stale auth data...')
-      setDebugInfo('Preparing session...')
-      
-      try {
-        // Clear existing storage to prevent conflicts
-        localStorage.removeItem('brandastic-auth')
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') || key.includes('supabase')) {
-            localStorage.removeItem(key)
-          }
-        })
-      } catch (e) {
-        console.warn('[AuthCallback] Failed to clear storage:', e)
-      }
-      
-      // Set the session manually
+      // Set the session manually - DO NOT clear storage first (causes abort)
       console.log('[AuthCallback] Setting session with tokens...')
       setStatus('Establishing session...')
       setDebugInfo('Setting session...')
       
       try {
+        // Add small delay to ensure any pending operations complete
+        await new Promise(resolve => setTimeout(resolve, 50))
+        
         const { data, error: setSessionError } = await supabase.auth.setSession({
           access_token,
           refresh_token: refresh_token || ''
