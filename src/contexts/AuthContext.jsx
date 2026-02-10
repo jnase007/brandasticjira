@@ -110,29 +110,25 @@ export function AuthProvider({ children }) {
       setLoading(false)
     }, 8000)
 
-    // SIMPLIFIED AUTH INIT - Let Supabase handle OAuth via detectSessionInUrl
+    // AUTH INIT - detectSessionInUrl is DISABLED, AuthCallback handles tokens manually
     const initAuth = async () => {
       console.log('[Auth] Initializing...')
       
-      // Check if we're on the auth callback route - if so, let AuthCallback handle it
-      // This prevents race conditions that cause "signal is aborted" errors
+      // Check if we're on the auth callback route - AuthCallback handles tokens manually
       const isAuthCallback = window.location.pathname === '/auth/callback'
       const hasAuthTokens = window.location.hash?.includes('access_token')
       
       if (isAuthCallback || hasAuthTokens) {
-        // CRITICAL: Completely defer to AuthCallback component
-        // Do NOT call getSession() here - it causes race conditions
-        console.log('[Auth] On auth callback route - deferring entirely to AuthCallback')
+        // Defer entirely to AuthCallback - it will call setSession() with tokens
+        // Our onAuthStateChange listener will update state when session is set
+        console.log('[Auth] On auth callback route - AuthCallback will handle tokens')
         setLoading(false)
         clearTimeout(safetyTimeout)
-        // The onAuthStateChange listener below will handle state updates
-        // once AuthCallback successfully processes the tokens
         return
       }
       
       try {
-        // Small delay to let Supabase process any OAuth tokens in URL
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Normal page load - check for existing session
         
         // Get session - this triggers onAuthStateChange with INITIAL_SESSION
         const { data: { session }, error } = await supabase.auth.getSession()

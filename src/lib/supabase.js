@@ -79,11 +79,11 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false, // DISABLED - We handle tokens manually in AuthCallback to avoid race conditions
     storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
     storageKey: 'brandastic-auth', // Custom storage key
-    flowType: 'implicit', // Key fix for iOS/tab switch desync issues
-    debug: true, // Temporarily enabled to diagnose OAuth callback issues
+    flowType: 'implicit',
+    debug: import.meta.env.DEV, // Only in dev mode
   },
   realtime: {
     params: {
