@@ -1,165 +1,127 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 /**
- * OAuth Callback Handler - Manual Token Processing
+ * OAuth Callback Handler - Grok's Recommended Implementation
  * 
- * Based on Grok's recommendation:
- * - detectSessionInUrl is DISABLED in supabase client
- * - We manually parse hash tokens and call setSession()
- * - This avoids AbortController race conditions
- * - AuthContext's onAuthStateChange handles state updates
+ * Key points:
+ * - detectSessionInUrl is DISABLED in client
+ * - This is the ONLY place that touches the hash
+ * - Manual parsing + setSession() + getSession() verification
+ * - Timeout fallback with retry
  */
 export default function AuthCallback() {
   const navigate = useNavigate()
-  const [status, setStatus] = useState('Completing sign in...')
+  const processed = useRef(false)
+  const [status, setStatus] = useState('Completing Google login...')
   const [error, setError] = useState(null)
-  const [debugInfo, setDebugInfo] = useState('')
-  
-  const processedRef = useRef(false)
-  const mountedRef = useRef(true)
 
   useEffect(() => {
-    mountedRef.current = true
-    
-    const processOAuthCallback = async () => {
-      // Prevent double processing
-      if (processedRef.current) {
-        console.log('[AuthCallback] Already processed, skipping')
-        return
-      }
-      processedRef.current = true
-      
-      console.log('[AuthCallback] === Processing OAuth Callback ===')
-      console.log('[AuthCallback] URL:', window.location.href)
-      
-      // Parse hash tokens
-      const hash = window.location.hash.substring(1)
-      const hashParams = new URLSearchParams(hash)
-      const searchParams = new URLSearchParams(window.location.search)
-      
-      // Check for OAuth errors first
-      const errorCode = hashParams.get('error') || searchParams.get('error')
-      const errorDesc = hashParams.get('error_description') || searchParams.get('error_description')
-      
-      if (errorCode) {
-        console.error('[AuthCallback] OAuth error:', errorCode, errorDesc)
-        setError(errorDesc || errorCode || 'Authentication failed')
-        return
-      }
-      
-      // Extract tokens
-      const access_token = hashParams.get('access_token')
-      const refresh_token = hashParams.get('refresh_token')
-      const expires_in = hashParams.get('expires_in')
-      const token_type = hashParams.get('token_type')
-      
-      console.log('[AuthCallback] Tokens found:', {
-        hasAccessToken: !!access_token,
-        hasRefreshToken: !!refresh_token,
-        expiresIn: expires_in,
-        tokenType: token_type
-      })
-      
-      if (!access_token) {
-        // No tokens in URL - check if we already have a session
-        console.log('[AuthCallback] No tokens in URL, checking existing session...')
-        setDebugInfo('Checking session...')
-        
-        try {
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-          
-          if (sessionError) {
-            console.error('[AuthCallback] getSession error:', sessionError)
-            setError('Failed to verify session')
-            return
-          }
-          
-          if (session?.user) {
-            console.log('[AuthCallback] Existing session found:', session.user.email)
-            if (mountedRef.current) {
-              navigate('/dashboard', { replace: true })
-            }
-            return
-          }
-          
-          // No session, no tokens - redirect to login
-          console.log('[AuthCallback] No session or tokens, redirecting to login')
-          setError('No authentication data received')
-        } catch (err) {
-          console.error('[AuthCallback] Session check failed:', err)
-          setError('Session verification failed')
-        }
-        return
-      }
-      
-      // Set the session manually - DO NOT clear storage first (causes abort)
-      console.log('[AuthCallback] Setting session with tokens...')
-      setStatus('Establishing session...')
-      setDebugInfo('Setting session...')
-      
+    // Prevent double processing (React strict mode)
+    if (processed.current) return
+    processed.current = true
+
+    let timeoutId = null
+
+    const processTokens = async () => {
       try {
-        // Add small delay to ensure any pending operations complete
-        await new Promise(resolve => setTimeout(resolve, 50))
+        const hash = window.location.hash.substring(1)
         
+        console.log('[AuthCallback] Processing callback...')
+        console.log('[AuthCallback] Hash length:', hash.length)
+        
+        if (!hash) {
+          console.warn('[AuthCallback] No hash found on callback')
+          // Check if we already have a session
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            console.log('[AuthCallback] Existing session found, redirecting...')
+            navigate('/dashboard', { replace: true })
+            return
+          }
+          navigate('/login')
+          return
+        }
+
+        const params = new URLSearchParams(hash)
+        const access_token = params.get('access_token')
+        const refresh_token = params.get('refresh_token')
+        
+        // Check for OAuth errors
+        const errorCode = params.get('error')
+        const errorDesc = params.get('error_description')
+        if (errorCode) {
+          throw new Error(errorDesc || errorCode)
+        }
+
+        if (!access_token) {
+          throw new Error('Missing access_token in hash')
+        }
+
+        console.log('[AuthCallback] Tokens found, setting session...')
+        setStatus('Setting up your session...')
+
+        // Set up timeout fallback (8 seconds)
+        timeoutId = setTimeout(async () => {
+          console.warn('[AuthCallback] setSession timeout → retrying getSession')
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+              console.log('[AuthCallback] Session found on retry')
+              window.history.replaceState({}, document.title, '/dashboard')
+              navigate('/dashboard', { replace: true })
+            } else {
+              setError('Login timeout. Please try again.')
+            }
+          } catch (e) {
+            setError('Login timeout. Please try again.')
+          }
+        }, 8000)
+
+        // Set the session
         const { data, error: setSessionError } = await supabase.auth.setSession({
           access_token,
-          refresh_token: refresh_token || ''
+          refresh_token: refresh_token || '',
         })
-        
+
         if (setSessionError) {
-          console.error('[AuthCallback] setSession error:', setSessionError)
-          setError(setSessionError.message || 'Failed to establish session')
-          setDebugInfo(`Error: ${setSessionError.message}`)
-          return
+          throw setSessionError
         }
-        
-        if (!data?.session?.user) {
-          console.error('[AuthCallback] setSession returned no session')
-          setError('Session creation failed')
-          return
-        }
-        
-        console.log('[AuthCallback] Session established:', data.session.user.email)
-        setStatus('Success! Redirecting...')
-        setDebugInfo(`Logged in as ${data.session.user.email}`)
-        
-        // Clean hash from URL and navigate
+
+        console.log('[AuthCallback] setSession completed')
+        setStatus('Verifying session...')
+
+        // Clean URL immediately
         window.history.replaceState({}, document.title, '/dashboard')
+
+        // Wait briefly for listener to catch up (Grok's recommendation)
+        await new Promise(r => setTimeout(r, 300))
+
+        // Force session check to verify it worked
+        const { data: { session } } = await supabase.auth.getSession()
         
-        if (mountedRef.current) {
-          // Small delay to let AuthContext's onAuthStateChange process
-          setTimeout(() => {
-            if (mountedRef.current) {
-              navigate('/dashboard', { replace: true })
-            }
-          }, 100)
+        if (session) {
+          console.log('[AuthCallback] Session verified:', session.user.email)
+          clearTimeout(timeoutId)
+          navigate('/dashboard', { replace: true })
+        } else {
+          throw new Error('Session not set after setSession')
         }
-        
+
       } catch (err) {
-        console.error('[AuthCallback] setSession exception:', err)
-        setError(err.message || 'An unexpected error occurred')
-        setDebugInfo(`Exception: ${err.message}`)
+        console.error('[AuthCallback] Error:', err)
+        clearTimeout(timeoutId)
+        setError(err.message || 'Authentication failed')
       }
     }
-    
-    // Process immediately
-    processOAuthCallback()
-    
-    // Timeout fallback
-    const timeout = setTimeout(() => {
-      if (mountedRef.current && !error) {
-        console.warn('[AuthCallback] Timeout reached')
-        setError('Sign in is taking too long. Please try again.')
-      }
-    }, 15000)
-    
+
+    processTokens()
+
     return () => {
-      mountedRef.current = false
-      clearTimeout(timeout)
+      if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [navigate, error])
+  }, [navigate])
 
   // Error UI
   if (error) {
@@ -170,31 +132,25 @@ export default function AuthCallback() {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Sign In Issue
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-2">
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             {error}
           </p>
-          {debugInfo && (
-            <p className="text-xs text-gray-400 font-mono mb-6">
-              {debugInfo}
-            </p>
-          )}
           <div className="space-y-3">
             <button
-              onClick={() => {
-                window.location.href = '/login'
-              }}
+              onClick={() => window.location.href = '/login'}
               className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
             >
               Back to Login
             </button>
             <button
               onClick={() => {
+                // Clear all auth storage and retry
                 try {
-                  localStorage.clear()
-                  sessionStorage.clear()
-                  if ('caches' in window) {
-                    caches.keys().then(keys => keys.forEach(key => caches.delete(key)))
-                  }
+                  Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('sb-') || key.includes('supabase') || key.includes('brandastic')) {
+                      localStorage.removeItem(key)
+                    }
+                  })
                 } catch (e) {}
                 window.location.href = '/login'
               }}
@@ -219,11 +175,6 @@ export default function AuthCallback() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           This should only take a moment
         </p>
-        {debugInfo && (
-          <p className="text-xs text-gray-400 font-mono mt-4">
-            {debugInfo}
-          </p>
-        )}
       </div>
     </div>
   )
