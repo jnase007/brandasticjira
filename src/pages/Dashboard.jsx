@@ -113,11 +113,9 @@ export default function Dashboard({ onConfetti }) {
     try {
       // Log session state for debugging
       const { session } = await getSession()
-      console.log('[Dashboard] Starting data fetch...', {
+      console.log('[Dashboard] Fetching data...', {
         hasSession: !!session,
-        userId: session?.user?.id?.slice(0, 8),
-        email: session?.user?.email,
-        profileRole: profile?.role
+        email: session?.user?.email
       })
       
       // Timeout for slower mobile networks (15 seconds)
@@ -310,27 +308,23 @@ export default function Dashboard({ onConfetti }) {
     
     // If no user after auth loaded, don't attempt fetch
     if (!user) {
-      console.log('[Dashboard] No user after auth loaded - redirecting to login')
+      console.log('[Dashboard] No user after auth loaded')
       setLoading(false)
       return
     }
     
-    // Also wait for profile to be ready (critical for data fetching)
-    if (!profile) {
-      console.log('[Dashboard] User exists but waiting for profile...')
-      // Don't return here - set a timeout to retry
-      const profileTimeout = setTimeout(() => {
-        if (!profile) {
-          console.log('[Dashboard] Profile still not ready after timeout, fetching anyway...')
-          fetchData()
-        }
-      }, 1000)
-      return () => clearTimeout(profileTimeout)
-    }
-    
-    console.log('[Dashboard] Auth ready, fetching data for:', user?.email || profile?.email)
+    // Fetch data immediately - don't wait for profile
+    // Profile will be available via useAuth context when ready
+    console.log('[Dashboard] Auth ready, fetching data for:', user?.email)
     fetchData()
-  }, [authLoading, user?.id, profile?.id])
+    
+    // Safety: if still loading after 5 seconds, force stop
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false)
+    }, 5000)
+    
+    return () => clearTimeout(safetyTimeout)
+  }, [authLoading, user?.id])
 
   useEffect(() => {
     const updateRunningTimer = async () => {
