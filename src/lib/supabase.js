@@ -79,11 +79,11 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // DISABLED - We handle tokens manually in AuthCallback to avoid race conditions
+    detectSessionInUrl: true, // PKCE needs this to exchange code for session
     storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
     storageKey: 'brandastic-auth', // Custom storage key
-    flowType: 'implicit',
-    debug: import.meta.env.DEV, // Only in dev mode
+    flowType: 'pkce', // PKCE flow - more secure, avoids hash token issues
+    debug: import.meta.env.DEV,
   },
   realtime: {
     params: {

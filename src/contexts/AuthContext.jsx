@@ -110,18 +110,19 @@ export function AuthProvider({ children }) {
       setLoading(false)
     }, 8000)
 
-    // AUTH INIT - detectSessionInUrl is DISABLED, AuthCallback handles tokens manually
+    // AUTH INIT - PKCE flow with detectSessionInUrl: true
     const initAuth = async () => {
       console.log('[Auth] Initializing...')
       
-      // Check if we're on the auth callback route - AuthCallback handles tokens manually
+      // Check if we're on the auth callback route
       const isAuthCallback = window.location.pathname === '/auth/callback'
+      const hasCode = window.location.search?.includes('code=')
       const hasAuthTokens = window.location.hash?.includes('access_token')
       
-      if (isAuthCallback || hasAuthTokens) {
-        // Defer entirely to AuthCallback - it will call setSession() with tokens
-        // Our onAuthStateChange listener will update state when session is set
-        console.log('[Auth] On auth callback route - AuthCallback will handle tokens')
+      if (isAuthCallback || hasCode || hasAuthTokens) {
+        // Let AuthCallback handle the OAuth flow
+        // It will call getSession() which triggers code exchange
+        console.log('[Auth] On auth callback route - deferring to AuthCallback')
         setLoading(false)
         clearTimeout(safetyTimeout)
         return
