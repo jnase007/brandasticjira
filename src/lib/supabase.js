@@ -450,6 +450,94 @@ export async function getCurrentUser() {
 }
 
 // ============================================
+// AUTH & RLS DIAGNOSTICS
+// ============================================
+// Use this to debug login/data issues
+
+export async function diagnoseAuth() {
+  console.log('=== AUTH DIAGNOSTIC START ===')
+  const results = {
+    session: null,
+    profile: null,
+    rlsTest: {},
+    errors: []
+  }
+
+  // 1. Check session
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    results.session = session ? {
+      userId: session.user.id,
+      email: session.user.email,
+      provider: session.user.app_metadata?.provider,
+      expiresAt: session.expires_at
+    } : null
+    if (error) results.errors.push(`Session error: ${error.message}`)
+    console.log('[Diag] Session:', results.session || 'NO SESSION')
+  } catch (e) {
+    results.errors.push(`Session check failed: ${e.message}`)
+  }
+
+  // 2. Check profile
+  if (results.session?.userId) {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('id, email, role, full_name')
+        .eq('id', results.session.userId)
+        .single()
+      
+      results.profile = profile
+      if (error) results.errors.push(`Profile error: ${error.message}`)
+      console.log('[Diag] Profile:', profile || 'NO PROFILE')
+      
+      if (!profile) {
+        results.errors.push('❌ NO PROFILE - RLS will block all data!')
+      } else if (!['team', 'admin'].includes(profile.role)) {
+        results.errors.push(`❌ Role is "${profile.role}" - needs "team" or "admin" for full access`)
+      }
+    } catch (e) {
+      results.errors.push(`Profile check failed: ${e.message}`)
+    }
+  }
+
+  // 3. Test RLS on key tables
+  const tables = ['clients', 'boards', 'tickets', 'time_entries']
+  for (const table of tables) {
+    try {
+      const { data, error, count } = await supabase
+        .from(table)
+        .select('*', { count: 'exact', head: false })
+        .limit(1)
+      
+      results.rlsTest[table] = {
+        canAccess: !error,
+        count: count || data?.length || 0,
+        error: error?.message
+      }
+      console.log(`[Diag] ${table}:`, error ? `ERROR: ${error.message}` : `OK (${count || data?.length || 0} rows)`)
+    } catch (e) {
+      results.rlsTest[table] = { canAccess: false, error: e.message }
+    }
+  }
+
+  // Summary
+  console.log('=== AUTH DIAGNOSTIC SUMMARY ===')
+  console.log('Session:', results.session ? '✅' : '❌')
+  console.log('Profile:', results.profile ? `✅ (role: ${results.profile.role})` : '❌')
+  console.log('RLS Access:', Object.entries(results.rlsTest).map(([t, r]) => `${t}: ${r.canAccess ? '✅' : '❌'}`).join(', '))
+  if (results.errors.length) console.warn('Errors:', results.errors)
+  console.log('=== AUTH DIAGNOSTIC END ===')
+  
+  return results
+}
+
+// Expose to window for console debugging
+if (typeof window !== 'undefined') {
+  window.diagnoseAuth = diagnoseAuth
+}
+
+// ============================================
 // PROFILE HELPERS
 // ============================================
 

@@ -23,7 +23,7 @@ import {
   CheckCircle,
   ListTodo,
 } from 'lucide-react'
-import { supabase, getClients, getBoards, getClientHoursSummary, getTickets, ensureValidSession } from '../lib/supabase'
+import { supabase, getClients, getBoards, getClientHoursSummary, getTickets, ensureValidSession, getSession } from '../lib/supabase'
 import ClientDialog from '../components/ClientDialog'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDuration, calculateProgress, getProgressColor, formatRelativeDate } from '../lib/utils'
@@ -111,7 +111,14 @@ export default function Dashboard({ onConfetti }) {
     setFetchError(null)
     
     try {
-      console.log('[Dashboard] Starting data fetch...')
+      // Log session state for debugging
+      const { session } = await getSession()
+      console.log('[Dashboard] Starting data fetch...', {
+        hasSession: !!session,
+        userId: session?.user?.id?.slice(0, 8),
+        email: session?.user?.email,
+        profileRole: profile?.role
+      })
       
       // Timeout for slower mobile networks (15 seconds)
       const FETCH_TIMEOUT = 15000
