@@ -120,32 +120,13 @@ export function AuthProvider({ children }) {
       const hasAuthTokens = window.location.hash?.includes('access_token')
       
       if (isAuthCallback || hasAuthTokens) {
-        console.log('[Auth] On auth callback route, processing tokens...')
-        
-        // Set loading false immediately so AuthCallback can render
+        // CRITICAL: Completely defer to AuthCallback component
+        // Do NOT call getSession() here - it causes race conditions
+        console.log('[Auth] On auth callback route - deferring entirely to AuthCallback')
         setLoading(false)
         clearTimeout(safetyTimeout)
-        
-        // If we have tokens in hash, help process them
-        if (hasAuthTokens) {
-          console.log('[Auth] Hash tokens detected, calling getSession to process...')
-          try {
-            const { data: { session }, error } = await supabase.auth.getSession()
-            console.log('[Auth] getSession on callback:', session?.user?.email || 'no session', error?.message || '')
-            
-            if (session?.user) {
-              setUser(session.user)
-              // Fetch profile
-              const { data: profileData } = await getProfile(session.user.id)
-              if (profileData) {
-                setProfile(profileData)
-              }
-            }
-          } catch (e) {
-            console.warn('[Auth] Error processing hash tokens:', e)
-          }
-        }
-        
+        // The onAuthStateChange listener below will handle state updates
+        // once AuthCallback successfully processes the tokens
         return
       }
       
