@@ -57,22 +57,90 @@ import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
 // Error Boundary to catch React render errors
 import { Component } from 'react'
 
+// Detect stale deployment errors (dynamic import failures)
+const isStaleDeploymentError = (error) => {
+  const message = error?.message || ''
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Loading chunk') ||
+    message.includes('Loading CSS chunk') ||
+    message.includes('ChunkLoadError')
+  )
+}
+
+// Auto-refresh on stale deployment (only once per session)
+const handleStaleDeployment = () => {
+  const lastRefresh = sessionStorage.getItem('stale-refresh-time')
+  const now = Date.now()
+  
+  // Only auto-refresh if we haven't refreshed in the last 10 seconds
+  if (!lastRefresh || (now - parseInt(lastRefresh)) > 10000) {
+    console.log('[App] Stale deployment detected, auto-refreshing...')
+    sessionStorage.setItem('stale-refresh-time', now.toString())
+    window.location.reload()
+    return true
+  }
+  return false
+}
+
+// Global handler for unhandled promise rejections (catches dynamic import failures)
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isStaleDeploymentError(event.reason)) {
+      event.preventDefault()
+      handleStaleDeployment()
+    }
+  })
+}
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = { hasError: false, error: null, isStale: false }
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error }
+    const isStale = isStaleDeploymentError(error)
+    return { hasError: true, error, isStale }
   }
 
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo)
+    
+    // Auto-refresh for stale deployment errors
+    if (isStaleDeploymentError(error)) {
+      if (handleStaleDeployment()) return
+    }
   }
 
   render() {
     if (this.state.hasError) {
+      // Special UI for stale deployment
+      if (this.state.isStale) {
+        return (
+          <div className="min-h-[50vh] flex items-center justify-center p-6">
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-brand-orange mb-2">New Version Available</h2>
+              <p className="text-muted-foreground mb-4">
+                A new version has been deployed. Please refresh to get the latest updates.
+              </p>
+              <button 
+                onClick={() => {
+                  // Clear caches and reload
+                  if ('caches' in window) {
+                    caches.keys().then(names => names.forEach(name => caches.delete(name)))
+                  }
+                  window.location.reload()
+                }}
+                className="px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange/90"
+              >
+                Refresh Now
+              </button>
+            </div>
+          </div>
+        )
+      }
+      
       return (
         <div className="min-h-[50vh] flex items-center justify-center p-6">
           <div className="text-center">
