@@ -7,108 +7,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// ============================================
-// SAFE STORAGE - Works in Safari Private Mode
-// ============================================
-// Priority: localStorage → sessionStorage → memory
-// CRITICAL for PKCE: sessionStorage persists across OAuth redirects!
-
-const createSafeStorage = () => {
-  // In-memory fallback storage (last resort)
-  const memoryStorage = new Map()
-  
-  // Test storage availability
-  const testStorage = (storage, name) => {
-    try {
-      const testKey = '__storage_test__'
-      storage.setItem(testKey, testKey)
-      storage.removeItem(testKey)
-      return true
-    } catch (e) {
-      console.warn(`[Storage] ${name} not available`)
-      return false
-    }
-  }
-  
-  const hasLocalStorage = testStorage(localStorage, 'localStorage')
-  const hasSessionStorage = testStorage(sessionStorage, 'sessionStorage')
-  
-  console.log('[Storage] Availability:', { localStorage: hasLocalStorage, sessionStorage: hasSessionStorage })
-  
-  // Choose best available storage
-  // For PKCE to work in Safari, we MUST use sessionStorage if localStorage fails
-  // because sessionStorage persists across the OAuth redirect
-  const primaryStorage = hasLocalStorage ? localStorage : (hasSessionStorage ? sessionStorage : null)
-  const storageName = hasLocalStorage ? 'localStorage' : (hasSessionStorage ? 'sessionStorage' : 'memory')
-  
-  if (!primaryStorage) {
-    console.warn('[Storage] ⚠️ No persistent storage available - using memory (PKCE may fail)')
-  } else {
-    console.log('[Storage] Using:', storageName)
-  }
-  
-  return {
-    getItem: (key) => {
-      try {
-        if (primaryStorage) {
-          const value = primaryStorage.getItem(key)
-          if (value) return value
-        }
-        // Also check memory as fallback
-        return memoryStorage.get(key) || null
-      } catch (e) {
-        console.warn('[Storage] getItem failed:', e.message)
-        return memoryStorage.get(key) || null
-      }
-    },
-    setItem: (key, value) => {
-      try {
-        if (primaryStorage) {
-          primaryStorage.setItem(key, value)
-        }
-        // Also store in memory as backup
-        memoryStorage.set(key, value)
-      } catch (e) {
-        console.warn('[Storage] setItem failed:', e.message)
-        memoryStorage.set(key, value)
-      }
-    },
-    removeItem: (key) => {
-      try {
-        if (primaryStorage) {
-          primaryStorage.removeItem(key)
-        }
-        memoryStorage.delete(key)
-      } catch (e) {
-        console.warn('[Storage] removeItem failed:', e.message)
-        memoryStorage.delete(key)
-      }
-    },
-  }
-}
-
-const safeStorage = createSafeStorage()
-
 // NOTE: Cookie storage was attempted but breaks Google OAuth due to cookie size limits
 // Session tokens can be 3-4KB which exceeds cookie limits
-// Using safe storage wrapper that falls back to memory in private browsing
-
-// Log storage status for debugging PKCE issues
-console.log('[Supabase] Storage available:', {
-  localStorage: (() => { try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return true } catch { return false } })(),
-  sessionStorage: (() => { try { sessionStorage.setItem('_t', '1'); sessionStorage.removeItem('_t'); return true } catch { return false } })()
-})
+// Keeping localStorage but with robust getUser() recovery on resume
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true, // PKCE needs this to exchange code for session
-    storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
+    detectSessionInUrl: true,
+    storage: localStorage, // Using localStorage (cookies break OAuth)
     storageKey: 'brandastic-auth', // Custom storage key
-    flowType: 'pkce', // PKCE flow - more secure, avoids hash token issues
-    // Enable debug in production temporarily to diagnose auth issues
-    debug: true,
+    flowType: 'implicit', // Key fix for iOS/tab switch desync issues
+    // debug: true, // Disable for production - spams console
   },
   realtime: {
     params: {
@@ -317,22 +228,22 @@ export async function ensureValidSession() {
 export async function safeQuery(queryFn, options = {}) {
   const maxRetries = 3
   
-  // Before queries, check session is valid
-  // This helps with tab switch issues
+  // AGGRESSIVE: Before EVERY query, ensure session is fresh
+  // This is the key to fixing tab switch issues - we don't trust the cached session
   try {
-    // Reduced logging to avoid console spam
+    console.log('[SafeQuery] Pre-query session check')
     
     // First check if session exists in memory
     const { data: sessionCheck } = await supabase.auth.getSession()
     
     if (!sessionCheck?.session) {
-      // Session not in memory - try to refresh
+      console.log('[SafeQuery] Session null in memory - forcing refresh')
       
       // Try refreshSession first (uses refresh token from storage)
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
       
       if (refreshError || !refreshData?.session) {
-        // refreshSession failed, trying getUser() as last resort
+        console.log('[SafeQuery] refreshSession failed, trying getUser()...')
         
         // getUser() hits the server directly - last resort
         const { data: userData, error: userError } = await supabase.auth.getUser()
@@ -453,7 +364,7 @@ export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${window.location.origin}/dashboard`,
     },
   })
   return { data, error }
@@ -472,94 +383,6 @@ export async function getSession() {
 export async function getCurrentUser() {
   const { data: { user }, error } = await supabase.auth.getUser()
   return { user, error }
-}
-
-// ============================================
-// AUTH & RLS DIAGNOSTICS
-// ============================================
-// Use this to debug login/data issues
-
-export async function diagnoseAuth() {
-  console.log('=== AUTH DIAGNOSTIC START ===')
-  const results = {
-    session: null,
-    profile: null,
-    rlsTest: {},
-    errors: []
-  }
-
-  // 1. Check session
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    results.session = session ? {
-      userId: session.user.id,
-      email: session.user.email,
-      provider: session.user.app_metadata?.provider,
-      expiresAt: session.expires_at
-    } : null
-    if (error) results.errors.push(`Session error: ${error.message}`)
-    console.log('[Diag] Session:', results.session || 'NO SESSION')
-  } catch (e) {
-    results.errors.push(`Session check failed: ${e.message}`)
-  }
-
-  // 2. Check profile
-  if (results.session?.userId) {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, full_name')
-        .eq('id', results.session.userId)
-        .single()
-      
-      results.profile = profile
-      if (error) results.errors.push(`Profile error: ${error.message}`)
-      console.log('[Diag] Profile:', profile || 'NO PROFILE')
-      
-      if (!profile) {
-        results.errors.push('❌ NO PROFILE - RLS will block all data!')
-      } else if (!['team', 'admin'].includes(profile.role)) {
-        results.errors.push(`❌ Role is "${profile.role}" - needs "team" or "admin" for full access`)
-      }
-    } catch (e) {
-      results.errors.push(`Profile check failed: ${e.message}`)
-    }
-  }
-
-  // 3. Test RLS on key tables
-  const tables = ['clients', 'boards', 'tickets', 'time_entries']
-  for (const table of tables) {
-    try {
-      const { data, error, count } = await supabase
-        .from(table)
-        .select('*', { count: 'exact', head: false })
-        .limit(1)
-      
-      results.rlsTest[table] = {
-        canAccess: !error,
-        count: count || data?.length || 0,
-        error: error?.message
-      }
-      console.log(`[Diag] ${table}:`, error ? `ERROR: ${error.message}` : `OK (${count || data?.length || 0} rows)`)
-    } catch (e) {
-      results.rlsTest[table] = { canAccess: false, error: e.message }
-    }
-  }
-
-  // Summary
-  console.log('=== AUTH DIAGNOSTIC SUMMARY ===')
-  console.log('Session:', results.session ? '✅' : '❌')
-  console.log('Profile:', results.profile ? `✅ (role: ${results.profile.role})` : '❌')
-  console.log('RLS Access:', Object.entries(results.rlsTest).map(([t, r]) => `${t}: ${r.canAccess ? '✅' : '❌'}`).join(', '))
-  if (results.errors.length) console.warn('Errors:', results.errors)
-  console.log('=== AUTH DIAGNOSTIC END ===')
-  
-  return results
-}
-
-// Expose to window for console debugging
-if (typeof window !== 'undefined') {
-  window.diagnoseAuth = diagnoseAuth
 }
 
 // ============================================
@@ -653,7 +476,7 @@ export async function getBoard(boardId) {
     .from('boards')
     .select(`
       *,
-      client:clients(id, name, color, logo_url, slug, monthly_hours, engagement_type)
+      client:clients(id, name, color, logo_url, slug, monthly_hours)
     `)
     .eq('id', boardId)
     .single()
@@ -1335,7 +1158,6 @@ export async function getTeamMembers() {
     .from('profiles')
     .select('*')
     .in('role', ['team', 'admin'])
-    .eq('is_active', true)
     .order('full_name')
   return { data, error }
 }

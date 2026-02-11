@@ -35,8 +35,7 @@ const Mission = lazy(() => import('./pages/Mission'))
 const Financials = lazy(() => import('./pages/Financials'))
 const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
 const AdminHub = lazy(() => import('./pages/AdminHub'))
-// AuthCallback loaded directly (not lazy) for reliability during OAuth flow
-import AuthCallback from './pages/AuthCallback'
+// Note: AuthCallback removed - using implicit flow with detectSessionInUrl
 const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
 
 // Components
@@ -781,27 +780,17 @@ function App() {
     console.log('[App] Auth state:', { loading, user: user?.email || null, profile: profile?.full_name || null })
   }, [loading, user, profile])
 
-  // Skip loading screen on auth callback - let AuthCallback handle its own loading
-  if (loading && location.pathname !== '/auth/callback') {
+  // Show loading screen while auth is initializing
+  if (loading) {
     console.log('[App] Showing LoadingScreen - auth still loading')
     return <LoadingScreen onRetry={retryAuth} error={authError} />
-  }
-  
-  // If loading but on auth callback, render AuthCallback directly
-  if (loading && location.pathname === '/auth/callback') {
-    console.log('[App] On auth/callback route - rendering AuthCallback directly')
-    return (
-      <div className="min-h-screen bg-background">
-        <AuthCallback />
-      </div>
-    )
   }
 
   // Confetti component
   const confetti = <Confetti trigger={confettiTrigger} />
 
-  // Public routes (Login, Demo, Auth Callback, Email Templates) - no sidebar
-  if (!user && (location.pathname === '/login' || location.pathname === '/demo' || location.pathname === '/auth/callback' || location.pathname === '/email-templates')) {
+  // Public routes (Login, Demo, Email Templates) - no sidebar
+  if (!user && (location.pathname === '/login' || location.pathname === '/demo' || location.pathname === '/email-templates')) {
     return (
       <div className="min-h-screen bg-background">
         <PageLoadingBar isLoading={isNavigating} />
@@ -812,7 +801,6 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/client-login" element={<ClientLogin />} />
               <Route path="/demo" element={<Demo />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/email-templates" element={<EmailTemplates />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
@@ -1131,9 +1119,6 @@ function App() {
                 }
               />
 
-              {/* Auth callback - needs to be here too in case user is already set */}
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              
               {/* Default redirect */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
@@ -1153,7 +1138,6 @@ function App() {
             <Route path="/client-dashboard" element={<ClientDashboard />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/client-view/:token" element={<ClientPublic />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </AnimatePresence>

@@ -3,32 +3,6 @@ import { supabase, getProfile, onSessionHealthChange, onTabSync } from '../lib/s
 
 const AuthContext = createContext({})
 
-// Safe localStorage wrapper for Safari private mode
-const safeLocalStorage = {
-  getItem: (key) => {
-    try {
-      return localStorage.getItem(key)
-    } catch (e) {
-      console.warn('[Auth] localStorage.getItem failed:', e)
-      return null
-    }
-  },
-  setItem: (key, value) => {
-    try {
-      localStorage.setItem(key, value)
-    } catch (e) {
-      console.warn('[Auth] localStorage.setItem failed:', e)
-    }
-  },
-  removeItem: (key) => {
-    try {
-      localStorage.removeItem(key)
-    } catch (e) {
-      console.warn('[Auth] localStorage.removeItem failed:', e)
-    }
-  },
-}
-
 // Event for profile sync notification
 const profileSyncEvent = new CustomEvent('profileSynced', { detail: {} })
 
@@ -54,7 +28,7 @@ export function AuthProvider({ children }) {
   
   // View mode toggle (admin can switch between admin and team view)
   const [viewMode, setViewMode] = useState(() => {
-    return safeLocalStorage.getItem('viewMode') || 'default'
+    return localStorage.getItem('viewMode') || 'default'
   })
   
   // Listen for session health changes from the Supabase module
@@ -104,78 +78,134 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    // Safety timeout - reduced to 3 seconds for better UX
+    // Check if we're returning from OAuth (tokens in URL hash)
+    const hash = window.location.hash
+    const isOAuthCallback = hash && (hash.includes('access_token') || hash.includes('refresh_token'))
+    
+    // Safety timeout - if loading takes too long, force complete
     const safetyTimeout = setTimeout(() => {
       console.warn('[Auth] Loading timeout - forcing complete')
       setLoading(false)
-    }, 3000)
+    }, isOAuthCallback ? 10000 : 6000)
 
-    // AUTH INIT - Optimized for speed
+    // SIMPLIFIED AUTH INIT - Let onAuthStateChange handle everything
+    // This is the recommended Supabase pattern
     const initAuth = async () => {
-      const startTime = Date.now()
       console.log('[Auth] Initializing...')
       
-      // Check if we're on the auth callback route
-      const isAuthCallback = window.location.pathname === '/auth/callback'
-      const hasCode = window.location.search?.includes('code=')
-      const hasAuthTokens = window.location.hash?.includes('access_token')
-      
-      if (isAuthCallback || hasCode || hasAuthTokens) {
-        console.log('[Auth] On auth callback route - deferring to AuthCallback')
-        setLoading(false)
-        clearTimeout(safetyTimeout)
-        return
-      }
-      
       try {
-        // FAST PATH: Get session without network call if possible
-        // getSession() reads from storage first, only hits network if needed
+        // Give a tiny delay for Supabase client to fully initialize
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Get session - this triggers onAuthStateChange with INITIAL_SESSION
         const { data: { session }, error } = await supabase.auth.getSession()
         
-        console.log('[Auth] getSession took:', Date.now() - startTime, 'ms')
-        console.log('[Auth] Session:', session ? session.user.email : 'none', error?.message || '')
+        console.log('[Auth] getSession result:', session ? session.user.email : 'no session', error?.message || '')
         
+        // If no session but we have a storage key, try refresh
         if (!session) {
-          // No session - finish immediately
-          console.log('[Auth] No session - done in', Date.now() - startTime, 'ms')
+          const stored = localStorage.getItem('brandastic-auth')
+          if (stored) {
+            console.log('[Auth] Found storage, attempting refresh...')
+            try {
+              const { data: refreshData } = await supabase.auth.refreshSession()
+              if (refreshData?.session) {
+                console.log('[Auth] Refresh succeeded:', refreshData.session.user.email)
+                // Set user and profile directly instead of waiting for onAuthStateChange
+                setUser(refreshData.session.user)
+                try {
+                  const { data: profileData } = await getProfile(refreshData.session.user.id)
+                  if (profileData) {
+                    setProfile(profileData)
+                  } else {
+                    setProfile({
+                      id: refreshData.session.user.id,
+                      email: refreshData.session.user.email,
+                      full_name: refreshData.session.user.email?.split('@')[0] || 'User',
+                      role: 'team',
+                    })
+                  }
+                } catch (e) {
+                  setProfile({
+                    id: refreshData.session.user.id,
+                    email: refreshData.session.user.email,
+                    full_name: refreshData.session.user.email?.split('@')[0] || 'User',
+                    role: 'team',
+                  })
+                }
+                setLoading(false)
+                clearTimeout(safetyTimeout)
+                return
+              }
+            } catch (e) {
+              console.log('[Auth] Refresh failed:', e.message)
+            }
+          }
+          // No session found - finish loading
+          console.log('[Auth] No session - finishing')
           setLoading(false)
           clearTimeout(safetyTimeout)
           return
         }
         
-        // Session found - set user immediately (don't wait for profile)
-        setUser(session.user)
-        setLoading(false) // Stop loading immediately - user is set
-        clearTimeout(safetyTimeout)
-        
-        // Fetch profile in background (non-blocking)
-        getProfile(session.user.id).then(({ data: profileData }) => {
-          if (profileData) {
-            setProfile(profileData)
-          } else {
-            // Create minimal profile so app can function
+        // Session found
+        if (session?.user) {
+          console.log('[Auth] Session found for:', session.user.email)
+          setUser(session.user)
+          
+          // Fetch profile - single attempt only, don't retry aggressively
+          try {
+            const { data: profileData, error: profileError } = await getProfile(session.user.id)
+            
+            if (profileData) {
+              setProfile(profileData)
+            } else if (!profileError) {
+              // No profile exists - create one
+              console.log('Creating profile for:', session.user.email)
+              const { error: createError } = await supabase
+                .from('profiles')
+                .upsert({
+                  id: session.user.id,
+                  email: session.user.email,
+                  full_name: session.user.user_metadata?.full_name || 
+                             session.user.user_metadata?.name || 
+                             session.user.email?.split('@')[0] || 'User',
+                  role: 'team',
+                  avatar_url: session.user.user_metadata?.avatar_url || 
+                              session.user.user_metadata?.picture || null,
+                }, { onConflict: 'id' })
+              
+              if (!createError) {
+                const { data: newProfile } = await getProfile(session.user.id)
+                setProfile(newProfile)
+              }
+            }
+            
+            // If still no profile, create a minimal one for display
+            if (!profileData) {
+              setProfile({
+                id: session.user.id,
+                email: session.user.email,
+                full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+                role: 'team',
+              })
+            }
+          } catch (profileErr) {
+            console.warn('Profile fetch error:', profileErr)
+            // Set minimal profile so app can function
             setProfile({
               id: session.user.id,
               email: session.user.email,
-              full_name: session.user.user_metadata?.full_name || 
-                         session.user.email?.split('@')[0] || 'User',
+              full_name: session.user.email?.split('@')[0] || 'User',
               role: 'team',
             })
           }
-          console.log('[Auth] Profile loaded in', Date.now() - startTime, 'ms')
-        }).catch((err) => {
-          console.warn('[Auth] Profile fetch failed:', err.message)
-          // Set minimal profile so app doesn't break
-          setProfile({
-            id: session.user.id,
-            email: session.user.email,
-            full_name: session.user.email?.split('@')[0] || 'User',
-            role: 'team',
-          })
-        })
-        
+        } else {
+          console.log('No session found')
+        }
       } catch (error) {
-        console.error('[Auth] Init error:', error)
+        console.error('Auth init error:', error)
+      } finally {
         setLoading(false)
         clearTimeout(safetyTimeout)
       }
@@ -215,46 +245,18 @@ export function AuthProvider({ children }) {
             
             if (!existingProfile) {
               // Create profile for OAuth users or if somehow missing
-              console.log('[Auth] No profile found for user, creating one with role: team')
-              const { data: upsertData, error: upsertError } = await supabase
+              await supabase
                 .from('profiles')
                 .upsert({
                   id: session.user.id,
                   email: session.user.email,
-                  full_name: googleName || session.user.email?.split('@')[0] || 'User',
+                  full_name: googleName,
                   role: 'team',
                   avatar_url: googleAvatar,
                 }, { onConflict: 'id' })
-                .select()
-                .single()
-              
-              if (upsertError) {
-                console.error('[Auth] Failed to create profile:', upsertError)
-                // Try a simple insert as fallback
-                const { error: insertError } = await supabase
-                  .from('profiles')
-                  .insert({
-                    id: session.user.id,
-                    email: session.user.email,
-                    full_name: googleName || session.user.email?.split('@')[0] || 'User',
-                    role: 'team',
-                    avatar_url: googleAvatar,
-                  })
-                
-                if (insertError) {
-                  console.error('[Auth] Failed to insert profile:', insertError)
-                } else {
-                  console.log('[Auth] Profile created via insert')
-                }
-              } else {
-                console.log('[Auth] Profile created/updated:', upsertData?.email)
-              }
               
               // Fetch the newly created profile
-              const { data: newProfile, error: fetchError } = await getProfile(session.user.id)
-              if (fetchError) {
-                console.error('[Auth] Failed to fetch new profile:', fetchError)
-              }
+              const { data: newProfile } = await getProfile(session.user.id)
               setProfile(newProfile)
               setJustLoggedIn(true)
               setProfileSynced(true)
@@ -367,7 +369,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     })
     return { data, error }
@@ -382,10 +384,10 @@ export function AuthProvider({ children }) {
       setLoading(false)
       
       // Clear all custom cached data
-      safeLocalStorage.removeItem('viewMode')
+      localStorage.removeItem('viewMode')
       
-      // Call Supabase signOut with local scope (only this browser)
-      const { error } = await supabase.auth.signOut({ scope: 'local' })
+      // Call Supabase signOut with global scope to clear all sessions
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
       
       if (error) {
         console.error('Supabase signOut error:', error)
@@ -600,7 +602,7 @@ export function AuthProvider({ children }) {
       console.log('[Auth] Trying localStorage restore...')
       try {
         const storageKey = 'brandastic-auth'
-        const stored = safeLocalStorage.getItem(storageKey)
+        const stored = localStorage.getItem(storageKey)
         
         if (stored) {
           const parsed = JSON.parse(stored)
@@ -679,10 +681,8 @@ export function AuthProvider({ children }) {
         const restored = await restoreSession()
         
         if (!restored && user) {
-          console.warn('[Auth] Cannot restore session - showing error instead of reload')
-          // Don't reload - just show the error and let user decide
-          setAuthError('Session could not be restored. Please sign in again if issues persist.')
-          setSessionHealthy(false)
+          console.warn('[Auth] Cannot restore session - reloading page')
+          window.location.reload()
         }
       }
     }
@@ -724,11 +724,52 @@ export function AuthProvider({ children }) {
     }
   }, [user])
   
-  // HEARTBEAT DISABLED - Supabase's autoRefreshToken handles this automatically
-  // The previous heartbeat was causing logout issues when it tried to refresh sessions
-  // and triggered onAuthStateChange events with no session
-  // 
-  // If session issues persist, the SessionStatus component will show a retry button
+  // AGGRESSIVE HEARTBEAT - uses getUser() which FORCES server check
+  // This keeps the session alive and catches desyncs proactively
+  useEffect(() => {
+    let heartbeatCount = 0
+    
+    const heartbeat = setInterval(async () => {
+      // Only run when tab is visible and user is logged in
+      if (document.visibilityState !== 'visible' || !user) return
+      
+      heartbeatCount++
+      console.log(`[Auth] Heartbeat #${heartbeatCount}`)
+      
+      try {
+        // Use getUser() - this HITS THE SERVER and forces token refresh if needed
+        // Much more reliable than getSession() which just reads memory/localStorage
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !userData?.user) {
+          console.warn('[Auth] Heartbeat: getUser() failed, trying recovery...')
+          
+          // Try refreshSession
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (refreshError || !refreshData?.session) {
+            console.error('[Auth] Heartbeat: refresh also failed - reloading page')
+            window.location.reload()
+            return
+          }
+          
+          // Refresh succeeded - update state
+          setUser(refreshData.session.user)
+          console.log('[Auth] Heartbeat: recovered via refreshSession')
+        } else {
+          // getUser succeeded - session is definitely valid
+          // This "poke" keeps the internal client state fresh
+          if (userData.user.id !== user?.id) {
+            setUser(userData.user)
+          }
+        }
+      } catch (e) {
+        console.error('[Auth] Heartbeat error:', e)
+      }
+    }, 30 * 1000) // Every 30 seconds when visible - aggressive but necessary
+    
+    return () => clearInterval(heartbeat)
+  }, [user])
 
   // Retry auth (for when stuck on loading) - just reload the page for clean state
   const retryAuth = useCallback(() => {
@@ -739,7 +780,7 @@ export function AuthProvider({ children }) {
   const toggleViewMode = useCallback(() => {
     setViewMode(prev => {
       const newMode = prev === 'team' ? 'default' : 'team'
-      safeLocalStorage.setItem('viewMode', newMode)
+      localStorage.setItem('viewMode', newMode)
       return newMode
     })
   }, [])
