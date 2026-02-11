@@ -120,9 +120,15 @@ export function AuthProvider({ children }) {
       const hasAuthTokens = window.location.hash?.includes('access_token')
       
       if (isAuthCallback || hasCode || hasAuthTokens) {
-        // Let AuthCallback handle the OAuth flow
-        // It will call getSession() which triggers code exchange
-        console.log('[Auth] On auth callback route - deferring to AuthCallback')
+        // PKCE Flow: Let AuthCallback handle the OAuth code exchange
+        // AuthCallback will:
+        // 1. Set up onAuthStateChange listener
+        // 2. Call getSession() to trigger code exchange
+        // 3. Wait for SIGNED_IN event and navigate to dashboard
+        // 
+        // We must NOT call getSession() here - it would race with AuthCallback
+        // and potentially cause AbortError (GitHub issue #41968)
+        console.log('[Auth] On auth callback route - deferring to AuthCallback component')
         setLoading(false)
         clearTimeout(safetyTimeout)
         return

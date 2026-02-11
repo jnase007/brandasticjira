@@ -75,6 +75,12 @@ const safeStorage = createSafeStorage()
 // Session tokens can be 3-4KB which exceeds cookie limits
 // Using safe storage wrapper that falls back to memory in private browsing
 
+// Log storage status for debugging PKCE issues
+console.log('[Supabase] Storage available:', {
+  localStorage: (() => { try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return true } catch { return false } })(),
+  sessionStorage: (() => { try { sessionStorage.setItem('_t', '1'); sessionStorage.removeItem('_t'); return true } catch { return false } })()
+})
+
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
@@ -83,7 +89,8 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storage: safeStorage, // Safe storage wrapper (localStorage with memory fallback)
     storageKey: 'brandastic-auth', // Custom storage key
     flowType: 'pkce', // PKCE flow - more secure, avoids hash token issues
-    debug: import.meta.env.DEV,
+    // Enable debug in production temporarily to diagnose auth issues
+    debug: true,
   },
   realtime: {
     params: {
