@@ -10,59 +10,77 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // ============================================
 // SAFE STORAGE - Works in Safari Private Mode
 // ============================================
-// Safari private mode can block or throw on localStorage access
-// This wrapper provides a fallback to in-memory storage
+// Priority: localStorage → sessionStorage → memory
+// CRITICAL for PKCE: sessionStorage persists across OAuth redirects!
 
 const createSafeStorage = () => {
-  // In-memory fallback storage
+  // In-memory fallback storage (last resort)
   const memoryStorage = new Map()
   
-  // Test if localStorage is available and working
-  const isLocalStorageAvailable = () => {
+  // Test storage availability
+  const testStorage = (storage, name) => {
     try {
       const testKey = '__storage_test__'
-      localStorage.setItem(testKey, testKey)
-      localStorage.removeItem(testKey)
+      storage.setItem(testKey, testKey)
+      storage.removeItem(testKey)
       return true
     } catch (e) {
-      console.warn('[Storage] localStorage not available, using memory fallback')
+      console.warn(`[Storage] ${name} not available`)
       return false
     }
   }
   
-  const useLocalStorage = isLocalStorageAvailable()
+  const hasLocalStorage = testStorage(localStorage, 'localStorage')
+  const hasSessionStorage = testStorage(sessionStorage, 'sessionStorage')
+  
+  console.log('[Storage] Availability:', { localStorage: hasLocalStorage, sessionStorage: hasSessionStorage })
+  
+  // Choose best available storage
+  // For PKCE to work in Safari, we MUST use sessionStorage if localStorage fails
+  // because sessionStorage persists across the OAuth redirect
+  const primaryStorage = hasLocalStorage ? localStorage : (hasSessionStorage ? sessionStorage : null)
+  const storageName = hasLocalStorage ? 'localStorage' : (hasSessionStorage ? 'sessionStorage' : 'memory')
+  
+  if (!primaryStorage) {
+    console.warn('[Storage] ⚠️ No persistent storage available - using memory (PKCE may fail)')
+  } else {
+    console.log('[Storage] Using:', storageName)
+  }
   
   return {
     getItem: (key) => {
       try {
-        if (useLocalStorage) {
-          return localStorage.getItem(key)
+        if (primaryStorage) {
+          const value = primaryStorage.getItem(key)
+          if (value) return value
         }
+        // Also check memory as fallback
         return memoryStorage.get(key) || null
       } catch (e) {
-        console.warn('[Storage] getItem failed:', e)
+        console.warn('[Storage] getItem failed:', e.message)
         return memoryStorage.get(key) || null
       }
     },
     setItem: (key, value) => {
       try {
-        if (useLocalStorage) {
-          localStorage.setItem(key, value)
+        if (primaryStorage) {
+          primaryStorage.setItem(key, value)
         }
+        // Also store in memory as backup
         memoryStorage.set(key, value)
       } catch (e) {
-        console.warn('[Storage] setItem failed:', e)
+        console.warn('[Storage] setItem failed:', e.message)
         memoryStorage.set(key, value)
       }
     },
     removeItem: (key) => {
       try {
-        if (useLocalStorage) {
-          localStorage.removeItem(key)
+        if (primaryStorage) {
+          primaryStorage.removeItem(key)
         }
         memoryStorage.delete(key)
       } catch (e) {
-        console.warn('[Storage] removeItem failed:', e)
+        console.warn('[Storage] removeItem failed:', e.message)
         memoryStorage.delete(key)
       }
     },

@@ -29,6 +29,14 @@ export default function AuthCallback() {
     console.log('[AuthCallback] URL:', window.location.href)
     console.log('[AuthCallback] Search:', window.location.search)
     console.log('[AuthCallback] Hash:', window.location.hash)
+    console.log('[AuthCallback] User Agent:', navigator.userAgent)
+    
+    // Check storage status - critical for PKCE
+    const storageStatus = {
+      localStorage: (() => { try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return true } catch { return false } })(),
+      sessionStorage: (() => { try { sessionStorage.setItem('_t', '1'); sessionStorage.removeItem('_t'); return true } catch { return false } })()
+    }
+    console.log('[AuthCallback] Storage available:', storageStatus)
     
     // Check for OAuth error in URL first
     const urlParams = new URLSearchParams(window.location.search)
