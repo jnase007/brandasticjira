@@ -1646,30 +1646,56 @@ export default function ClientManagement() {
               )}
               
               {/* Pipeline Summary */}
-              {prospectClients.length > 0 && (
-                <div className="mt-6 pt-4 border-t">
-                  <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm">
-                        <strong>{prospectClients.length}</strong> prospects in pipeline
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">
-                        <strong>${prospectClients.reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0).toLocaleString()}</strong> potential value
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">
-                        <strong>{prospectClients.filter(c => c.pipeline_stage === 'won').length}</strong> won
-                      </span>
+              {prospectClients.length > 0 && (() => {
+                // Calculate monthly revenue (retainers are monthly, projects spread over 12 months)
+                const monthlyRetainerValue = prospectClients
+                  .filter(c => c.engagement_type === 'retainer')
+                  .reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0)
+                
+                const projectValue = prospectClients
+                  .filter(c => c.engagement_type !== 'retainer')
+                  .reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0)
+                
+                // Yearly value = (monthly retainer × 12) + one-time projects
+                const yearlyValue = (monthlyRetainerValue * 12) + projectValue
+                
+                return (
+                  <div className="mt-6 pt-4 border-t">
+                    <div className="flex flex-wrap gap-4 md:gap-6">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm">
+                          <strong>{prospectClients.length}</strong> prospects in pipeline
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm">
+                          <strong>${monthlyRetainerValue.toLocaleString()}</strong>/mo retainers
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm">
+                          <strong>${projectValue.toLocaleString()}</strong> projects
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-lg">
+                        <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <span className="text-sm text-green-700 dark:text-green-400 font-medium">
+                          <strong>${yearlyValue.toLocaleString()}</strong>/year potential
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="text-sm">
+                          <strong>{prospectClients.filter(c => c.pipeline_stage === 'won').length}</strong> won
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
