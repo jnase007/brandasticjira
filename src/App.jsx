@@ -46,7 +46,7 @@ import FloatingTimer from './components/FloatingTimer'
 import ActivityFeed from './components/ActivityFeed'
 import Confetti, { useConfetti } from './components/Confetti'
 import EasterEggs from './components/EasterEggs'
-import SessionStatus from './components/SessionStatus'
+// SessionStatus removed - Supabase handles session management
 import { MobileTabBar, MobileHeader } from './components/MobileNav'
 import InstallPrompt from './components/InstallPrompt'
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
@@ -558,7 +558,7 @@ function MainLayout({ children }) {
 }
 
 function App() {
-  const { user, profile, loading, authError, retryAuth } = useAuth()
+  const { user, profile, loading } = useAuth()
   const location = useLocation()
   const { trigger: confettiTrigger, fire: fireConfetti } = useConfetti()
   const [isDark, setIsDark] = useState(false)
@@ -783,7 +783,7 @@ function App() {
   // Show loading screen while auth is initializing
   if (loading) {
     console.log('[App] Showing LoadingScreen - auth still loading')
-    return <LoadingScreen onRetry={retryAuth} error={authError} />
+    return <LoadingScreen />
   }
 
   // Confetti component
@@ -830,7 +830,6 @@ function App() {
       
       {confetti}
       <EasterEggs />
-      <SessionStatus />
       <InstallPrompt />
       
       {/* Update available notification - appears when a new deployment is detected */}
