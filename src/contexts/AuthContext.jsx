@@ -81,23 +81,48 @@ export function AuthProvider({ children }) {
     return fetchProfile(user.id)
   }
 
-  // Initialize auth - simple and clean
+  // Initialize auth - with timeout protection
   useEffect(() => {
     let mounted = true
+    let timeoutId = null
 
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        // Set a timeout - if auth takes more than 8 seconds, something is wrong
+        timeoutId = setTimeout(() => {
+          if (mounted && loading) {
+            console.warn('[Auth] Timeout - clearing stale data and retrying')
+            // Clear potentially corrupted auth data
+            localStorage.removeItem('sb-auth-token')
+            localStorage.removeItem('supabase.auth.token')
+            // Force reload to get fresh state
+            setLoading(false)
+            setUser(null)
+            setProfile(null)
+          }
+        }, 8000)
+
+        const { data: { session }, error } = await supabase.auth.getSession()
 
         if (!mounted) return
 
-        if (session?.user) {
+        if (error) {
+          console.error('[Auth] Session error:', error)
+          // Clear bad session data
+          await supabase.auth.signOut({ scope: 'local' })
+          setUser(null)
+          setProfile(null)
+        } else if (session?.user) {
           setUser(session.user)
           await createProfileIfNeeded(session.user)
         }
       } catch (error) {
-        console.error('Auth init error:', error)
+        console.error('[Auth] Init error:', error)
+        // On error, clear auth state to allow fresh login
+        setUser(null)
+        setProfile(null)
       } finally {
+        if (timeoutId) clearTimeout(timeoutId)
         if (mounted) setLoading(false)
       }
     }
@@ -131,6 +156,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted = false
+      if (timeoutId) clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [])
