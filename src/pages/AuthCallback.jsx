@@ -58,9 +58,12 @@ export default function AuthCallback() {
         setStatus('Success! Redirecting...')
         console.log('[AuthCallback] ✓ Session established:', session.user.email)
         
-        // Clean URL and navigate
-        window.history.replaceState({}, document.title, '/dashboard')
-        navigate('/dashboard', { replace: true })
+        // Small delay to ensure AuthContext has processed the session
+        // This prevents the "no user" state on Dashboard
+        setTimeout(() => {
+          window.history.replaceState({}, document.title, '/dashboard')
+          navigate('/dashboard', { replace: true })
+        }, 150)
       }
       // Don't handle other events - let them pass through
     })
@@ -117,6 +120,11 @@ export default function AuthCallback() {
           // Session was returned directly (rare, usually comes via onAuthStateChange)
           console.log('[AuthCallback] Session returned directly:', session.user.email)
           clearTimeout(timeoutRef.current)
+          
+          // Wait a moment for AuthContext to also process the session via onAuthStateChange
+          // This prevents race where Dashboard loads before user state is set
+          await new Promise(r => setTimeout(r, 100))
+          
           window.history.replaceState({}, document.title, '/dashboard')
           navigate('/dashboard', { replace: true })
           return

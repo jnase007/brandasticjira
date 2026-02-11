@@ -76,24 +76,16 @@ export default function Boards() {
       setFetchError(null)
       
       try {
-        // Validate session before fetching - this refreshes token if expiring
-        const sessionValid = await ensureValidSession()
-        if (!sessionValid) {
-          console.warn('[Boards] Session invalid, cannot fetch data')
-          setFetchError('Session expired. Please refresh the page or log in again.')
-          setLoading(false)
-          return
-        }
-        
-        console.log('[Boards] Fetching data...')
+        console.log('[Boards] Fetching data for user:', user?.email)
         const [boardsRes, clientsRes] = await Promise.all([
           getBoards(),
           getClients(),
         ])
+        console.log('[Boards] Data received:', { boards: boardsRes.data?.length, clients: clientsRes.data?.length })
         setBoards(boardsRes.data || [])
         setClients(clientsRes.data || [])
       } catch (error) {
-        console.error('Error fetching boards:', error)
+        console.error('[Boards] Error fetching:', error)
         setFetchError(error.message || 'Failed to load boards')
       } finally {
         setLoading(false)
@@ -113,6 +105,14 @@ export default function Boards() {
     }
 
     fetchData()
+    
+    // Safety timeout - if loading takes too long, force stop
+    const safetyTimeout = setTimeout(() => {
+      console.warn('[Boards] Safety timeout - forcing loading complete')
+      setLoading(false)
+    }, 8000)
+    
+    return () => clearTimeout(safetyTimeout)
   }, [authLoading, user?.id])
 
   // Filter boards
