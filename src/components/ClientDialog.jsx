@@ -400,6 +400,7 @@ export default function ClientDialog({
     if (!validateStep()) return
 
     setSaving(true)
+    console.log('[ClientDialog] Starting save...')
 
     try {
       // Generate ticket prefix from name (first 3 letters, uppercase, letters only)
@@ -408,12 +409,12 @@ export default function ClientDialog({
         return lettersOnly.substring(0, 3).toUpperCase()
       }
       
+      // Core fields that should always exist
       const dataToSave = {
         name: formData.name.trim(),
         slug: formData.slug.trim().toLowerCase(),
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
-        contact_phone: formData.contact_phone?.trim() || null,
         monthly_hours: parseFloat(formData.monthly_hours) || 30,
         color: formData.color,
         account_services: formData.account_services 
@@ -421,29 +422,36 @@ export default function ClientDialog({
           : [],
         is_active: formData.client_status === 'active',
         logo_url: formData.logo_url || null,
-        banner_url: formData.banner_url || null,
-        // Generate ticket prefix for new clients
-        ticket_prefix: client?.ticket_prefix || generatePrefix(formData.name.trim()),
-        // New pipeline/engagement fields
-        client_status: formData.client_status,
-        engagement_type: formData.engagement_type,
-        estimated_monthly_hours: formData.estimated_monthly_hours || null,
-        estimated_project_hours: formData.estimated_project_hours || null,
-        estimated_budget: formData.estimated_budget || null,
-        pipeline_stage: formData.client_status === 'prospect' ? formData.pipeline_stage : null,
-        lead_source: formData.lead_source || null,
-        expected_close_date: formData.expected_close_date || null,
-        notes: formData.notes || null,
-        // Deactivation tracking - only save if inactive
-        deactivated_at: formData.client_status === 'inactive' ? (formData.deactivated_at || null) : null,
-        deactivation_reason: formData.client_status === 'inactive' ? (formData.deactivation_reason || null) : null,
+      }
+      
+      // Optional fields - only add if they have values (these may not exist in DB)
+      if (formData.contact_phone?.trim()) dataToSave.contact_phone = formData.contact_phone.trim()
+      if (formData.banner_url) dataToSave.banner_url = formData.banner_url
+      if (!client) dataToSave.ticket_prefix = generatePrefix(formData.name.trim())
+      
+      // Pipeline fields - wrap in try/catch in case columns don't exist
+      if (formData.client_status) dataToSave.client_status = formData.client_status
+      if (formData.engagement_type) dataToSave.engagement_type = formData.engagement_type
+      if (formData.estimated_monthly_hours) dataToSave.estimated_monthly_hours = formData.estimated_monthly_hours
+      if (formData.estimated_project_hours) dataToSave.estimated_project_hours = formData.estimated_project_hours
+      if (formData.estimated_budget) dataToSave.estimated_budget = formData.estimated_budget
+      if (formData.client_status === 'prospect' && formData.pipeline_stage) dataToSave.pipeline_stage = formData.pipeline_stage
+      if (formData.lead_source) dataToSave.lead_source = formData.lead_source
+      if (formData.expected_close_date) dataToSave.expected_close_date = formData.expected_close_date
+      if (formData.notes) dataToSave.notes = formData.notes
+      
+      // Deactivation tracking - only save if inactive
+      if (formData.client_status === 'inactive') {
+        if (formData.deactivated_at) dataToSave.deactivated_at = formData.deactivated_at
+        if (formData.deactivation_reason) dataToSave.deactivation_reason = formData.deactivation_reason
       }
 
-      console.log('Saving client data:', dataToSave)
+      console.log('[ClientDialog] Data to save:', dataToSave)
 
       let result
 
       if (client) {
+        console.log('[ClientDialog] Updating existing client:', client.id)
         result = await supabase
           .from('clients')
           .update(dataToSave)
@@ -451,6 +459,7 @@ export default function ClientDialog({
           .select()
           .single()
       } else {
+        console.log('[ClientDialog] Creating new client...')
         result = await supabase
           .from('clients')
           .insert(dataToSave)
@@ -458,10 +467,10 @@ export default function ClientDialog({
           .single()
       }
 
-      console.log('Supabase result:', result)
+      console.log('[ClientDialog] Supabase result:', result)
 
       if (result.error) {
-        console.error('Supabase error:', result.error)
+        console.error('[ClientDialog] Supabase error:', result.error)
         if (result.error.code === '23505') {
           setErrors({ slug: 'This slug is already taken' })
           setStep(1)
@@ -471,12 +480,14 @@ export default function ClientDialog({
         // Show more specific error messages
         let errorMessage = result.error.message
         if (result.error.message?.includes('row-level security')) {
-          errorMessage = 'Permission denied. Please run the SQL fix in Supabase (supabase/fix-clients-import.sql)'
+          errorMessage = 'Permission denied. Please run supabase/fix-client-creation.sql in Supabase SQL Editor'
         } else if (result.error.message?.includes('check constraint')) {
           errorMessage = 'Invalid data. Please check monthly hours is between 0-500.'
+        } else if (result.error.message?.includes('column') && result.error.message?.includes('does not exist')) {
+          errorMessage = 'Database needs update. Please run supabase/fix-client-creation.sql in Supabase SQL Editor'
         }
         toast({ 
-          title: 'Failed to create client', 
+          title: 'Failed to save client', 
           description: errorMessage,
           variant: 'destructive' 
         })
@@ -497,13 +508,21 @@ export default function ClientDialog({
         if (onSuccess) onSuccess(result.data)
       }
     } catch (error) {
-      console.error('Client creation error:', error)
+      console.error('[ClientDialog] Client save error:', error)
+      let errorMessage = error.message || 'Please try again. Check browser console for details.'
+      
+      // Provide helpful guidance for common errors
+      if (errorMessage.includes('column') || errorMessage.includes('undefined')) {
+        errorMessage = 'Database schema needs update. Run supabase/fix-client-creation.sql'
+      }
+      
       toast({ 
-        title: 'Error creating client', 
-        description: error.message || 'Please try again. Check browser console for details.',
+        title: 'Error saving client', 
+        description: errorMessage,
         variant: 'destructive' 
       })
     } finally {
+      console.log('[ClientDialog] Save complete, resetting saving state')
       setSaving(false)
     }
   }
