@@ -345,6 +345,14 @@ export default function ClientManagement() {
     )
 
     try {
+      // Debug: Check session before fetching
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[ClientManagement] Session check:', {
+        hasSession: !!session,
+        user: session?.user?.email,
+        expiresAt: session?.expires_at
+      })
+      
       // Fetch clients first - this is the main table we need
       const clientsPromise = supabase
         .from('clients')
@@ -353,7 +361,7 @@ export default function ClientManagement() {
       
       console.log('[ClientManagement] Fetching clients...')
       const clientsRes = await Promise.race([clientsPromise, timeout])
-      console.log('[ClientManagement] Clients response:', clientsRes.data?.length || 0, 'clients')
+      console.log('[ClientManagement] Clients response:', clientsRes.data?.length || 0, 'clients', clientsRes.error?.message || '')
       
       if (clientsRes.error) {
         console.error('Clients fetch error:', clientsRes.error)
