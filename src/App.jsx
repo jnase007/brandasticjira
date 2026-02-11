@@ -896,12 +896,7 @@ function App() {
           <MainLayout>
             <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
-            {/* Debug: If user is set but pages still blank, check here */}
-            {!profile && (
-              <div className="fixed top-4 right-4 z-50 bg-amber-500 text-white px-3 py-1 rounded-full text-xs">
-                Loading profile...
-              </div>
-            )}
+{/* Profile loads in background - no blocking indicator needed */}
             <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               {/* Team routes */}

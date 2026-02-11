@@ -104,14 +104,15 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    // Safety timeout - if loading takes too long, force complete
+    // Safety timeout - reduced to 3 seconds for better UX
     const safetyTimeout = setTimeout(() => {
       console.warn('[Auth] Loading timeout - forcing complete')
       setLoading(false)
-    }, 8000)
+    }, 3000)
 
-    // AUTH INIT - PKCE flow with detectSessionInUrl: true
+    // AUTH INIT - Optimized for speed
     const initAuth = async () => {
+      const startTime = Date.now()
       console.log('[Auth] Initializing...')
       
       // Check if we're on the auth callback route
@@ -120,132 +121,61 @@ export function AuthProvider({ children }) {
       const hasAuthTokens = window.location.hash?.includes('access_token')
       
       if (isAuthCallback || hasCode || hasAuthTokens) {
-        // PKCE Flow: Let AuthCallback handle the OAuth code exchange
-        // AuthCallback will:
-        // 1. Set up onAuthStateChange listener
-        // 2. Call getSession() to trigger code exchange
-        // 3. Wait for SIGNED_IN event and navigate to dashboard
-        // 
-        // We must NOT call getSession() here - it would race with AuthCallback
-        // and potentially cause AbortError (GitHub issue #41968)
-        console.log('[Auth] On auth callback route - deferring to AuthCallback component')
+        console.log('[Auth] On auth callback route - deferring to AuthCallback')
         setLoading(false)
         clearTimeout(safetyTimeout)
         return
       }
       
       try {
-        // Normal page load - check for existing session
-        
-        // Get session - this triggers onAuthStateChange with INITIAL_SESSION
+        // FAST PATH: Get session without network call if possible
+        // getSession() reads from storage first, only hits network if needed
         const { data: { session }, error } = await supabase.auth.getSession()
         
-        console.log('[Auth] getSession result:', session ? session.user.email : 'no session', error?.message || '')
+        console.log('[Auth] getSession took:', Date.now() - startTime, 'ms')
+        console.log('[Auth] Session:', session ? session.user.email : 'none', error?.message || '')
         
-        // If no session but we have a storage key, try refresh
         if (!session) {
-          const stored = safeLocalStorage.getItem('brandastic-auth')
-          if (stored) {
-            console.log('[Auth] Found storage, attempting refresh...')
-            try {
-              const { data: refreshData } = await supabase.auth.refreshSession()
-              if (refreshData?.session) {
-                console.log('[Auth] Refresh succeeded:', refreshData.session.user.email)
-                // Set user and profile directly instead of waiting for onAuthStateChange
-                setUser(refreshData.session.user)
-                try {
-                  const { data: profileData } = await getProfile(refreshData.session.user.id)
-                  if (profileData) {
-                    setProfile(profileData)
-                  } else {
-                    setProfile({
-                      id: refreshData.session.user.id,
-                      email: refreshData.session.user.email,
-                      full_name: refreshData.session.user.email?.split('@')[0] || 'User',
-                      role: 'team',
-                    })
-                  }
-                } catch (e) {
-                  setProfile({
-                    id: refreshData.session.user.id,
-                    email: refreshData.session.user.email,
-                    full_name: refreshData.session.user.email?.split('@')[0] || 'User',
-                    role: 'team',
-                  })
-                }
-                setLoading(false)
-                clearTimeout(safetyTimeout)
-                return
-              }
-            } catch (e) {
-              console.log('[Auth] Refresh failed:', e.message)
-            }
-          }
-          // No session found - finish loading
-          console.log('[Auth] No session - finishing')
+          // No session - finish immediately
+          console.log('[Auth] No session - done in', Date.now() - startTime, 'ms')
           setLoading(false)
           clearTimeout(safetyTimeout)
           return
         }
         
-        // Session found
-        if (session?.user) {
-          console.log('[Auth] Session found for:', session.user.email)
-          setUser(session.user)
-          
-          // Fetch profile - single attempt only, don't retry aggressively
-          try {
-            const { data: profileData, error: profileError } = await getProfile(session.user.id)
-            
-            if (profileData) {
-              setProfile(profileData)
-            } else if (!profileError) {
-              // No profile exists - create one
-              console.log('Creating profile for:', session.user.email)
-              const { error: createError } = await supabase
-                .from('profiles')
-                .upsert({
-                  id: session.user.id,
-                  email: session.user.email,
-                  full_name: session.user.user_metadata?.full_name || 
-                             session.user.user_metadata?.name || 
-                             session.user.email?.split('@')[0] || 'User',
-                  role: 'team',
-                  avatar_url: session.user.user_metadata?.avatar_url || 
-                              session.user.user_metadata?.picture || null,
-                }, { onConflict: 'id' })
-              
-              if (!createError) {
-                const { data: newProfile } = await getProfile(session.user.id)
-                setProfile(newProfile)
-              }
-            }
-            
-            // If still no profile, create a minimal one for display
-            if (!profileData) {
-              setProfile({
-                id: session.user.id,
-                email: session.user.email,
-                full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-                role: 'team',
-              })
-            }
-          } catch (profileErr) {
-            console.warn('Profile fetch error:', profileErr)
-            // Set minimal profile so app can function
+        // Session found - set user immediately (don't wait for profile)
+        setUser(session.user)
+        setLoading(false) // Stop loading immediately - user is set
+        clearTimeout(safetyTimeout)
+        
+        // Fetch profile in background (non-blocking)
+        getProfile(session.user.id).then(({ data: profileData }) => {
+          if (profileData) {
+            setProfile(profileData)
+          } else {
+            // Create minimal profile so app can function
             setProfile({
               id: session.user.id,
               email: session.user.email,
-              full_name: session.user.email?.split('@')[0] || 'User',
+              full_name: session.user.user_metadata?.full_name || 
+                         session.user.email?.split('@')[0] || 'User',
               role: 'team',
             })
           }
-        } else {
-          console.log('No session found')
-        }
+          console.log('[Auth] Profile loaded in', Date.now() - startTime, 'ms')
+        }).catch((err) => {
+          console.warn('[Auth] Profile fetch failed:', err.message)
+          // Set minimal profile so app doesn't break
+          setProfile({
+            id: session.user.id,
+            email: session.user.email,
+            full_name: session.user.email?.split('@')[0] || 'User',
+            role: 'team',
+          })
+        })
+        
       } catch (error) {
-        console.error('Auth init error:', error)
-      } finally {
+        console.error('[Auth] Init error:', error)
         setLoading(false)
         clearTimeout(safetyTimeout)
       }
