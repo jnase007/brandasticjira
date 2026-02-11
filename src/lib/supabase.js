@@ -7,24 +7,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// NOTE: Cookie storage was attempted but breaks Google OAuth due to cookie size limits
-// Session tokens can be 3-4KB which exceeds cookie limits
-// Keeping localStorage but with robust getUser() recovery on resume
-
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storage: localStorage, // Using localStorage (cookies break OAuth)
-    storageKey: 'brandastic-auth', // Custom storage key
-    flowType: 'implicit', // Key fix for iOS/tab switch desync issues
-    // debug: true, // Disable for production - spams console
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
+    storage: localStorage,
+    storageKey: 'brandastic-auth',
   },
   global: {
     headers: {
@@ -34,331 +23,8 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 })
 
 // ============================================
-// MULTI-TAB SYNCHRONIZATION
-// ============================================
-// Keeps auth state synced across all browser tabs using BroadcastChannel
-
-const CHANNEL_NAME = 'brandastic-auth-sync'
-let authChannel = null
-let tabSyncListeners = new Set()
-
-// Initialize BroadcastChannel for cross-tab communication
-function initTabSync() {
-  if (typeof window === 'undefined' || !('BroadcastChannel' in window)) {
-    console.log('[TabSync] BroadcastChannel not supported')
-    return
-  }
-  
-  if (authChannel) return // Already initialized
-  
-  try {
-    authChannel = new BroadcastChannel(CHANNEL_NAME)
-    
-    authChannel.onmessage = (event) => {
-      const { type, payload } = event.data || {}
-      console.log(`[TabSync] Received: ${type}`)
-      
-      switch (type) {
-        case 'SESSION_REFRESHED':
-          // Another tab refreshed the session - reload our session from storage
-          console.log('[TabSync] Another tab refreshed session, syncing...')
-          supabase.auth.getSession().then(({ data }) => {
-            if (data?.session) {
-              notifyTabSyncListeners('session_synced', data.session)
-            }
-          })
-          break
-          
-        case 'SIGNED_OUT':
-          // Another tab signed out - sign out this tab too
-          console.log('[TabSync] Another tab signed out, signing out this tab...')
-          supabase.auth.signOut({ scope: 'local' })
-          notifyTabSyncListeners('signed_out', null)
-          break
-          
-        case 'SIGNED_IN':
-          // Another tab signed in - sync session
-          console.log('[TabSync] Another tab signed in, syncing...')
-          supabase.auth.getSession().then(({ data }) => {
-            if (data?.session) {
-              notifyTabSyncListeners('session_synced', data.session)
-            }
-          })
-          break
-      }
-    }
-    
-    authChannel.onmessageerror = (error) => {
-      console.error('[TabSync] Message error:', error)
-    }
-    
-    console.log('[TabSync] Initialized multi-tab sync')
-  } catch (e) {
-    console.error('[TabSync] Failed to initialize:', e)
-  }
-}
-
-// Broadcast an auth event to other tabs
-export function broadcastAuthEvent(type, payload = null) {
-  if (!authChannel) {
-    initTabSync()
-  }
-  
-  if (authChannel) {
-    try {
-      authChannel.postMessage({ type, payload })
-      console.log(`[TabSync] Broadcast: ${type}`)
-    } catch (e) {
-      console.error('[TabSync] Broadcast failed:', e)
-    }
-  }
-}
-
-// Subscribe to tab sync events
-export function onTabSync(callback) {
-  tabSyncListeners.add(callback)
-  return () => tabSyncListeners.delete(callback)
-}
-
-function notifyTabSyncListeners(event, data) {
-  tabSyncListeners.forEach(cb => {
-    try {
-      cb(event, data)
-    } catch (e) {
-      console.error('[TabSync] Listener error:', e)
-    }
-  })
-}
-
-// Initialize tab sync on load
-initTabSync()
-
-// Listen for Supabase auth events and broadcast to other tabs
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log(`[TabSync] Auth event: ${event}`)
-  
-  switch (event) {
-    case 'SIGNED_IN':
-      broadcastAuthEvent('SIGNED_IN', { userId: session?.user?.id })
-      break
-    case 'SIGNED_OUT':
-      broadcastAuthEvent('SIGNED_OUT')
-      break
-    case 'TOKEN_REFRESHED':
-      broadcastAuthEvent('SESSION_REFRESHED', { expiresAt: session?.expires_at })
-      break
-  }
-})
-
-// ============================================
-// SESSION HEALTH (SIMPLIFIED)
-// ============================================
-
-// Minimal session health tracking - no aggressive polling
-const sessionListeners = new Set()
-
-export function onSessionHealthChange(callback) {
-  sessionListeners.add(callback)
-  return () => sessionListeners.delete(callback)
-}
-
-function notifySessionHealthChange(healthy, reason) {
-  sessionListeners.forEach(cb => {
-    try {
-      cb(healthy, reason)
-    } catch (e) {
-      console.error('[Session] Listener error:', e)
-    }
-  })
-}
-
-/**
- * Force a session refresh. Call this when user clicks retry.
- */
-export async function forceSessionRefresh() {
-  console.log('[Session] Force refresh requested...')
-  
-  try {
-    const { data, error } = await supabase.auth.refreshSession()
-    
-    if (error) {
-      console.error('[Session] Force refresh failed:', error.message)
-      notifySessionHealthChange(false, error.message)
-      return false
-    }
-    
-    if (data?.session) {
-      console.log('[Session] Force refresh successful')
-      notifySessionHealthChange(true, 'Refreshed')
-      return true
-    }
-    
-    return false
-  } catch (e) {
-    console.error('[Session] Force refresh exception:', e)
-    return false
-  }
-}
-
-// ============================================
 // AUTH HELPERS
 // ============================================
-
-/**
- * OPTIMISTIC session check - always returns true if we've ever had a session.
- * This prevents "session expired" errors on iOS resume.
- * Actual auth errors are handled by the query layer (safeQuery).
- */
-export async function ensureValidSession() {
-  // Always return true - be optimistic
-  // If there's a real auth problem, the query will fail and safeQuery will handle it
-  // This prevents false "session expired" errors on iOS resume
-  return true
-}
-
-/**
- * AGGRESSIVE wrapper for Supabase queries with tab-switch recovery.
- * This is the key fix for "buttons don't work after tab switch".
- * 
- * Strategy:
- * 1. Before EVERY query, force a session refresh via refreshSession()
- * 2. If query fails with auth error, use getUser() to hit server directly
- * 3. Retry with exponential backoff
- */
-export async function safeQuery(queryFn, options = {}) {
-  const maxRetries = 3
-  
-  // AGGRESSIVE: Before EVERY query, ensure session is fresh
-  // This is the key to fixing tab switch issues - we don't trust the cached session
-  try {
-    console.log('[SafeQuery] Pre-query session check')
-    
-    // First check if session exists in memory
-    const { data: sessionCheck } = await supabase.auth.getSession()
-    
-    if (!sessionCheck?.session) {
-      console.log('[SafeQuery] Session null in memory - forcing refresh')
-      
-      // Try refreshSession first (uses refresh token from storage)
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-      
-      if (refreshError || !refreshData?.session) {
-        console.log('[SafeQuery] refreshSession failed, trying getUser()...')
-        
-        // getUser() hits the server directly - last resort
-        const { data: userData, error: userError } = await supabase.auth.getUser()
-        
-        if (userError || !userData?.user) {
-          console.error('[SafeQuery] All pre-query recovery failed')
-          // Don't return error here - let the query attempt anyway
-          // The query might work if there's a race condition
-        }
-      }
-      
-      // Small delay to let the client sync
-      await new Promise(r => setTimeout(r, 100))
-    }
-  } catch (e) {
-    console.warn('[SafeQuery] Pre-query check exception:', e.message)
-    // Continue anyway - the query might work
-  }
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await queryFn()
-      
-      // Success - return result
-      if (!result.error) {
-        if (attempt > 0) {
-          console.log(`[SafeQuery] Query succeeded on attempt ${attempt + 1}`)
-        }
-        return result
-      }
-      
-      // Check if it's an auth error that we should retry
-      const errorMsg = result.error.message?.toLowerCase() || ''
-      const errorCode = result.error.code || ''
-      const errorStatus = result.error.status || result.status
-      
-      const isAuthError = 
-        errorMsg.includes('jwt') || 
-        errorMsg.includes('expired') ||
-        errorMsg.includes('invalid') ||
-        errorMsg.includes('refresh_token') ||
-        errorMsg.includes('not authenticated') ||
-        errorMsg.includes('no rows') || // Sometimes auth issues manifest as "no rows"
-        errorCode === 'PGRST301' ||
-        errorCode === '401' ||
-        errorCode === '403' ||
-        errorStatus === 401 ||
-        errorStatus === 403
-      
-      if (isAuthError && attempt < maxRetries) {
-        console.warn(`[SafeQuery] Auth error "${errorMsg}" on attempt ${attempt + 1}/${maxRetries}`)
-        
-        // Aggressive recovery: getUser() -> refreshSession() -> wait
-        console.log('[SafeQuery] Attempting recovery...')
-        
-        try {
-          // getUser() forces server check
-          await supabase.auth.getUser()
-          // refreshSession() gets new tokens
-          await supabase.auth.refreshSession()
-        } catch {
-          // Ignore recovery errors
-        }
-        
-        // Exponential backoff
-        const delay = 200 * Math.pow(2, attempt)
-        console.log(`[SafeQuery] Waiting ${delay}ms before retry...`)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue // Retry
-      }
-      
-      // Non-auth error or max retries - return the error
-      console.log(`[SafeQuery] Returning error: ${errorMsg}`)
-      return result
-      
-    } catch (e) {
-      console.error(`[SafeQuery] Exception on attempt ${attempt + 1}:`, e)
-      
-      // On exception, try to refresh and retry
-      if (attempt < maxRetries) {
-        try {
-          await supabase.auth.getUser()
-          await supabase.auth.refreshSession()
-        } catch {}
-        
-        const delay = 200 * Math.pow(2, attempt)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue
-      }
-      
-      return { data: null, error: e }
-    }
-  }
-  
-  return { data: null, error: new Error('Max retries exceeded') }
-}
-
-export async function signInWithEmail(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  return { data, error }
-}
-
-export async function signUpWithEmail(email, password, metadata = {}) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: metadata,
-    },
-  })
-  return { data, error }
-}
 
 export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -394,7 +60,7 @@ export async function getProfile(userId) {
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .maybeSingle() // Returns null instead of error if not found
+    .maybeSingle()
   return { data, error }
 }
 
@@ -404,7 +70,6 @@ export async function updateProfile(userId, updates) {
     .update(updates)
     .eq('id', userId)
     .select()
-  // Return first result or null
   return { data: data?.[0] || null, error }
 }
 
@@ -548,7 +213,6 @@ export async function getTickets(boardId = null, clientId = null) {
 }
 
 export async function getTicket(ticketId) {
-  // First get the ticket with basic joins
   const { data: ticket, error } = await supabase
     .from('tickets')
     .select(`
@@ -563,7 +227,6 @@ export async function getTicket(ticketId) {
     return { data: null, error }
   }
   
-  // Fetch assigned user and creator profiles separately to avoid foreign key issues
   let assigned_user = null
   let creator = null
   
@@ -592,7 +255,6 @@ export async function getTicket(ticketId) {
 }
 
 export async function getTicketByTicketId(ticketIdString) {
-  // First get the ticket with basic joins
   const { data: ticket, error } = await supabase
     .from('tickets')
     .select(`
@@ -607,7 +269,6 @@ export async function getTicketByTicketId(ticketIdString) {
     return { data: null, error }
   }
   
-  // Fetch assigned user and creator profiles separately
   let assigned_user = null
   let creator = null
   
@@ -646,7 +307,6 @@ export async function createTicket(ticketData) {
     return { data: null, error }
   }
   
-  // Fetch assigned user profile separately
   let assigned_user = null
   if (ticket.assigned_to) {
     const { data: assignee } = await supabase
@@ -672,7 +332,6 @@ export async function updateTicket(ticketId, updates) {
     return { data: null, error }
   }
   
-  // Fetch assigned user profile separately if needed
   let assigned_user = null
   if (ticket.assigned_to) {
     const { data: assignee } = await supabase
@@ -695,14 +354,13 @@ export async function deleteTicket(ticketId) {
 }
 
 export async function updateTicketPositions(updates) {
-  // Batch update positions with updated_at timestamp
   const promises = updates.map(({ id, position, status }) =>
     supabase
       .from('tickets')
       .update({ 
         position, 
         status,
-        updated_at: new Date().toISOString() // Fix: update timestamp when status changes
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
   )
@@ -716,7 +374,6 @@ export async function updateTicketPositions(updates) {
 // ============================================
 
 export async function getComments(ticketId) {
-  // Fetch comments first
   const { data: comments, error } = await supabase
     .from('comments')
     .select('*')
@@ -727,7 +384,6 @@ export async function getComments(ticketId) {
     return { data: null, error }
   }
   
-  // Fetch user profiles separately to avoid relationship issues
   const userIds = [...new Set(comments.map(c => c.user_id).filter(Boolean))]
   let users = []
   
@@ -739,7 +395,6 @@ export async function getComments(ticketId) {
     users = usersData || []
   }
   
-  // Map users to comments
   const userMap = users.reduce((acc, user) => {
     acc[user.id] = user
     return acc
@@ -754,7 +409,6 @@ export async function getComments(ticketId) {
 }
 
 export async function createComment(commentData) {
-  // Insert the comment
   const { data: comment, error } = await supabase
     .from('comments')
     .insert(commentData)
@@ -765,7 +419,6 @@ export async function createComment(commentData) {
     return { data: null, error }
   }
   
-  // Fetch the user profile separately
   let user = null
   if (comment.user_id) {
     const { data: userData } = await supabase
@@ -826,27 +479,17 @@ export async function getTimeEntries(ticketId = null, clientId = null, startDate
 
   let { data, error } = await query
 
-  // Fallback for older schemas or missing relationships
-  if (error && (error.message?.includes('start_time') || error.message?.includes('relationship') || error.message?.includes('schema cache'))) {
+  // Fallback for older schemas
+  if (error && (error.message?.includes('start_time') || error.message?.includes('relationship'))) {
     let fallbackQuery = supabase
       .from('time_entries')
-      .select(`
-        *
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
 
-    if (ticketId) {
-      fallbackQuery = fallbackQuery.eq('ticket_id', ticketId)
-    }
-    if (clientId) {
-      fallbackQuery = fallbackQuery.eq('client_id', clientId)
-    }
-    if (startDate) {
-      fallbackQuery = fallbackQuery.gte('created_at', startDate)
-    }
-    if (endDate) {
-      fallbackQuery = fallbackQuery.lte('created_at', endDate)
-    }
+    if (ticketId) fallbackQuery = fallbackQuery.eq('ticket_id', ticketId)
+    if (clientId) fallbackQuery = fallbackQuery.eq('client_id', clientId)
+    if (startDate) fallbackQuery = fallbackQuery.gte('created_at', startDate)
+    if (endDate) fallbackQuery = fallbackQuery.lte('created_at', endDate)
 
     const fallbackResult = await fallbackQuery
     data = fallbackResult.data
@@ -875,14 +518,8 @@ export async function getTimeEntries(ticketId = null, clientId = null, startDate
         tickets = ticketsData || []
       }
 
-      const userMap = users.reduce((acc, user) => {
-        acc[user.id] = user
-        return acc
-      }, {})
-      const ticketMap = tickets.reduce((acc, ticket) => {
-        acc[ticket.id] = ticket
-        return acc
-      }, {})
+      const userMap = users.reduce((acc, user) => { acc[user.id] = user; return acc }, {})
+      const ticketMap = tickets.reduce((acc, ticket) => { acc[ticket.id] = ticket; return acc }, {})
 
       data = data.map((entry) => ({
         ...entry,
@@ -938,30 +575,27 @@ export async function stopTimeEntry(entryId) {
   const durationSeconds = Math.max(1, Math.round((endTime - startTime) / 1000))
   const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
 
-  const updatePayload = {
-    end_time: endTime.toISOString(),
-    is_running: false,
-    duration_minutes: durationMinutes,
-    minutes: durationMinutes,
-    date: endTime.toISOString().split('T')[0],
-  }
-
   let { data, error } = await supabase
     .from('time_entries')
-    .update(updatePayload)
+    .update({
+      end_time: endTime.toISOString(),
+      is_running: false,
+      duration_minutes: durationMinutes,
+      minutes: durationMinutes,
+      date: endTime.toISOString().split('T')[0],
+    })
     .eq('id', entryId)
     .select()
     .single()
 
-  // Fallback for older schemas missing some columns
+  // Fallback for older schemas
   if (error && error.message?.includes('column')) {
-    const fallbackPayload = {
-      end_time: endTime.toISOString(),
-      is_running: false,
-    }
     ;({ data, error } = await supabase
       .from('time_entries')
-      .update(fallbackPayload)
+      .update({
+        end_time: endTime.toISOString(),
+        is_running: false,
+      })
       .eq('id', entryId)
       .select()
       .single())
@@ -973,13 +607,9 @@ export async function stopTimeEntry(entryId) {
 export async function createManualTimeEntry(entryData) {
   const startDate = entryData.start_time ? new Date(entryData.start_time) : new Date()
   const endDate = entryData.end_time ? new Date(entryData.end_time) : new Date()
-  const durationSeconds = Math.max(
-    1,
-    entryData.duration_seconds ?? Math.round((endDate - startDate) / 1000)
-  )
+  const durationSeconds = Math.max(1, entryData.duration_seconds ?? Math.round((endDate - startDate) / 1000))
   const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
   
-  // Build payload with only fields that definitely exist
   const payload = {
     user_id: entryData.user_id,
     ticket_id: entryData.ticket_id ?? null,
@@ -999,20 +629,18 @@ export async function createManualTimeEntry(entryData) {
     .select()
     .single()
 
-  // If error mentions a column, try minimal payload
+  // Fallback for older schemas
   if (error && error.message?.includes('column')) {
-    console.warn('Time entry insert failed, trying minimal payload:', error.message)
-    const minimalPayload = {
-      user_id: entryData.user_id,
-      ticket_id: entryData.ticket_id ?? null,
-      description: entryData.description ?? null,
-      minutes: durationMinutes,
-      date: startDate.toISOString().split('T')[0],
-      is_running: false,
-    }
     ;({ data, error } = await supabase
       .from('time_entries')
-      .insert(minimalPayload)
+      .insert({
+        user_id: entryData.user_id,
+        ticket_id: entryData.ticket_id ?? null,
+        description: entryData.description ?? null,
+        minutes: durationMinutes,
+        date: startDate.toISOString().split('T')[0],
+        is_running: false,
+      })
       .select()
       .single())
   }
@@ -1034,49 +662,36 @@ export async function deleteTimeEntry(entryId) {
 
 export async function getClientHoursSummary() {
   try {
-    // First try the view
     const { data, error } = await supabase
       .from('client_hours_summary')
       .select('*')
     
-    // If view works and has data, return it
     if (!error && data && data.length > 0) {
-      console.log('[ClientHoursSummary] View returned', data.length, 'records')
       return { data, error: null }
     }
     
-    // Fallback: calculate from clients and time_entries tables
-    console.log('[ClientHoursSummary] View empty or failed, calculating from raw data...')
-    
-    // Get all clients
+    // Fallback: calculate from raw data
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
       .select('id, name, color, monthly_hours')
       .neq('is_active', false)
     
     if (clientsError || !clients) {
-      console.warn('[ClientHoursSummary] Failed to fetch clients:', clientsError)
       return { data: [], error: null }
     }
     
-    // Get current month's time entries grouped by client
     const now = new Date()
     const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     const startOfNextMonth = now.getMonth() === 11
       ? `${now.getFullYear() + 1}-01-01`
       : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
     
-    const { data: timeEntries, error: timeError } = await supabase
+    const { data: timeEntries } = await supabase
       .from('time_entries')
       .select('client_id, minutes')
       .gte('date', startOfMonth)
       .lt('date', startOfNextMonth)
     
-    if (timeError) {
-      console.warn('[ClientHoursSummary] Failed to fetch time entries:', timeError)
-    }
-    
-    // Calculate hours per client
     const hoursByClient = {}
     for (const entry of timeEntries || []) {
       if (entry.client_id) {
@@ -1084,7 +699,6 @@ export async function getClientHoursSummary() {
       }
     }
     
-    // Build summary
     const summary = clients.map(client => ({
       client_id: client.id,
       client_name: client.name,
@@ -1093,7 +707,6 @@ export async function getClientHoursSummary() {
       hours_used: Math.round((hoursByClient[client.id] || 0) * 10) / 10,
     }))
     
-    console.log('[ClientHoursSummary] Calculated summary for', summary.length, 'clients')
     return { data: summary, error: null }
   } catch (e) {
     console.warn('Error fetching client hours summary:', e)
@@ -1118,7 +731,6 @@ export async function uploadAttachment(file, clientId, ticketId) {
     return { data: null, error }
   }
 
-  // Get the public URL (or signed URL for private buckets)
   const { data: urlData } = supabase.storage
     .from('documents')
     .getPublicUrl(filePath)
@@ -1145,7 +757,7 @@ export async function deleteAttachment(filePath) {
 export async function getAttachmentUrl(filePath) {
   const { data } = await supabase.storage
     .from('documents')
-    .createSignedUrl(filePath, 3600) // 1 hour expiry
+    .createSignedUrl(filePath, 3600)
   return data?.signedUrl
 }
 
@@ -1179,12 +791,10 @@ export async function searchTickets(query) {
   return { data, error }
 }
 
-// Global search - searches tickets, clients, and team members
 export async function globalSearch(query) {
   const searchTerm = `%${query}%`
   
   const [ticketsRes, clientsRes, teamRes] = await Promise.all([
-    // Search tickets
     supabase
       .from('tickets')
       .select(`
@@ -1195,7 +805,6 @@ export async function globalSearch(query) {
       .or(`title.ilike.${searchTerm},ticket_id.ilike.${searchTerm},description.ilike.${searchTerm}`)
       .limit(10),
     
-    // Search clients
     supabase
       .from('clients')
       .select('id, name, color, logo_url, slug, contact_email, contact_name')
@@ -1203,7 +812,6 @@ export async function globalSearch(query) {
       .neq('is_active', false)
       .limit(10),
     
-    // Search team members
     supabase
       .from('profiles')
       .select('id, full_name, email, avatar_url, role')
@@ -1249,232 +857,4 @@ export async function logActivity({
     .select()
     .single()
   return { data, error }
-}
-
-// ============================================
-// REAL CLIENT DATA - ALL BRANDASTIC CLIENTS
-// $175/hr billing rate
-// ============================================
-
-const BRANDASTIC_CLIENTS = [
-  // $21,000/mo = 120 hours
-  { name: 'Calops', slug: 'calops', monthly_hours: 120, monthly_revenue: 21000, start_date: '2025-01-14', color: '#4F46E5', account_services: ['SEO', 'PPC', 'Social Media'] },
-  // $11,000/mo = 63 hours
-  { name: 'Prudental Labs', slug: 'prudental-labs', monthly_hours: 63, monthly_revenue: 11000, start_date: '2025-11-14', color: '#059669', account_services: ['SEO', 'Content Marketing', 'Web Development'] },
-  // $10,500/mo = 60 hours
-  { name: 'Salvin', slug: 'salvin', monthly_hours: 60, monthly_revenue: 10500, start_date: '2025-06-14', color: '#DC2626', account_services: ['PPC', 'Email Marketing', 'Branding'] },
-  // $10,000/mo = 57 hours
-  { name: 'Wearparts LLC', slug: 'wearparts-llc', monthly_hours: 57, monthly_revenue: 10000, start_date: '2025-08-14', color: '#EA580C', account_services: ['SEO', 'PPC', 'Web Development'] },
-  // $9,600/mo = 55 hours
-  { name: "Check'n Play", slug: 'checknplay', monthly_hours: 55, monthly_revenue: 9600, start_date: '2025-01-14', color: '#7C3AED', account_services: ['Social Media', 'Influencer Marketing', 'Video Production'] },
-  // $9,100/mo = 52 hours
-  { name: 'Young Surgical', slug: 'young-surgical', monthly_hours: 52, monthly_revenue: 9100, start_date: '2025-01-14', color: '#0D9488', account_services: ['SEO', 'PPC', 'Content Marketing'] },
-  // $7,800/mo = 45 hours
-  { name: 'DESS USA', slug: 'dess-usa', monthly_hours: 45, monthly_revenue: 7800, start_date: '2025-01-14', color: '#0891B2', account_services: ['SEO', 'PPC', 'Web Development'] },
-  // $5,880/mo = 34 hours
-  { name: 'Adopt Hwy', slug: 'adopt-hwy', monthly_hours: 34, monthly_revenue: 5880, start_date: '2025-01-14', color: '#16A34A', account_services: ['Social Media', 'Content Marketing'] },
-  // $5,250/mo = 30 hours
-  { name: 'Christian Heart School', slug: 'christian-heart-school', monthly_hours: 30, monthly_revenue: 5250, start_date: '2025-12-14', color: '#2563EB', account_services: ['SEO', 'Social Media', 'Email Marketing'] },
-  // $5,250/mo = 30 hours
-  { name: 'Morehouse', slug: 'morehouse', monthly_hours: 30, monthly_revenue: 5250, start_date: '2026-01-14', color: '#9333EA', account_services: ['PPC', 'Branding', 'Web Development'] },
-  // $5,000/mo = 29 hours
-  { name: 'MonoB', slug: 'monob', monthly_hours: 29, monthly_revenue: 5000, start_date: '2025-12-14', color: '#DB2777', account_services: ['SEO', 'Social Media', 'Influencer Marketing'] },
-  // $4,550/mo = 26 hours
-  { name: 'Friar Tux', slug: 'friar-tux', monthly_hours: 26, monthly_revenue: 4550, start_date: '2025-01-14', color: '#1E293B', account_services: ['SEO', 'PPC', 'Web Development'] },
-  // $4,500/mo = 26 hours
-  { name: 'TriStar Insurance', slug: 'tristar-insurance', monthly_hours: 26, monthly_revenue: 4500, start_date: '2025-12-31', color: '#0369A1', account_services: ['SEO', 'PPC', 'Content Marketing'] },
-  // $4,350/mo = 25 hours
-  { name: 'Starboard Realty', slug: 'starboard-realty', monthly_hours: 25, monthly_revenue: 4350, start_date: '2025-06-14', color: '#0F766E', account_services: ['SEO', 'Social Media', 'Web Development'] },
-  // $3,500/mo = 20 hours
-  { name: 'Husbey Crummack', slug: 'husbey-crummack', monthly_hours: 20, monthly_revenue: 3500, start_date: '2025-11-14', color: '#7E22CE', account_services: ['SEO', 'PPC'] },
-  // $3,500/mo = 20 hours
-  { name: 'Labtech PPC', slug: 'labtech-ppc', monthly_hours: 20, monthly_revenue: 3500, start_date: '2025-12-14', color: '#BE185D', account_services: ['PPC', 'Analytics'] },
-  // $2,650/mo = 15 hours
-  { name: 'Labtech SEO', slug: 'labtech-seo', monthly_hours: 15, monthly_revenue: 2650, start_date: '2025-01-14', color: '#C026D3', account_services: ['SEO', 'Content Marketing'] },
-  // $2,600/mo = 15 hours
-  { name: 'Friar Tux Email', slug: 'friar-tux-email', monthly_hours: 15, monthly_revenue: 2600, start_date: '2025-12-14', color: '#334155', account_services: ['Email Marketing'] },
-  // $1,500/mo = 9 hours
-  { name: 'Roger Beltrans', slug: 'roger-beltrans', monthly_hours: 9, monthly_revenue: 1500, start_date: '2025-05-14', color: '#CA8A04', account_services: ['SEO', 'Web Development'] },
-  // $1,500/mo = 9 hours
-  { name: 'Trico Realty', slug: 'trico-realty', monthly_hours: 9, monthly_revenue: 1500, start_date: '2025-01-14', color: '#65A30D', account_services: ['SEO', 'Social Media'] },
-  // $1,199/mo = 7 hours
-  { name: 'IPA 1031 Group', slug: 'ipa-1031-group', monthly_hours: 7, monthly_revenue: 1199, start_date: '2025-01-14', color: '#0284C7', account_services: ['SEO', 'PPC'] },
-  // $1,000/mo = 6 hours
-  { name: 'Posture Pump', slug: 'posture-pump', monthly_hours: 6, monthly_revenue: 1000, start_date: '2025-01-14', color: '#EA580C', account_services: ['SEO'] },
-]
-
-// Total Monthly Revenue: $130,434
-// Total Monthly Hours: 745
-
-const SAMPLE_TICKETS = [
-  { status: 'done', priority: 'high', title: 'Keyword research', description: 'Research top 50 keywords for campaign' },
-  { status: 'done', priority: 'medium', title: 'Competitor analysis', description: 'Analyze top 5 competitors' },
-  { status: 'inprogress', priority: 'high', title: 'Landing page design', description: 'Design new landing page for campaign' },
-  { status: 'inprogress', priority: 'medium', title: 'Ad copy writing', description: 'Write copy for Google Ads' },
-  { status: 'todo', priority: 'high', title: 'Campaign setup', description: 'Set up Google Ads campaign' },
-  { status: 'todo', priority: 'low', title: 'Reporting dashboard', description: 'Create monthly reporting dashboard' },
-]
-
-export async function seedSampleClients() {
-  const results = { clients: [], boards: [], tickets: [], rates: [], errors: [] }
-  
-  for (const clientData of BRANDASTIC_CLIENTS) {
-    // Calculate monthly revenue from hours (or use provided)
-    const monthlyRevenue = clientData.monthly_revenue || (clientData.monthly_hours * 175)
-    
-    // Upsert client
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .upsert({
-        name: clientData.name,
-        slug: clientData.slug,
-        monthly_hours: clientData.monthly_hours,
-        color: clientData.color,
-        account_services: clientData.account_services,
-        is_active: true,
-        // Store start date in created_at if needed, or use a custom field
-      }, { onConflict: 'slug' })
-      .select()
-      .single()
-    
-    if (clientError) {
-      results.errors.push(`Client ${clientData.name}: ${clientError.message}`)
-      continue
-    }
-    
-    results.clients.push({ ...client, monthly_revenue: monthlyRevenue })
-    
-    // Create main board for client
-    const boardName = `${clientData.name} - Q1 2025`
-    const { data: existingBoard } = await supabase
-      .from('boards')
-      .select()
-      .eq('client_id', client.id)
-      .limit(1)
-      .single()
-    
-    if (!existingBoard) {
-      const { data: board, error: boardError } = await supabase
-        .from('boards')
-        .insert({
-          name: boardName,
-          description: `Main project board for ${clientData.name}`,
-          client_id: client.id,
-        })
-        .select()
-        .single()
-      
-      if (board) {
-        results.boards.push(board)
-        
-        // Create sample tickets based on services
-        const serviceTickets = getTicketsForServices(clientData.account_services)
-        for (let i = 0; i < serviceTickets.length; i++) {
-          const ticketData = serviceTickets[i]
-          const { data: ticket } = await supabase
-            .from('tickets')
-            .insert({
-              title: ticketData.title,
-              description: ticketData.description,
-              status: ticketData.status,
-              priority: ticketData.priority,
-              board_id: board.id,
-              client_id: client.id,
-              position: i,
-            })
-            .select()
-            .single()
-          
-          if (ticket) results.tickets.push(ticket)
-        }
-      }
-    }
-    
-    // Set client hourly rate ($175/hr)
-    const { data: rate } = await supabase
-      .from('client_hourly_rates')
-      .upsert({
-        client_id: client.id,
-        rate_per_hour: 175.00,
-        effective_date: clientData.start_date || '2025-01-14',
-      }, { onConflict: 'client_id,effective_date' })
-      .select()
-      .single()
-    
-    if (rate) results.rates.push(rate)
-  }
-  
-  return results
-}
-
-// Generate relevant tickets based on client services
-function getTicketsForServices(services) {
-  const serviceTicketTemplates = {
-    'SEO': [
-      { title: 'Technical SEO audit', description: 'Complete technical audit of website', status: 'done', priority: 'high' },
-      { title: 'Keyword research', description: 'Research and map target keywords', status: 'done', priority: 'high' },
-      { title: 'On-page optimization', description: 'Optimize meta titles, descriptions, headers', status: 'inprogress', priority: 'medium' },
-    ],
-    'PPC': [
-      { title: 'Campaign structure review', description: 'Review and optimize campaign structure', status: 'done', priority: 'high' },
-      { title: 'Ad copy optimization', description: 'Write and test new ad variations', status: 'inprogress', priority: 'medium' },
-      { title: 'Bid strategy adjustment', description: 'Optimize bidding for conversions', status: 'todo', priority: 'medium' },
-    ],
-    'Social Media': [
-      { title: 'Content calendar', description: 'Create monthly content calendar', status: 'done', priority: 'high' },
-      { title: 'Engagement strategy', description: 'Develop community engagement plan', status: 'inprogress', priority: 'medium' },
-      { title: 'Analytics review', description: 'Monthly performance analysis', status: 'todo', priority: 'low' },
-    ],
-    'Email Marketing': [
-      { title: 'Email template design', description: 'Design responsive email templates', status: 'done', priority: 'medium' },
-      { title: 'Automation flows', description: 'Set up drip campaigns and automations', status: 'inprogress', priority: 'high' },
-    ],
-    'Web Development': [
-      { title: 'Performance optimization', description: 'Improve page load speed', status: 'inprogress', priority: 'high' },
-      { title: 'Mobile responsiveness', description: 'Ensure site works on all devices', status: 'todo', priority: 'medium' },
-    ],
-    'Content Marketing': [
-      { title: 'Blog content strategy', description: 'Plan and schedule blog posts', status: 'done', priority: 'medium' },
-      { title: 'Content creation', description: 'Write and publish new content', status: 'inprogress', priority: 'medium' },
-    ],
-    'Branding': [
-      { title: 'Brand guidelines', description: 'Document brand standards', status: 'done', priority: 'high' },
-      { title: 'Visual assets', description: 'Create branded visual assets', status: 'inprogress', priority: 'medium' },
-    ],
-  }
-  
-  const tickets = []
-  for (const service of services || ['SEO']) {
-    const serviceTickets = serviceTicketTemplates[service] || []
-    tickets.push(...serviceTickets)
-  }
-  
-  // Limit to 6 tickets max per client and shuffle statuses
-  return tickets.slice(0, 6)
-}
-
-export async function deleteSampleClients() {
-  const slugs = BRANDASTIC_CLIENTS.map(c => c.slug)
-  
-  // Get client IDs
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('id')
-    .in('slug', slugs)
-  
-  if (!clients?.length) return { deleted: 0 }
-  
-  const clientIds = clients.map(c => c.id)
-  
-  // Delete in order: tickets, boards, client_hourly_rates, clients
-  await supabase.from('tickets').delete().in('client_id', clientIds)
-  await supabase.from('boards').delete().in('client_id', clientIds)
-  await supabase.from('client_hourly_rates').delete().in('client_id', clientIds)
-  
-  const { error } = await supabase
-    .from('clients')
-    .delete()
-    .in('slug', slugs)
-  
-  return { deleted: clientIds.length, error }
 }

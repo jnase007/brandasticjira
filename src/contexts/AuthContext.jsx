@@ -1,10 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { supabase, getProfile, onSessionHealthChange, onTabSync } from '../lib/supabase'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
-
-// Event for profile sync notification
-const profileSyncEvent = new CustomEvent('profileSynced', { detail: {} })
 
 export function useAuth() {
   const context = useContext(AuthContext)
@@ -18,353 +15,127 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [justLoggedIn, setJustLoggedIn] = useState(false)
-  const [profileSynced, setProfileSynced] = useState(false)
-  const [authError, setAuthError] = useState(null)
-  const [sessionRefreshing, setSessionRefreshing] = useState(false)
-  const [sessionHealthy, setSessionHealthy] = useState(true)
-  const refreshInFlightRef = useRef(false)
-  const lastRefreshRef = useRef(0)
-  
+
   // View mode toggle (admin can switch between admin and team view)
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('viewMode') || 'default'
   })
-  
-  // Listen for session health changes from the Supabase module
-  useEffect(() => {
-    const unsubscribe = onSessionHealthChange((healthy, reason) => {
-      console.log(`[Auth] Session health changed: ${healthy ? 'healthy' : 'unhealthy'} - ${reason}`)
-      
-      // Only update state if it actually changed to avoid re-renders
-      setSessionHealthy(prev => {
-        if (prev === healthy) return prev
-        return healthy
-      })
-      
-      // Only show error for actual session expiry, not transient issues
-      if (!healthy && reason?.includes('expired')) {
-        setAuthError('Your session has expired. Please sign in again.')
-      }
-    })
-    
-    return unsubscribe
-  }, [])
-  
-  // Listen for multi-tab sync events
-  useEffect(() => {
-    const unsubscribe = onTabSync(async (event, data) => {
-      console.log(`[Auth] Tab sync event: ${event}`)
-      
-      if (event === 'session_synced' && data) {
-        // Another tab refreshed the session - update our state
-        setUser(data.user)
-        if (data.user) {
-          const { data: profileData } = await getProfile(data.user.id)
-          if (profileData) {
-            setProfile(profileData)
-          }
-        }
-        setSessionHealthy(true)
-        setAuthError(null)
-      } else if (event === 'signed_out') {
-        // Another tab signed out - clear our state
-        setUser(null)
-        setProfile(null)
-      }
-    })
-    
-    return unsubscribe
-  }, [])
 
-  useEffect(() => {
-    // Check if we're returning from OAuth (tokens in URL hash)
-    const hash = window.location.hash
-    const isOAuthCallback = hash && (hash.includes('access_token') || hash.includes('refresh_token'))
-    
-    // Safety timeout - if loading takes too long, force complete
-    const safetyTimeout = setTimeout(() => {
-      console.warn('[Auth] Loading timeout - forcing complete')
-      setLoading(false)
-    }, isOAuthCallback ? 10000 : 6000)
+  // Client preview mode (for admins to preview client portal)
+  const [clientPreviewMode, setClientPreviewMode] = useState(false)
+  const [previewClientId, setPreviewClientId] = useState(null)
 
-    // SIMPLIFIED AUTH INIT - Let onAuthStateChange handle everything
-    // This is the recommended Supabase pattern
+  // Fetch profile helper
+  const fetchProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (data) {
+        setProfile(data)
+        return data
+      }
+      return null
+    } catch (err) {
+      console.error('Error fetching profile:', err)
+      return null
+    }
+  }
+
+  // Create profile if it doesn't exist (for new OAuth users)
+  const createProfileIfNeeded = async (user) => {
+    if (!user) return null
+
+    // Check if profile exists
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (existing) {
+      return fetchProfile(user.id)
+    }
+
+    // Create new profile
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        full_name: user.user_metadata?.full_name || 
+                   user.user_metadata?.name || 
+                   user.email?.split('@')[0] || 'User',
+        role: 'team',
+        avatar_url: user.user_metadata?.avatar_url || 
+                    user.user_metadata?.picture || null,
+      }, { onConflict: 'id' })
+
+    if (error) {
+      console.error('Error creating profile:', error)
+    }
+
+    return fetchProfile(user.id)
+  }
+
+  // Initialize auth - simple and clean
+  useEffect(() => {
+    let mounted = true
+
     const initAuth = async () => {
-      console.log('[Auth] Initializing...')
-      
       try {
-        // Give a tiny delay for Supabase client to fully initialize
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Get session - this triggers onAuthStateChange with INITIAL_SESSION
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        console.log('[Auth] getSession result:', session ? session.user.email : 'no session', error?.message || '')
-        
-        // If no session but we have a storage key, try refresh
-        if (!session) {
-          const stored = localStorage.getItem('brandastic-auth')
-          if (stored) {
-            console.log('[Auth] Found storage, attempting refresh...')
-            try {
-              const { data: refreshData } = await supabase.auth.refreshSession()
-              if (refreshData?.session) {
-                console.log('[Auth] Refresh succeeded:', refreshData.session.user.email)
-                // Set user and profile directly instead of waiting for onAuthStateChange
-                setUser(refreshData.session.user)
-                try {
-                  const { data: profileData } = await getProfile(refreshData.session.user.id)
-                  if (profileData) {
-                    setProfile(profileData)
-                  } else {
-                    setProfile({
-                      id: refreshData.session.user.id,
-                      email: refreshData.session.user.email,
-                      full_name: refreshData.session.user.email?.split('@')[0] || 'User',
-                      role: 'team',
-                    })
-                  }
-                } catch (e) {
-                  setProfile({
-                    id: refreshData.session.user.id,
-                    email: refreshData.session.user.email,
-                    full_name: refreshData.session.user.email?.split('@')[0] || 'User',
-                    role: 'team',
-                  })
-                }
-                setLoading(false)
-                clearTimeout(safetyTimeout)
-                return
-              }
-            } catch (e) {
-              console.log('[Auth] Refresh failed:', e.message)
-            }
-          }
-          // No session found - finish loading
-          console.log('[Auth] No session - finishing')
-          setLoading(false)
-          clearTimeout(safetyTimeout)
-          return
-        }
-        
-        // Session found
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!mounted) return
+
         if (session?.user) {
-          console.log('[Auth] Session found for:', session.user.email)
           setUser(session.user)
-          
-          // Fetch profile - single attempt only, don't retry aggressively
-          try {
-            const { data: profileData, error: profileError } = await getProfile(session.user.id)
-            
-            if (profileData) {
-              setProfile(profileData)
-            } else if (!profileError) {
-              // No profile exists - create one
-              console.log('Creating profile for:', session.user.email)
-              const { error: createError } = await supabase
-                .from('profiles')
-                .upsert({
-                  id: session.user.id,
-                  email: session.user.email,
-                  full_name: session.user.user_metadata?.full_name || 
-                             session.user.user_metadata?.name || 
-                             session.user.email?.split('@')[0] || 'User',
-                  role: 'team',
-                  avatar_url: session.user.user_metadata?.avatar_url || 
-                              session.user.user_metadata?.picture || null,
-                }, { onConflict: 'id' })
-              
-              if (!createError) {
-                const { data: newProfile } = await getProfile(session.user.id)
-                setProfile(newProfile)
-              }
-            }
-            
-            // If still no profile, create a minimal one for display
-            if (!profileData) {
-              setProfile({
-                id: session.user.id,
-                email: session.user.email,
-                full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-                role: 'team',
-              })
-            }
-          } catch (profileErr) {
-            console.warn('Profile fetch error:', profileErr)
-            // Set minimal profile so app can function
-            setProfile({
-              id: session.user.id,
-              email: session.user.email,
-              full_name: session.user.email?.split('@')[0] || 'User',
-              role: 'team',
-            })
-          }
-        } else {
-          console.log('No session found')
+          await createProfileIfNeeded(session.user)
         }
       } catch (error) {
         console.error('Auth init error:', error)
       } finally {
-        setLoading(false)
-        clearTimeout(safetyTimeout)
+        if (mounted) setLoading(false)
       }
     }
 
     initAuth()
 
-    // Listen for auth changes - CRITICAL for handling token refresh
+    // Listen for auth changes - this is the single source of truth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[Auth] Auth event:', event, session?.user?.email || 'no user')
-        
-        // Handle TOKEN_REFRESHED - this is key for tab switch recovery
-        if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('[Auth] Token refreshed - updating user state')
-          setUser(session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
-          return // Don't need to do profile check for refresh
-        }
-        
+        console.log('[Auth] Event:', event)
+
+        if (!mounted) return
+
         if (session?.user) {
           setUser(session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
           
-          // For new signups or OAuth logins, ensure profile exists
-          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-            // Check and create profile if needed
-            const { data: existingProfile } = await getProfile(session.user.id)
-            
-            // Get Google metadata
-            const googleName = session.user.user_metadata?.full_name || 
-                               session.user.user_metadata?.name || ''
-            const googleAvatar = session.user.user_metadata?.avatar_url || 
-                                 session.user.user_metadata?.picture || null
-            
-            if (!existingProfile) {
-              // Create profile for OAuth users or if somehow missing
-              await supabase
-                .from('profiles')
-                .upsert({
-                  id: session.user.id,
-                  email: session.user.email,
-                  full_name: googleName,
-                  role: 'team',
-                  avatar_url: googleAvatar,
-                }, { onConflict: 'id' })
-              
-              // Fetch the newly created profile
-              const { data: newProfile } = await getProfile(session.user.id)
-              setProfile(newProfile)
-              setJustLoggedIn(true)
-              setProfileSynced(true)
-            } else {
-              // Update existing profile with latest Google data if they're using OAuth
-              // but only if the existing fields are empty
-              const updates = {}
-              if (!existingProfile.full_name && googleName) {
-                updates.full_name = googleName
-              }
-              if (!existingProfile.avatar_url && googleAvatar) {
-                updates.avatar_url = googleAvatar
-              }
-              
-              if (Object.keys(updates).length > 0) {
-                await supabase
-                  .from('profiles')
-                  .update(updates)
-                  .eq('id', session.user.id)
-                
-                // Fetch updated profile
-                const { data: updatedProfile } = await getProfile(session.user.id)
-                setProfile(updatedProfile)
-                setProfileSynced(true)
-              } else {
-                setProfile(existingProfile)
-              }
-              setJustLoggedIn(true)
-            }
+          // On sign in, ensure profile exists
+          if (event === 'SIGNED_IN') {
+            await createProfileIfNeeded(session.user)
           } else {
-            // Just fetch existing profile
-            const { data: profileData } = await getProfile(session.user.id)
-            setProfile(profileData)
+            await fetchProfile(session.user.id)
           }
         } else {
           setUser(null)
           setProfile(null)
         }
-        
+
         setLoading(false)
       }
     )
 
     return () => {
-      clearTimeout(safetyTimeout)
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
 
-  // Sign in with email
-  const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { data, error }
-  }
-
-  // Sign up with email
-  const signUp = async (email, password, metadata = {}) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata,
-      },
-    })
-    
-    // If signup successful, create profile
-    if (data?.user && !error) {
-      await createProfileIfNotExists(data.user, metadata)
-    }
-    
-    return { data, error }
-  }
-  
-  // Create profile if it doesn't exist
-  const createProfileIfNotExists = async (user, metadata = {}) => {
-    try {
-      // Check if profile exists - use maybeSingle to avoid error when not found
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle()
-      
-      if (!existingProfile) {
-        // Create new profile with upsert to handle race conditions
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: user.id,
-            email: user.email,
-            full_name: metadata.full_name || user.user_metadata?.full_name || '',
-            role: 'team', // Default role
-            avatar_url: user.user_metadata?.avatar_url || null,
-          }, { onConflict: 'id' })
-        
-        if (insertError) {
-          console.error('Error creating profile:', insertError)
-        }
-      }
-    } catch (err) {
-      console.error('Error checking/creating profile:', err)
-    }
-  }
-
-  // Sign in with Google
+  // Sign in with Google (primary auth method for team)
   const signInWithGoogle = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -378,90 +149,45 @@ export function AuthProvider({ children }) {
   // Sign out
   const signOut = async () => {
     try {
-      // Clear React state first
       setUser(null)
       setProfile(null)
-      setLoading(false)
-      
-      // Clear all custom cached data
       localStorage.removeItem('viewMode')
       
-      // Call Supabase signOut with global scope to clear all sessions
       const { error } = await supabase.auth.signOut({ scope: 'global' })
-      
-      if (error) {
-        console.error('Supabase signOut error:', error)
-      }
-      
       return { error }
     } catch (err) {
       console.error('Sign out error:', err)
-      // Still clear state on error
-      setUser(null)
-      setProfile(null)
       return { error: err }
     }
   }
 
-  // Update profile - uses upsert to create if doesn't exist
+  // Update profile
   const updateUserProfile = async (updates) => {
     if (!user) return { error: new Error('Not authenticated') }
-    
+
     try {
-      // Filter out undefined values
       const cleanUpdates = Object.fromEntries(
         Object.entries(updates).filter(([_, v]) => v !== undefined)
       )
-      
+
       if (Object.keys(cleanUpdates).length === 0) {
         return { data: profile, error: null }
       }
 
-      // First try to update
-      const { data: updateData, error: updateError } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .update(cleanUpdates)
+        .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
         .eq('id', user.id)
         .select()
 
-      // If update returned data, use it
-      if (updateData && updateData.length > 0) {
-        setProfile(updateData[0])
-        return { data: updateData[0], error: null }
+      if (data && data.length > 0) {
+        setProfile(data[0])
+        return { data: data[0], error: null }
       }
 
-      // If no rows updated (profile doesn't exist), try upsert
-      if (!updateData || updateData.length === 0) {
-        console.log('Profile not found, creating with upsert...')
-        const { data: upsertData, error: upsertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: user.id,
-            email: user.email,
-            ...cleanUpdates,
-            updated_at: new Date().toISOString()
-          })
-          .select()
-
-        if (upsertError) {
-          console.error('Profile upsert error:', upsertError)
-          return { data: null, error: upsertError }
-        }
-
-        if (upsertData && upsertData.length > 0) {
-          setProfile(upsertData[0])
-          return { data: upsertData[0], error: null }
-        }
-      }
-
-      if (updateError) {
-        console.error('Profile update error:', updateError)
-        return { data: null, error: updateError }
-      }
-      
-      return { data: profile, error: null }
+      return { data: null, error }
     } catch (err) {
-      console.error('Profile update exception:', err)
+      console.error('Profile update error:', err)
       return { data: null, error: err }
     }
   }
@@ -471,29 +197,21 @@ export function AuthProvider({ children }) {
     if (!user) return { error: new Error('Not authenticated') }
 
     try {
-      // Generate unique filename
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
       const filePath = `avatars/${fileName}`
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true,
-        })
+        .upload(filePath, file, { cacheControl: '3600', upsert: true })
 
       if (uploadError) throw uploadError
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(filePath)
 
-      // Update profile with new avatar URL
       const { data, error } = await updateUserProfile({ avatar_url: publicUrl })
-      
       return { data, error, url: publicUrl }
     } catch (error) {
       console.error('Avatar upload error:', error)
@@ -501,280 +219,11 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Clear login state (call after showing welcome message)
-  const clearLoginState = useCallback(() => {
-    setJustLoggedIn(false)
-    setProfileSynced(false)
-  }, [])
-
   // Refresh profile
   const refreshProfile = async () => {
     if (!user) return
-    const { data } = await getProfile(user.id)
-    if (data) {
-      setProfile(data)
-    }
+    await fetchProfile(user.id)
   }
-
-  // Lightweight profile refresh - only fetches profile, no auth API calls
-  // Supabase's autoRefreshToken handles token refresh automatically
-  const refreshSessionAndProfile = useCallback(async (source = 'unknown') => {
-    if (refreshInFlightRef.current || !user) return
-    refreshInFlightRef.current = true
-    
-    try {
-      // Just refresh profile data - don't make auth API calls
-      // Supabase handles token refresh automatically via autoRefreshToken
-      const { data: profileData } = await getProfile(user.id)
-      if (profileData) {
-        setProfile(profileData)
-      }
-    } catch (error) {
-      console.warn(`Profile refresh failed (${source}):`, error?.message || error)
-    } finally {
-      refreshInFlightRef.current = false
-    }
-  }, [user])
-
-  // NUCLEAR TAB SWITCH FIX with startAutoRefresh/stopAutoRefresh
-  // This pattern comes from React Native iOS fixes and applies to web too
-  useEffect(() => {
-    let lastHiddenTime = 0
-    let savedSession = null
-    
-    // Save the current session when tab is hidden
-    const saveSession = async () => {
-      try {
-        const { data } = await supabase.auth.getSession()
-        if (data?.session) {
-          savedSession = {
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-          }
-          console.log('[Auth] Session saved before tab switch')
-        }
-      } catch (e) {
-        console.error('[Auth] Failed to save session:', e)
-      }
-    }
-    
-    // Restore the session using setSession() - bypasses corrupted internal state
-    const restoreSession = async () => {
-      console.log('[Auth] Attempting session restore...')
-      
-      // First, try normal getSession
-      const { data: currentSession } = await supabase.auth.getSession()
-      
-      if (currentSession?.session?.user) {
-        console.log('[Auth] Session already valid')
-        setUser(currentSession.session.user)
-        setSessionHealthy(true)
-        return true
-      }
-      
-      console.log('[Auth] Session null, attempting manual restore...')
-      
-      // Try to restore from our saved session
-      if (savedSession?.access_token && savedSession?.refresh_token) {
-        console.log('[Auth] Using saved tokens to restore session')
-        
-        try {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: savedSession.access_token,
-            refresh_token: savedSession.refresh_token,
-          })
-          
-          if (!error && data?.session?.user) {
-            console.log('[Auth] Session restored via setSession!')
-            setUser(data.session.user)
-            setSessionHealthy(true)
-            setAuthError(null)
-            return true
-          }
-          
-          console.log('[Auth] setSession failed:', error?.message)
-        } catch (e) {
-          console.error('[Auth] setSession exception:', e)
-        }
-      }
-      
-      // Try to read directly from localStorage and restore
-      console.log('[Auth] Trying localStorage restore...')
-      try {
-        const storageKey = 'brandastic-auth'
-        const stored = localStorage.getItem(storageKey)
-        
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          const accessToken = parsed?.access_token || parsed?.currentSession?.access_token
-          const refreshToken = parsed?.refresh_token || parsed?.currentSession?.refresh_token
-          
-          if (accessToken && refreshToken) {
-            console.log('[Auth] Found tokens in localStorage, restoring...')
-            
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            })
-            
-            if (!error && data?.session?.user) {
-              console.log('[Auth] localStorage restore succeeded!')
-              setUser(data.session.user)
-              setSessionHealthy(true)
-              setAuthError(null)
-              return true
-            }
-          }
-        }
-      } catch (e) {
-        console.error('[Auth] localStorage restore failed:', e)
-      }
-      
-      // Final fallback: refreshSession
-      console.log('[Auth] Trying refreshSession as last resort...')
-      try {
-        const { data, error } = await supabase.auth.refreshSession()
-        
-        if (!error && data?.session?.user) {
-          console.log('[Auth] refreshSession succeeded!')
-          setUser(data.session.user)
-          setSessionHealthy(true)
-          setAuthError(null)
-          return true
-        }
-      } catch (e) {
-        console.error('[Auth] refreshSession failed:', e)
-      }
-      
-      console.error('[Auth] ALL restore methods failed')
-      return false
-    }
-    
-    // Handle visibility change with startAutoRefresh/stopAutoRefresh
-    // This is the KEY fix from React Native iOS patterns
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden') {
-        // Tab is being hidden - STOP auto refresh to avoid races
-        console.log('[Auth] Tab hidden - stopping auto refresh')
-        lastHiddenTime = Date.now()
-        saveSession()
-        
-        try {
-          supabase.auth.stopAutoRefresh()
-        } catch (e) {
-          console.log('[Auth] stopAutoRefresh not available:', e.message)
-        }
-      } else {
-        // Tab is visible - RESTART auto refresh and force a check
-        console.log('[Auth] Tab visible - restarting auto refresh')
-        
-        try {
-          supabase.auth.startAutoRefresh()
-        } catch (e) {
-          console.log('[Auth] startAutoRefresh not available:', e.message)
-        }
-        
-        const timeSinceHidden = lastHiddenTime ? Date.now() - lastHiddenTime : 0
-        console.log('[Auth] Tab resumed after', Math.round(timeSinceHidden / 1000), 's')
-        
-        // Force a session check/restore
-        const restored = await restoreSession()
-        
-        if (!restored && user) {
-          console.warn('[Auth] Cannot restore session - reloading page')
-          window.location.reload()
-        }
-      }
-    }
-    
-    const handleFocus = async () => {
-      if (document.visibilityState === 'visible') {
-        // Also restart auto refresh on focus (belt and suspenders)
-        try {
-          supabase.auth.startAutoRefresh()
-        } catch {}
-        
-        await restoreSession()
-      }
-    }
-    
-    const handlePageShow = async (e) => {
-      if (e.persisted) {
-        console.log('[Auth] Page restored from bfcache')
-        try {
-          supabase.auth.startAutoRefresh()
-        } catch {}
-        await restoreSession()
-      }
-    }
-
-    // Initial call to ensure auto refresh is running
-    try {
-      supabase.auth.startAutoRefresh()
-    } catch {}
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('pageshow', handlePageShow)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('pageshow', handlePageShow)
-    }
-  }, [user])
-  
-  // AGGRESSIVE HEARTBEAT - uses getUser() which FORCES server check
-  // This keeps the session alive and catches desyncs proactively
-  useEffect(() => {
-    let heartbeatCount = 0
-    
-    const heartbeat = setInterval(async () => {
-      // Only run when tab is visible and user is logged in
-      if (document.visibilityState !== 'visible' || !user) return
-      
-      heartbeatCount++
-      console.log(`[Auth] Heartbeat #${heartbeatCount}`)
-      
-      try {
-        // Use getUser() - this HITS THE SERVER and forces token refresh if needed
-        // Much more reliable than getSession() which just reads memory/localStorage
-        const { data: userData, error: userError } = await supabase.auth.getUser()
-        
-        if (userError || !userData?.user) {
-          console.warn('[Auth] Heartbeat: getUser() failed, trying recovery...')
-          
-          // Try refreshSession
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (refreshError || !refreshData?.session) {
-            console.error('[Auth] Heartbeat: refresh also failed - reloading page')
-            window.location.reload()
-            return
-          }
-          
-          // Refresh succeeded - update state
-          setUser(refreshData.session.user)
-          console.log('[Auth] Heartbeat: recovered via refreshSession')
-        } else {
-          // getUser succeeded - session is definitely valid
-          // This "poke" keeps the internal client state fresh
-          if (userData.user.id !== user?.id) {
-            setUser(userData.user)
-          }
-        }
-      } catch (e) {
-        console.error('[Auth] Heartbeat error:', e)
-      }
-    }, 30 * 1000) // Every 30 seconds when visible - aggressive but necessary
-    
-    return () => clearInterval(heartbeat)
-  }, [user])
-
-  // Retry auth (for when stuck on loading) - just reload the page for clean state
-  const retryAuth = useCallback(() => {
-    window.location.reload()
-  }, [])
 
   // Toggle view mode (for admins to see team view)
   const toggleViewMode = useCallback(() => {
@@ -785,10 +234,7 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
-  // Client preview mode (for admins to preview client portal)
-  const [clientPreviewMode, setClientPreviewMode] = useState(false)
-  const [previewClientId, setPreviewClientId] = useState(null)
-
+  // Client preview mode functions
   const startClientPreview = useCallback((clientId) => {
     setClientPreviewMode(true)
     setPreviewClientId(clientId || null)
@@ -804,21 +250,19 @@ export function AuthProvider({ children }) {
     setPreviewClientId(null)
   }, [])
 
-  // Admin emails that should always have admin access
+  // Admin emails whitelist
   const ADMIN_EMAILS = [
     'justin@brandastic.com',
     'admin@brandastic.com',
   ]
 
-  // Actual role from database
+  // Role calculations
   const actualRole = profile?.role
   const userEmail = user?.email?.toLowerCase() || profile?.email?.toLowerCase()
-  
-  // Check if user is admin by role OR by email whitelist
   const isEmailAdmin = ADMIN_EMAILS.includes(userEmail)
   const isActualAdmin = actualRole === 'admin' || isEmailAdmin
-  
-  // Auto-update database if email is in admin list but role isn't set
+
+  // Auto-set admin role if email is in whitelist
   useEffect(() => {
     const autoSetAdmin = async () => {
       if (user && profile && isEmailAdmin && actualRole !== 'admin') {
@@ -827,88 +271,38 @@ export function AuthProvider({ children }) {
           .from('profiles')
           .update({ role: 'admin' })
           .eq('id', user.id)
-        
-        // Refresh profile to get updated role
-        const { data } = await getProfile(user.id)
-        if (data) setProfile(data)
+        await fetchProfile(user.id)
       }
     }
     autoSetAdmin()
-  }, [user, profile, isEmailAdmin, actualRole])
-  
+  }, [user, profile, isEmailAdmin, actualRole, userEmail])
+
   // Effective role (considering view mode toggle)
   const effectiveIsAdmin = isActualAdmin && viewMode !== 'team'
-  
-  // Force refresh the session - call this when data isn't loading
-  const forceRefresh = useCallback(async () => {
-    if (sessionRefreshing) return false
-    
-    setSessionRefreshing(true)
-    setAuthError(null)
-    
-    try {
-      // Use refreshSession() which handles token refresh properly
-      const { data, error } = await supabase.auth.refreshSession()
-      
-      if (error) {
-        console.error('[Auth] Force refresh error:', error)
-        setSessionHealthy(false)
-        setAuthError('Unable to refresh session. Please sign in again.')
-        return false
-      }
-      
-      if (data?.session?.user) {
-        setUser(data.session.user)
-        const { data: profileData } = await getProfile(data.session.user.id)
-        if (profileData) {
-          setProfile(profileData)
-        }
-        setSessionHealthy(true)
-        return true
-      }
-      
-      return false
-    } catch (error) {
-      console.error('[Auth] Force refresh error:', error)
-      setAuthError('Session refresh failed. Please sign in again.')
-      return false
-    } finally {
-      setSessionRefreshing(false)
-    }
-  }, [sessionRefreshing])
-  
+
   const value = {
     user,
     profile,
     loading,
-    authError,
-    retryAuth,
-    signIn,
-    signUp,
     signInWithGoogle,
     signOut,
     updateUserProfile,
     uploadAvatar,
     refreshProfile,
-    justLoggedIn,
-    profileSynced,
-    clearLoginState,
+    // Role helpers
     isTeam: actualRole === 'team' || actualRole === 'admin',
-    isAdmin: effectiveIsAdmin, // Respects view mode toggle
-    isActualAdmin, // Always true if user is actually admin
+    isAdmin: effectiveIsAdmin,
+    isActualAdmin,
     isClient: actualRole === 'client',
+    // View mode
     viewMode,
     toggleViewMode,
-    // Client preview mode for admins
+    // Client preview
     clientPreviewMode,
     previewClientId,
     startClientPreview,
     toggleClientPreview,
     exitClientPreview,
-    // Session health
-    sessionRefreshing,
-    sessionHealthy,
-    forceRefresh,
   }
 
   return (
