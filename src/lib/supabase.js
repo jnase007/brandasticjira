@@ -26,6 +26,14 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 // AUTH HELPERS
 // ============================================
 
+/**
+ * Session validation stub - Supabase handles session management automatically.
+ * This function exists for backwards compatibility with existing code.
+ */
+export async function ensureValidSession() {
+  return true
+}
+
 export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -857,4 +865,166 @@ export async function logActivity({
     .select()
     .single()
   return { data, error }
+}
+
+// ============================================
+// SAMPLE DATA - BRANDASTIC CLIENTS
+// ============================================
+
+const BRANDASTIC_CLIENTS = [
+  { name: 'Calops', slug: 'calops', monthly_hours: 120, color: '#4F46E5', account_services: ['SEO', 'PPC', 'Social Media'] },
+  { name: 'Prudental Labs', slug: 'prudental-labs', monthly_hours: 63, color: '#059669', account_services: ['SEO', 'Content Marketing', 'Web Development'] },
+  { name: 'Salvin', slug: 'salvin', monthly_hours: 60, color: '#DC2626', account_services: ['PPC', 'Email Marketing', 'Branding'] },
+  { name: 'Wearparts LLC', slug: 'wearparts-llc', monthly_hours: 57, color: '#EA580C', account_services: ['SEO', 'PPC', 'Web Development'] },
+  { name: "Check'n Play", slug: 'checknplay', monthly_hours: 55, color: '#7C3AED', account_services: ['Social Media', 'Influencer Marketing', 'Video Production'] },
+  { name: 'Young Surgical', slug: 'young-surgical', monthly_hours: 52, color: '#0D9488', account_services: ['SEO', 'PPC', 'Content Marketing'] },
+  { name: 'DESS USA', slug: 'dess-usa', monthly_hours: 45, color: '#0891B2', account_services: ['SEO', 'PPC', 'Web Development'] },
+  { name: 'Adopt Hwy', slug: 'adopt-hwy', monthly_hours: 34, color: '#16A34A', account_services: ['Social Media', 'Content Marketing'] },
+  { name: 'Christian Heart School', slug: 'christian-heart-school', monthly_hours: 30, color: '#2563EB', account_services: ['SEO', 'Social Media', 'Email Marketing'] },
+  { name: 'Morehouse', slug: 'morehouse', monthly_hours: 30, color: '#9333EA', account_services: ['PPC', 'Branding', 'Web Development'] },
+  { name: 'MonoB', slug: 'monob', monthly_hours: 29, color: '#DB2777', account_services: ['SEO', 'Social Media', 'Influencer Marketing'] },
+  { name: 'Friar Tux', slug: 'friar-tux', monthly_hours: 26, color: '#1E293B', account_services: ['SEO', 'PPC', 'Web Development'] },
+  { name: 'TriStar Insurance', slug: 'tristar-insurance', monthly_hours: 26, color: '#0369A1', account_services: ['SEO', 'PPC', 'Content Marketing'] },
+  { name: 'Starboard Realty', slug: 'starboard-realty', monthly_hours: 25, color: '#0F766E', account_services: ['SEO', 'Social Media', 'Web Development'] },
+  { name: 'Husbey Crummack', slug: 'husbey-crummack', monthly_hours: 20, color: '#7E22CE', account_services: ['SEO', 'PPC'] },
+  { name: 'Labtech PPC', slug: 'labtech-ppc', monthly_hours: 20, color: '#BE185D', account_services: ['PPC', 'Analytics'] },
+  { name: 'Labtech SEO', slug: 'labtech-seo', monthly_hours: 15, color: '#C026D3', account_services: ['SEO', 'Content Marketing'] },
+  { name: 'Friar Tux Email', slug: 'friar-tux-email', monthly_hours: 15, color: '#334155', account_services: ['Email Marketing'] },
+  { name: 'Roger Beltrans', slug: 'roger-beltrans', monthly_hours: 9, color: '#CA8A04', account_services: ['SEO', 'Web Development'] },
+  { name: 'Trico Realty', slug: 'trico-realty', monthly_hours: 9, color: '#65A30D', account_services: ['SEO', 'Social Media'] },
+  { name: 'IPA 1031 Group', slug: 'ipa-1031-group', monthly_hours: 7, color: '#0284C7', account_services: ['SEO', 'PPC'] },
+  { name: 'Posture Pump', slug: 'posture-pump', monthly_hours: 6, color: '#EA580C', account_services: ['SEO'] },
+]
+
+const SERVICE_TICKETS = {
+  'SEO': [
+    { title: 'Technical SEO audit', description: 'Complete technical audit of website', status: 'done', priority: 'high' },
+    { title: 'Keyword research', description: 'Research and map target keywords', status: 'done', priority: 'high' },
+    { title: 'On-page optimization', description: 'Optimize meta titles, descriptions, headers', status: 'inprogress', priority: 'medium' },
+  ],
+  'PPC': [
+    { title: 'Campaign structure review', description: 'Review and optimize campaign structure', status: 'done', priority: 'high' },
+    { title: 'Ad copy optimization', description: 'Write and test new ad variations', status: 'inprogress', priority: 'medium' },
+    { title: 'Bid strategy adjustment', description: 'Optimize bidding for conversions', status: 'todo', priority: 'medium' },
+  ],
+  'Social Media': [
+    { title: 'Content calendar', description: 'Create monthly content calendar', status: 'done', priority: 'high' },
+    { title: 'Engagement strategy', description: 'Develop community engagement plan', status: 'inprogress', priority: 'medium' },
+  ],
+  'Email Marketing': [
+    { title: 'Email template design', description: 'Design responsive email templates', status: 'done', priority: 'medium' },
+    { title: 'Automation flows', description: 'Set up drip campaigns and automations', status: 'inprogress', priority: 'high' },
+  ],
+  'Web Development': [
+    { title: 'Performance optimization', description: 'Improve page load speed', status: 'inprogress', priority: 'high' },
+  ],
+  'Content Marketing': [
+    { title: 'Blog content strategy', description: 'Plan and schedule blog posts', status: 'done', priority: 'medium' },
+  ],
+  'Branding': [
+    { title: 'Brand guidelines', description: 'Document brand standards', status: 'done', priority: 'high' },
+  ],
+}
+
+function getTicketsForServices(services) {
+  const tickets = []
+  for (const service of services || ['SEO']) {
+    const serviceTickets = SERVICE_TICKETS[service] || []
+    tickets.push(...serviceTickets)
+  }
+  return tickets.slice(0, 6)
+}
+
+export async function seedSampleClients() {
+  const results = { clients: [], boards: [], tickets: [], errors: [] }
+  
+  for (const clientData of BRANDASTIC_CLIENTS) {
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .upsert({
+        name: clientData.name,
+        slug: clientData.slug,
+        monthly_hours: clientData.monthly_hours,
+        color: clientData.color,
+        account_services: clientData.account_services,
+        is_active: true,
+      }, { onConflict: 'slug' })
+      .select()
+      .single()
+    
+    if (clientError) {
+      results.errors.push(`Client ${clientData.name}: ${clientError.message}`)
+      continue
+    }
+    
+    results.clients.push(client)
+    
+    const { data: existingBoard } = await supabase
+      .from('boards')
+      .select()
+      .eq('client_id', client.id)
+      .limit(1)
+      .single()
+    
+    if (!existingBoard) {
+      const { data: board } = await supabase
+        .from('boards')
+        .insert({
+          name: `${clientData.name} - Q1 2025`,
+          description: `Main project board for ${clientData.name}`,
+          client_id: client.id,
+        })
+        .select()
+        .single()
+      
+      if (board) {
+        results.boards.push(board)
+        
+        const serviceTickets = getTicketsForServices(clientData.account_services)
+        for (let i = 0; i < serviceTickets.length; i++) {
+          const ticketData = serviceTickets[i]
+          const { data: ticket } = await supabase
+            .from('tickets')
+            .insert({
+              title: ticketData.title,
+              description: ticketData.description,
+              status: ticketData.status,
+              priority: ticketData.priority,
+              board_id: board.id,
+              client_id: client.id,
+              position: i,
+            })
+            .select()
+            .single()
+          
+          if (ticket) results.tickets.push(ticket)
+        }
+      }
+    }
+  }
+  
+  return results
+}
+
+export async function deleteSampleClients() {
+  const slugs = BRANDASTIC_CLIENTS.map(c => c.slug)
+  
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id')
+    .in('slug', slugs)
+  
+  if (!clients?.length) return { deleted: 0 }
+  
+  const clientIds = clients.map(c => c.id)
+  
+  await supabase.from('tickets').delete().in('client_id', clientIds)
+  await supabase.from('boards').delete().in('client_id', clientIds)
+  
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .in('slug', slugs)
+  
+  return { deleted: clientIds.length, error }
 }
