@@ -103,7 +103,7 @@ function EmptyClientsState({ onImport, loading }) {
           )}
         </Button>
       </div>
-      <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-white/10/50 max-w-lg mx-auto">
+      <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50 max-w-lg mx-auto">
         <p className="text-sm text-slate-500 dark:text-white/50">
           <strong>Includes:</strong> Calops, Prudental Labs, Salvin, Check'n Play, DESS USA, and 17 more clients with calculated hours at $175/hr
         </p>
@@ -940,7 +940,7 @@ export default function ClientManagement() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-white/10/50">
+        <TabsList className="bg-slate-100 dark:bg-slate-800/50">
           <TabsTrigger value="clients" className="gap-2">
             <Building2 className="h-4 w-4" />
             Clients
@@ -1049,7 +1049,7 @@ export default function ClientManagement() {
               <>
               {filteredClients.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/10/50 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
                     {statusFilter === 'inactive' ? (
                       <Pause className="h-8 w-8 text-amber-500" />
                     ) : statusFilter === 'active' ? (
@@ -1210,15 +1210,15 @@ export default function ClientManagement() {
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/10/50">
+                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50">
                           <p className="font-semibold">{clientTeamCount}</p>
                           <p className="text-[10px] text-slate-500 dark:text-white/50">Team</p>
                         </div>
-                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/10/50">
+                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50">
                           <p className="font-semibold">{clientTicketCount}</p>
                           <p className="text-[10px] text-slate-500 dark:text-white/50">Tasks</p>
                         </div>
-                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/10/50">
+                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50">
                           <p className="font-semibold">{clientProjectCount}</p>
                           <p className="text-[10px] text-slate-500 dark:text-white/50">Boards</p>
                         </div>
@@ -1245,7 +1245,7 @@ export default function ClientManagement() {
               )}
               
               {/* Summary Footer */}
-              <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-white/10/50 border">
+              <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50 border">
                 <div className="flex flex-wrap gap-6 justify-center text-center">
                   <div>
                     <p className="text-2xl font-bold text-green-600">{activeClients.length}</p>
@@ -1309,12 +1309,12 @@ export default function ClientManagement() {
                       <div
                         key={request.id}
                         className={cn(
-                          "flex items-center justify-between p-4 rounded-xl border hover:bg-slate-100 dark:bg-white/10/50 transition-colors",
+                          "flex items-center justify-between p-4 rounded-xl border hover:bg-slate-100 dark:bg-slate-800/50 transition-colors",
                           request.status === 'pending' && "border-brand-orange/30 bg-brand-orange/5"
                         )}
                       >
                         <div className="flex items-center gap-4">
-                          <div className={cn("p-2 rounded-lg bg-slate-100 dark:bg-white/10/50", typeConfig.color)}>
+                          <div className={cn("p-2 rounded-lg bg-slate-100 dark:bg-slate-800/50", typeConfig.color)}>
                             <Icon className="h-5 w-5" />
                           </div>
                           <div>
@@ -1511,7 +1511,7 @@ export default function ClientManagement() {
                                   "flex-1 p-2 rounded-xl border-2 border-dashed transition-colors min-h-[300px]",
                                   snapshot.isDraggingOver 
                                     ? "border-purple-500 bg-purple-500/10" 
-                                    : "border-transparent bg-slate-100 dark:bg-white/10/30"
+                                    : "border-transparent bg-slate-100 dark:bg-slate-800/50"
                                 )}
                               >
                                 {stageClients.length === 0 && !snapshot.isDraggingOver ? (
@@ -1528,14 +1528,14 @@ export default function ClientManagement() {
                                           {...provided.draggableProps}
                                           {...provided.dragHandleProps}
                                           className={cn(
-                                            "mb-2 p-3 rounded-lg bg-white dark:bg-[#0d1d35] border shadow-sm transition-all group",
+                                            "mb-2 p-3 rounded-lg bg-white dark:bg-slate-800 border dark:border-slate-700 shadow-sm transition-all group",
                                             snapshot.isDragging 
                                               ? "shadow-lg ring-2 ring-purple-500 rotate-2" 
                                               : "hover:shadow-md cursor-grab"
                                           )}
                                         >
                                           <div className="flex items-center gap-2 mb-2">
-                                            <GripVertical className="h-4 w-4 text-slate-500 dark:text-white/50/50 flex-shrink-0" />
+                                            <GripVertical className="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
                                             {client.logo_url ? (
                                               <img src={client.logo_url} alt={client.name} className="w-8 h-8 rounded-lg object-cover" />
                                             ) : (
@@ -1562,7 +1562,7 @@ export default function ClientManagement() {
                                           
                                           <div className="flex items-center justify-between text-xs">
                                             {client.estimated_budget && (
-                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30">
                                                 <DollarSign className="h-2.5 w-2.5 mr-0.5" />
                                                 {Number(client.estimated_budget).toLocaleString()}
                                               </Badge>
@@ -1580,8 +1580,8 @@ export default function ClientManagement() {
                                               className={cn(
                                                 "mt-2 text-[10px] px-1.5 py-0",
                                                 client.engagement_type === 'retainer' 
-                                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                                  : "bg-orange-50 text-orange-700 border-orange-200"
+                                                  ? "bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30"
+                                                  : "bg-orange-50 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/30"
                                               )}
                                             >
                                               {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
@@ -1758,7 +1758,7 @@ export default function ClientManagement() {
               />
             </div>
 
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-100 dark:bg-white/10/50">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50">
               <input
                 type="checkbox"
                 id="sendEmail"
@@ -1965,7 +1965,7 @@ export default function ClientManagement() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
-                      <div className="p-3 rounded-full bg-slate-100 dark:bg-white/10/50">
+                      <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800/50">
                         <Upload className="h-6 w-6 text-slate-500 dark:text-white/50" />
                       </div>
                       <div>
