@@ -723,11 +723,10 @@ function App() {
       }
     }
 
-    const storedTheme = user?.id
-      ? localStorage.getItem(`theme:${user.id}`)
-      : localStorage.getItem('theme')
-
-    const themePreference = storedTheme || 'light'
+    // Check user-specific theme first, then fall back to generic theme
+    const userTheme = user?.id ? localStorage.getItem(`theme:${user.id}`) : null
+    const genericTheme = localStorage.getItem('theme')
+    const themePreference = userTheme || genericTheme || 'light'
     applyTheme(themePreference)
     setIsDark(document.documentElement.classList.contains('dark'))
 
