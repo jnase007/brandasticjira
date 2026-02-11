@@ -1080,6 +1080,44 @@ export default function Settings() {
                     </p>
                   </div>
 
+                  {/* Clear Cache */}
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-red-500/10">
+                          <Trash2 className="h-5 w-5 text-red-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Clear Cache & Reload</p>
+                          <p className="text-xs text-muted-foreground">
+                            Fix display issues by clearing local data
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 border-red-200 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                        onClick={() => {
+                          // Preserve theme preference
+                          const currentTheme = localStorage.getItem('theme')
+                          localStorage.clear()
+                          if (currentTheme) {
+                            localStorage.setItem('theme', currentTheme)
+                          }
+                          toast({
+                            title: '🧹 Cache cleared!',
+                            description: 'Reloading page...',
+                          })
+                          setTimeout(() => window.location.reload(), 500)
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Clear & Reload
+                      </Button>
+                    </div>
+                  </div>
+
                   {/* Keyboard Shortcut hint */}
                   <div className="p-4 rounded-lg bg-muted/50 border">
                     <div className="flex items-center gap-3">
