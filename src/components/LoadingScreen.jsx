@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 
-// Brandastic Logo
-const LOGO = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
+// Brandastic Logo (PNG with transparency for dark mode)
+const LOGO = 'https://auth.brandastic.co/storage/v1/object/public/images/mark.png'
 
 export default function LoadingScreen() {
   return (

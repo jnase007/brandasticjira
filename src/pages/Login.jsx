@@ -6,8 +6,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/button'
 import { useToast } from '../hooks/useToast'
 
-// Brandastic Logo
-const LOGO = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
+// Brandastic Logo (PNG with transparency for dark mode)
+const LOGO = 'https://auth.brandastic.co/storage/v1/object/public/images/mark.png'
 
 // Team photos - rotating backgrounds
 const TEAM_PHOTOS = [
