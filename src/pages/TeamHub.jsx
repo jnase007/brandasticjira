@@ -1227,7 +1227,7 @@ export default function TeamHub() {
                 <CardContent>
                   <div className="rounded-xl border overflow-hidden overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-slate-100 dark:bg-white/10/50">
+                      <thead className="bg-slate-100 dark:bg-slate-800">
                         <tr>
                           <th className="text-left py-3 px-4 font-medium">Employee</th>
                           <th className="text-left py-3 px-4 font-medium">Job Title</th>
@@ -1272,7 +1272,7 @@ export default function TeamHub() {
                             const isEditing = editingRate === member.id
                             
                             return (
-                              <tr key={member.id} className="border-t hover:bg-slate-100 dark:bg-white/10/30 transition-colors">
+                              <tr key={member.id} className="border-t hover:bg-slate-100 dark:bg-slate-800/50 transition-colors">
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-3">
                                     <Avatar className="h-9 w-9">
@@ -1383,7 +1383,7 @@ export default function TeamHub() {
                       </tbody>
                       {/* Totals Row */}
                       {teamMembers.length > 0 && (
-                        <tfoot className="bg-slate-100 dark:bg-white/10/30 font-medium">
+                        <tfoot className="bg-slate-100 dark:bg-slate-800/50 font-medium">
                           <tr className="border-t-2">
                             <td colSpan={2} className="py-3 px-4">
                               <strong>Team Average</strong>
@@ -1415,7 +1415,7 @@ export default function TeamHub() {
                   </div>
                   
                   {/* Info Box */}
-                  <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-white/10/50 border">
+                  <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border">
                     <h4 className="font-medium mb-2 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-brand-orange" />
                       How Profitability is Calculated
@@ -1506,8 +1506,8 @@ export default function TeamHub() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.03 }}
                             className={cn(
-                              "border-b hover:bg-slate-100 dark:bg-white/10/30 transition-colors",
-                              index % 2 === 0 ? "bg-white dark:bg-white dark:bg-[#0d1d35]" : "bg-slate-100 dark:bg-white/10/10"
+                              "border-b hover:bg-slate-100 dark:bg-slate-800/50 transition-colors",
+                              index % 2 === 0 ? "bg-white dark:bg-[#0d1d35]" : "bg-slate-50 dark:bg-slate-800/30"
                             )}
                           >
                             <td className="py-3 px-4 sticky left-0 bg-inherit z-10">
@@ -1562,7 +1562,7 @@ export default function TeamHub() {
                                     "border-2 border-dashed hover:shadow-sm",
                                     client.renewal_date 
                                       ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 hover:border-blue-400 text-slate-900 dark:text-white" 
-                                      : "bg-slate-100 dark:bg-white/10/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-slate-500 dark:text-white/50"
+                                      : "bg-slate-100 dark:bg-slate-800/50 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-slate-500 dark:text-white/50"
                                   )}
                                   title={client.renewal_date ? `Edit renewal date: ${formatDate(client.renewal_date)}` : "Click to add renewal date"}
                                 >
@@ -1646,7 +1646,7 @@ export default function TeamHub() {
                                         "border-2 border-dashed hover:shadow-sm",
                                         displayValue 
                                           ? "bg-brand-teal/10 border-brand-teal/30 hover:border-brand-teal/50 text-slate-900 dark:text-white font-medium" 
-                                          : "bg-slate-100 dark:bg-white/10/30 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-slate-500 dark:text-white/50"
+                                          : "bg-slate-100 dark:bg-slate-800/50 border-muted-foreground/20 hover:border-brand-orange/50 hover:bg-brand-orange/5 text-slate-500 dark:text-white/50"
                                       )}
                                       title={displayValue ? `Click to change ${role.label}: ${displayValue}` : `Click to assign ${role.label}`}
                                     >
@@ -1756,8 +1756,8 @@ export default function TeamHub() {
                             <tr
                               key={client.id}
                               className={cn(
-                                "border-b",
-                                clientIndex % 2 === 0 ? "bg-white dark:bg-white dark:bg-[#0d1d35]" : "bg-slate-100 dark:bg-white/10/10"
+                                "border-b border-slate-200 dark:border-white/10",
+                                clientIndex % 2 === 0 ? "bg-white dark:bg-[#0d1d35]" : "bg-slate-50 dark:bg-slate-800/50"
                               )}
                             >
                               <td className="py-3 px-4 sticky left-0 bg-inherit z-10">
@@ -1766,10 +1766,10 @@ export default function TeamHub() {
                                     className="w-3 h-3 rounded-full"
                                     style={{ backgroundColor: client.color || '#F7931E' }}
                                   />
-                                  <span className="font-medium">{client.name}</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">{client.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-slate-500 dark:text-white/50 text-sm italic" colSpan={1 + MONTHS.length * 2}>
+                              <td className="py-3 px-4 text-slate-400 dark:text-slate-500 text-sm italic" colSpan={1 + MONTHS.length * 2}>
                                 No ad spend data
                               </td>
                             </tr>
@@ -1780,8 +1780,8 @@ export default function TeamHub() {
                           <tr
                             key={`${client.id}-${platform}`}
                             className={cn(
-                              "border-b hover:bg-slate-100 dark:bg-white/10/30",
-                              clientIndex % 2 === 0 ? "bg-white dark:bg-white dark:bg-[#0d1d35]" : "bg-slate-100 dark:bg-white/10/10"
+                              "border-b border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5",
+                              clientIndex % 2 === 0 ? "bg-white dark:bg-[#0d1d35]" : "bg-slate-50 dark:bg-slate-800/50"
                             )}
                           >
                             {platformIndex === 0 ? (
@@ -1794,7 +1794,7 @@ export default function TeamHub() {
                                     className="w-3 h-3 rounded-full"
                                     style={{ backgroundColor: client.color || '#F7931E' }}
                                   />
-                                  <span className="font-medium">{client.name}</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">{client.name}</span>
                                 </div>
                               </td>
                             ) : null}
@@ -1841,10 +1841,10 @@ export default function TeamHub() {
                                           setEditValue(actuals || '')
                                         }}
                                         className={cn(
-                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-slate-100 dark:bg-white/10",
-                                          status === 'over' && "text-red-600 font-medium",
-                                          status === 'warning' && "text-amber-600",
-                                          !actuals && "text-slate-500 dark:text-white/50/40"
+                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200",
+                                          status === 'over' && "text-red-600 dark:text-red-400 font-medium",
+                                          status === 'warning' && "text-amber-600 dark:text-amber-400",
+                                          !actuals && "text-slate-400 dark:text-slate-600"
                                         )}
                                       >
                                         {actuals ? formatCurrency(actuals) : '-'}
@@ -1878,8 +1878,8 @@ export default function TeamHub() {
                                           setEditValue(budget || '')
                                         }}
                                         className={cn(
-                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-slate-100 dark:bg-white/10",
-                                          !budget && "text-slate-500 dark:text-white/50/40"
+                                          "w-full py-1 px-1 text-xs text-right rounded transition-colors hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200",
+                                          !budget && "text-slate-400 dark:text-slate-600"
                                         )}
                                       >
                                         {budget ? formatCurrency(budget) : '-'}
@@ -1916,10 +1916,10 @@ export default function TeamHub() {
                             <>
                               <td key={`total-${month}-actuals`} className="py-2 px-1 text-right text-xs border-l border-muted font-medium">
                                 {monthActualsTotal > 0 ? (
-                                  <span className={monthActualsTotal > monthBudgetTotal ? 'text-red-600' : 'text-green-600'}>
+                                  <span className={monthActualsTotal > monthBudgetTotal ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
                                     {formatCurrency(monthActualsTotal)}
                                   </span>
-                                ) : '-'}
+                                ) : <span className="text-slate-400 dark:text-slate-600">-</span>}
                               </td>
                               <td key={`total-${month}-budget`} className="py-2 px-1 text-right text-xs font-medium text-brand-teal">
                                 {monthBudgetTotal > 0 ? formatCurrency(monthBudgetTotal) : '-'}
@@ -2305,7 +2305,7 @@ export default function TeamHub() {
               {teamRoles.map(role => (
                 <div 
                   key={role.key} 
-                  className="flex items-center justify-between p-3 bg-slate-100 dark:bg-white/10/50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-lg"
                 >
                   <span className="font-medium">{role.label}</span>
                   <Button
