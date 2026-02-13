@@ -887,7 +887,7 @@ export default function TeamHub() {
                               {/* Header with Avatar */}
                               <div className="flex items-center gap-3 mb-3">
                                 <Avatar className="h-14 w-14 border-2 border-background shadow" title={member.full_name}>
-                                  <AvatarImage src={member.avatar_url} alt={member.full_name} />
+                                  <AvatarImage src={member.avatar_url} alt={member.full_name} referrerPolicy="no-referrer" />
                                   <AvatarFallback className="bg-brand-orange text-white text-lg">
                                     {member.full_name?.[0] || '?'}
                                   </AvatarFallback>
@@ -1018,7 +1018,7 @@ export default function TeamHub() {
                         >
                           <div className="flex items-start gap-4">
                             <Avatar className="h-12 w-12 border-2 border-pink-200">
-                              <AvatarImage src={fromUser?.avatar_url} />
+                              <AvatarImage src={fromUser?.avatar_url} referrerPolicy="no-referrer" />
                               <AvatarFallback className="bg-pink-100 text-pink-600">
                                 {fromUser?.full_name?.split(' ').map(n => n[0]).join('') || '?'}
                               </AvatarFallback>
@@ -1280,7 +1280,7 @@ export default function TeamHub() {
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-3">
                                     <Avatar className="h-9 w-9">
-                                      <AvatarImage src={member.avatar_url} />
+                                      <AvatarImage src={member.avatar_url} referrerPolicy="no-referrer" />
                                       <AvatarFallback className="bg-brand-orange text-white">
                                         {member.full_name?.[0] || '?'}
                                       </AvatarFallback>
@@ -1620,7 +1620,7 @@ export default function TeamHub() {
                                             <SelectItem key={member.id} value={member.id}>
                                               <div className="flex items-center gap-2">
                                                 <Avatar className="h-5 w-5">
-                                                  <AvatarImage src={member.avatar_url} />
+                                                  <AvatarImage src={member.avatar_url} referrerPolicy="no-referrer" />
                                                   <AvatarFallback className="text-[10px] bg-brand-orange/20">
                                                     {member.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
                                                   </AvatarFallback>
@@ -1658,7 +1658,7 @@ export default function TeamHub() {
                                         <div className="flex items-center justify-center gap-2">
                                           {assignedUser?.avatar_url && (
                                             <Avatar className="h-5 w-5">
-                                              <AvatarImage src={assignedUser.avatar_url} />
+                                              <AvatarImage src={assignedUser.avatar_url} referrerPolicy="no-referrer" />
                                               <AvatarFallback className="text-[10px]">
                                                 {displayValue?.split(' ').map(n => n[0]).join('').slice(0, 2)}
                                               </AvatarFallback>
@@ -2010,7 +2010,7 @@ export default function TeamHub() {
                       <SelectItem key={member.id} value={member.id}>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={member.avatar_url} />
+                            <AvatarImage src={member.avatar_url} referrerPolicy="no-referrer" />
                             <AvatarFallback className="text-xs">
                               {member.full_name?.split(' ').map(n => n[0]).join('')}
                             </AvatarFallback>

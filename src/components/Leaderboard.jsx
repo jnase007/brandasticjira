@@ -152,7 +152,7 @@ export default function Leaderboard() {
               className="text-center"
             >
               <Avatar className="w-14 h-14 mx-auto border-4 border-gray-300 shadow-lg">
-                <AvatarImage src={leaderboard[1]?.profile?.avatar_url} />
+                <AvatarImage src={leaderboard[1]?.profile?.avatar_url} referrerPolicy="no-referrer" />
                 <AvatarFallback>{getInitials(leaderboard[1]?.profile?.full_name)}</AvatarFallback>
               </Avatar>
               <div className="mt-2 bg-gray-200 rounded-t-lg px-4 py-3 w-20">
@@ -171,7 +171,7 @@ export default function Leaderboard() {
               <div className="relative">
                 <Crown className="h-6 w-6 text-yellow-500 absolute -top-6 left-1/2 -translate-x-1/2" />
                 <Avatar className="w-18 h-18 mx-auto border-4 border-yellow-400 shadow-lg" style={{ width: 72, height: 72 }}>
-                  <AvatarImage src={leaderboard[0]?.profile?.avatar_url} />
+                  <AvatarImage src={leaderboard[0]?.profile?.avatar_url} referrerPolicy="no-referrer" />
                   <AvatarFallback className="text-lg">{getInitials(leaderboard[0]?.profile?.full_name)}</AvatarFallback>
                 </Avatar>
               </div>
@@ -190,7 +190,7 @@ export default function Leaderboard() {
               className="text-center"
             >
               <Avatar className="w-14 h-14 mx-auto border-4 border-amber-600 shadow-lg">
-                <AvatarImage src={leaderboard[2]?.profile?.avatar_url} />
+                <AvatarImage src={leaderboard[2]?.profile?.avatar_url} referrerPolicy="no-referrer" />
                 <AvatarFallback>{getInitials(leaderboard[2]?.profile?.full_name)}</AvatarFallback>
               </Avatar>
               <div className="mt-2 bg-amber-100 rounded-t-lg px-4 py-2 w-20">
@@ -227,7 +227,7 @@ export default function Leaderboard() {
 
                 {/* Avatar */}
                 <Avatar className="w-10 h-10">
-                  <AvatarImage src={entry.profile?.avatar_url} />
+                  <AvatarImage src={entry.profile?.avatar_url} referrerPolicy="no-referrer" />
                   <AvatarFallback
                     className="text-white text-xs"
                     style={{ backgroundColor: rank.color }}

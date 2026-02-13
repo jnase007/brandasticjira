@@ -299,7 +299,7 @@ const MentionInput = forwardRef(({
                   )}
                 >
                   <Avatar className="h-7 w-7">
-                    <AvatarImage src={member.avatar_url} />
+                    <AvatarImage src={member.avatar_url} referrerPolicy="no-referrer" />
                     <AvatarFallback className="text-xs bg-brand-orange/10 text-brand-orange">
                       {member.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </AvatarFallback>

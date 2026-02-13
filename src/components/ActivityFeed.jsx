@@ -59,7 +59,7 @@ function ActivityItem({ activity, isNew }) {
       <div className="flex-shrink-0">
         {activity.user?.avatar_url ? (
           <Avatar className="h-9 w-9">
-            <AvatarImage src={activity.user.avatar_url} />
+            <AvatarImage src={activity.user.avatar_url} referrerPolicy="no-referrer" />
             <AvatarFallback className="text-xs">
               {getInitials(activity.user.full_name)}
             </AvatarFallback>

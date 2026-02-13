@@ -190,7 +190,7 @@ export default function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
+                      <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} referrerPolicy="no-referrer" />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {getInitials(profile?.full_name)}
                       </AvatarFallback>
@@ -391,7 +391,7 @@ export default function Navbar() {
                         className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
                       >
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={member.avatar_url} />
+                          <AvatarImage src={member.avatar_url} referrerPolicy="no-referrer" />
                           <AvatarFallback className="text-xs">
                             {getInitials(member.full_name)}
                           </AvatarFallback>

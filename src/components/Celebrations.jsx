@@ -145,7 +145,7 @@ export function CelebrationBanner() {
             >
               <div className="absolute inset-0 bg-white/30 rounded-full blur-xl" />
               <Avatar className="h-20 w-20 border-4 border-white shadow-2xl">
-                <AvatarImage src={celebration.avatar_url} />
+                <AvatarImage src={celebration.avatar_url} referrerPolicy="no-referrer" />
                 <AvatarFallback className="bg-white text-2xl font-bold text-gray-800">
                   {getInitials(celebration.full_name)}
                 </AvatarFallback>
@@ -308,7 +308,7 @@ export function UpcomingCelebrations({ limit = 5, showAll = false }) {
               >
                 <div className="relative">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={event.avatar_url} />
+                    <AvatarImage src={event.avatar_url} referrerPolicy="no-referrer" />
                     <AvatarFallback className={cn(
                       "font-bold",
                       event.type === 'birthday' ? "bg-pink-500 text-white" : "bg-orange-500 text-white"
