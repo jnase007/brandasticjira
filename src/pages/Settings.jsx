@@ -1125,12 +1125,24 @@ export default function Settings() {
                         size="sm"
                         className="text-red-500 border-red-200 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
                         onClick={() => {
-                          // Preserve theme preference
-                          const currentTheme = localStorage.getItem('theme')
-                          localStorage.clear()
-                          if (currentTheme) {
-                            localStorage.setItem('theme', currentTheme)
+                          // Preserve essential data
+                          const preserveKeys = ['theme', 'brandastic-auth']
+                          const preserved = {}
+                          preserveKeys.forEach(key => {
+                            const value = localStorage.getItem(key)
+                            if (value) preserved[key] = value
+                          })
+                          // Also preserve user-specific theme
+                          for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i)
+                            if (key?.startsWith('theme:')) {
+                              preserved[key] = localStorage.getItem(key)
+                            }
                           }
+                          localStorage.clear()
+                          Object.entries(preserved).forEach(([key, value]) => {
+                            localStorage.setItem(key, value)
+                          })
                           toast({
                             title: '🧹 Cache cleared!',
                             description: 'Reloading page...',
