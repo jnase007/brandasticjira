@@ -802,6 +802,63 @@ export default function WorkflowGuide() {
         </Card>
       </motion.div>
 
+      {/* AI Squad */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card className="border-2 border-purple-500/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className="text-purple-500">🤖</span>
+              AI Squad
+              <Badge className="ml-2 bg-purple-500 text-white">New!</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              AI Squad tracks contributions from AI agents on your team. These are automated assistants 
+              that handle tasks, log time, and generate revenue value just like human team members.
+            </p>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">🏷️ Setting Up AI Agents</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Go to <strong>Admin → Users</strong></li>
+                <li>Click the <strong>Human/AI Agent</strong> badge next to any team member to toggle</li>
+                <li>AI Agents show a purple <strong>🤖 AI</strong> badge on Team Hub and profiles</li>
+                <li>Human team members show a green <strong>👤 Human</strong> badge</li>
+              </ul>
+            </div>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">📊 AI Squad Dashboard</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Navigate to <strong>AI Squad</strong> in the sidebar</li>
+                <li>View all AI agents and their contributions</li>
+                <li>Filter by time range: Week, Month, Quarter, Year</li>
+                <li>See real metrics: Hours logged, Revenue value, Tasks completed</li>
+                <li>Revenue is calculated as <strong>Hours × Hourly Rate</strong></li>
+              </ul>
+            </div>
+            
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium text-foreground mb-2">💰 Setting Hourly Rates</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Each AI agent's hourly rate is set via the <strong>cost_rate</strong> field in their profile</li>
+                <li>Default rate is $75/hr if not specified</li>
+                <li>Revenue contribution = Total hours × Hourly rate</li>
+                <li>This helps track the value AI agents bring to the team</li>
+              </ul>
+            </div>
+            
+            <div className="bg-purple-500/10 p-3 rounded-lg border border-purple-500/20">
+              <p className="font-medium text-purple-600 dark:text-purple-400">
+                💡 Pro Tip: AI agents can log time against client projects just like humans. 
+                Their time entries contribute to client profitability calculations.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Keyboard Shortcuts & Power Features */}
       <motion.div initial="hidden" animate="visible" variants={SECTION}>
         <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-transparent">
