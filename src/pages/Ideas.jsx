@@ -5,9 +5,11 @@ import {
   TrendingUp, Clock, CheckCircle, XCircle, Loader2, Search,
   Sparkles, Target, Zap, Bug, Megaphone, LayoutGrid, ChevronDown,
   MoreHorizontal, Edit, Trash2, ArrowUp, ArrowDown, Paperclip,
-  Image, FileText, X, Upload, ExternalLink
+  Image, FileText, X, Upload, ExternalLink, Flame, Eye, Heart,
+  Trophy, Send, Reply, User, Tag, BarChart3, Link2, ChevronRight
 } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
+import { Progress } from '../components/ui/progress'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate } from '../lib/utils'
@@ -76,6 +78,21 @@ const STATUSES = [
   { value: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' },
 ]
 
+// Quick reactions
+const REACTIONS = [
+  { key: 'fire', emoji: '🔥', label: 'Hot!' },
+  { key: 'lightbulb', emoji: '💡', label: 'Brilliant' },
+  { key: 'eyes', emoji: '👀', label: 'Watching' },
+  { key: 'heart', emoji: '❤️', label: 'Love it' },
+  { key: 'target', emoji: '🎯', label: 'On target' },
+]
+
+// Available tags
+const IDEA_TAGS = [
+  'quick-win', 'high-impact', 'research-needed', 'client-request', 
+  'internal', 'revenue', 'efficiency', 'culture', 'tech-debt'
+]
+
 export default function Ideas() {
   const { user, profile, isAdmin } = useAuth()
   const { toast } = useToast()
@@ -106,6 +123,98 @@ export default function Ideas() {
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
+  
+  // Detail modal states
+  const [selectedIdea, setSelectedIdea] = useState(null)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+  
+  // Comments states
+  const [comments, setComments] = useState([])
+  const [loadingComments, setLoadingComments] = useState(false)
+  const [newComment, setNewComment] = useState('')
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [sendingComment, setSendingComment] = useState(false)
+  
+  // Reactions states
+  const [reactions, setReactions] = useState({}) // { ideaId: { fire: [...userIds], lightbulb: [...] } }
+  const [userReactions, setUserReactions] = useState({}) // { ideaId: ['fire', 'heart'] }
+  
+  // Champions states
+  const [champions, setChampions] = useState({}) // { ideaId: [...users] }
+  const [userChampioned, setUserChampioned] = useState({}) // { ideaId: true/false }
+  
+  // Team members for assignments
+  const [teamMembers, setTeamMembers] = useState([])
+
+  // Fetch team members for assignments
+  const fetchTeamMembers = useCallback(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .or('is_active.is.null,is_active.eq.true')
+      .order('full_name')
+    setTeamMembers(data || [])
+  }, [])
+
+  // Fetch reactions for all ideas
+  const fetchReactions = useCallback(async (ideaIds) => {
+    if (!ideaIds?.length) return
+    
+    try {
+      const { data } = await supabase
+        .from('idea_reactions')
+        .select('idea_id, user_id, reaction')
+        .in('idea_id', ideaIds)
+      
+      const reactionsMap = {}
+      const userReactionsMap = {}
+      
+      data?.forEach(r => {
+        if (!reactionsMap[r.idea_id]) reactionsMap[r.idea_id] = {}
+        if (!reactionsMap[r.idea_id][r.reaction]) reactionsMap[r.idea_id][r.reaction] = []
+        reactionsMap[r.idea_id][r.reaction].push(r.user_id)
+        
+        if (r.user_id === user?.id) {
+          if (!userReactionsMap[r.idea_id]) userReactionsMap[r.idea_id] = []
+          userReactionsMap[r.idea_id].push(r.reaction)
+        }
+      })
+      
+      setReactions(reactionsMap)
+      setUserReactions(userReactionsMap)
+    } catch (err) {
+      console.log('Reactions table may not exist yet')
+    }
+  }, [user?.id])
+
+  // Fetch champions for all ideas
+  const fetchChampions = useCallback(async (ideaIds) => {
+    if (!ideaIds?.length) return
+    
+    try {
+      const { data } = await supabase
+        .from('idea_champions')
+        .select('idea_id, user_id, user:profiles(id, full_name, avatar_url)')
+        .in('idea_id', ideaIds)
+      
+      const championsMap = {}
+      const userChampionedMap = {}
+      
+      data?.forEach(c => {
+        if (!championsMap[c.idea_id]) championsMap[c.idea_id] = []
+        championsMap[c.idea_id].push(c.user)
+        
+        if (c.user_id === user?.id) {
+          userChampionedMap[c.idea_id] = true
+        }
+      })
+      
+      setChampions(championsMap)
+      setUserChampioned(userChampionedMap)
+    } catch (err) {
+      console.log('Champions table may not exist yet')
+    }
+  }, [user?.id])
 
   // Fetch ideas
   const fetchIdeas = async () => {
@@ -116,12 +225,20 @@ export default function Ideas() {
         .select(`
           *,
           submitter:submitted_by(id, full_name, avatar_url),
+          assignee:assigned_to(id, full_name, avatar_url),
           attachments:idea_attachments(id, file_name, file_url, file_type)
         `)
         .order('votes', { ascending: false })
 
       if (error) throw error
       setIdeas(data || [])
+      
+      // Fetch reactions and champions
+      const ideaIds = data?.map(i => i.id) || []
+      await Promise.all([
+        fetchReactions(ideaIds),
+        fetchChampions(ideaIds),
+      ])
 
       // Fetch user's votes
       if (user) {
@@ -150,7 +267,154 @@ export default function Ideas() {
 
   useEffect(() => {
     fetchIdeas()
-  }, [user])
+    fetchTeamMembers()
+  }, [user, fetchTeamMembers])
+
+  // Toggle reaction
+  const toggleReaction = async (ideaId, reactionKey) => {
+    if (!user) return
+    
+    const hasReaction = userReactions[ideaId]?.includes(reactionKey)
+    
+    try {
+      if (hasReaction) {
+        // Remove reaction
+        await supabase
+          .from('idea_reactions')
+          .delete()
+          .eq('idea_id', ideaId)
+          .eq('user_id', user.id)
+          .eq('reaction', reactionKey)
+        
+        setUserReactions(prev => ({
+          ...prev,
+          [ideaId]: (prev[ideaId] || []).filter(r => r !== reactionKey)
+        }))
+        setReactions(prev => ({
+          ...prev,
+          [ideaId]: {
+            ...prev[ideaId],
+            [reactionKey]: (prev[ideaId]?.[reactionKey] || []).filter(id => id !== user.id)
+          }
+        }))
+      } else {
+        // Add reaction
+        await supabase
+          .from('idea_reactions')
+          .insert({ idea_id: ideaId, user_id: user.id, reaction: reactionKey })
+        
+        setUserReactions(prev => ({
+          ...prev,
+          [ideaId]: [...(prev[ideaId] || []), reactionKey]
+        }))
+        setReactions(prev => ({
+          ...prev,
+          [ideaId]: {
+            ...prev[ideaId],
+            [reactionKey]: [...(prev[ideaId]?.[reactionKey] || []), user.id]
+          }
+        }))
+      }
+    } catch (err) {
+      console.error('Error toggling reaction:', err)
+    }
+  }
+
+  // Toggle champion
+  const toggleChampion = async (ideaId) => {
+    if (!user) return
+    
+    const isChampion = userChampioned[ideaId]
+    
+    try {
+      if (isChampion) {
+        await supabase
+          .from('idea_champions')
+          .delete()
+          .eq('idea_id', ideaId)
+          .eq('user_id', user.id)
+        
+        setUserChampioned(prev => ({ ...prev, [ideaId]: false }))
+        setChampions(prev => ({
+          ...prev,
+          [ideaId]: (prev[ideaId] || []).filter(c => c.id !== user.id)
+        }))
+        toast({ title: 'No longer championing this idea' })
+      } else {
+        await supabase
+          .from('idea_champions')
+          .insert({ idea_id: ideaId, user_id: user.id })
+        
+        setUserChampioned(prev => ({ ...prev, [ideaId]: true }))
+        setChampions(prev => ({
+          ...prev,
+          [ideaId]: [...(prev[ideaId] || []), { id: user.id, full_name: profile?.full_name, avatar_url: profile?.avatar_url }]
+        }))
+        toast({ title: '🏆 You\'re now championing this idea!', variant: 'success' })
+      }
+    } catch (err) {
+      console.error('Error toggling champion:', err)
+      toast({ title: 'Error', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  // Fetch comments for an idea
+  const fetchComments = async (ideaId) => {
+    setLoadingComments(true)
+    try {
+      const { data, error } = await supabase
+        .from('idea_comments')
+        .select('*, user:profiles(id, full_name, avatar_url)')
+        .eq('idea_id', ideaId)
+        .order('created_at', { ascending: true })
+      
+      if (error) throw error
+      setComments(data || [])
+    } catch (err) {
+      console.log('Comments table may not exist yet:', err)
+      setComments([])
+    } finally {
+      setLoadingComments(false)
+    }
+  }
+
+  // Add comment
+  const addComment = async (ideaId, parentId = null) => {
+    if (!newComment.trim() || !user) return
+    
+    setSendingComment(true)
+    try {
+      const { data, error } = await supabase
+        .from('idea_comments')
+        .insert({
+          idea_id: ideaId,
+          user_id: user.id,
+          parent_id: parentId,
+          content: newComment.trim()
+        })
+        .select('*, user:profiles(id, full_name, avatar_url)')
+        .single()
+      
+      if (error) throw error
+      
+      setComments(prev => [...prev, data])
+      setNewComment('')
+      setReplyingTo(null)
+      toast({ title: '💬 Comment added!', variant: 'success' })
+    } catch (err) {
+      console.error('Error adding comment:', err)
+      toast({ title: 'Error adding comment', description: err.message, variant: 'destructive' })
+    } finally {
+      setSendingComment(false)
+    }
+  }
+
+  // Open idea detail modal
+  const openIdeaDetail = (idea) => {
+    setSelectedIdea(idea)
+    setDetailModalOpen(true)
+    fetchComments(idea.id)
+  }
 
   // Handle vote
   const handleVote = async (ideaId, voteType) => {
@@ -813,6 +1077,13 @@ export default function Ideas() {
                                 {idea.attachments.length}
                               </Badge>
                             )}
+                            {/* Progress bar for in-progress ideas */}
+                            {idea.status === 'in-progress' && idea.progress > 0 && (
+                              <div className="flex items-center gap-2 ml-2">
+                                <Progress value={idea.progress} className="w-20 h-2" />
+                                <span className="text-xs text-muted-foreground">{idea.progress}%</span>
+                              </div>
+                            )}
                             
                             <span className="text-xs text-muted-foreground ml-auto flex items-center gap-2">
                               {idea.submitter && (
@@ -830,6 +1101,84 @@ export default function Ideas() {
                               {formatDate(idea.created_at)}
                             </span>
                           </div>
+
+                          {/* Quick Reactions Bar */}
+                          <div className="flex items-center gap-1 mt-3 pt-3 border-t">
+                            {REACTIONS.map(({ key, emoji, label }) => {
+                              const count = reactions[idea.id]?.[key]?.length || 0
+                              const hasReacted = userReactions[idea.id]?.includes(key)
+                              return (
+                                <button
+                                  key={key}
+                                  onClick={(e) => { e.stopPropagation(); toggleReaction(idea.id, key) }}
+                                  title={label}
+                                  className={cn(
+                                    "flex items-center gap-1 px-2 py-1 rounded-full text-sm transition-all hover:scale-110",
+                                    hasReacted 
+                                      ? "bg-brand-orange/20 ring-1 ring-brand-orange" 
+                                      : "hover:bg-muted"
+                                  )}
+                                >
+                                  <span>{emoji}</span>
+                                  {count > 0 && <span className="text-xs font-medium">{count}</span>}
+                                </button>
+                              )
+                            })}
+                            
+                            <div className="flex-1" />
+                            
+                            {/* Champion button */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleChampion(idea.id) }}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all",
+                                userChampioned[idea.id]
+                                  ? "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500"
+                                  : "hover:bg-muted text-muted-foreground"
+                              )}
+                            >
+                              <Trophy className="h-4 w-4" />
+                              {champions[idea.id]?.length > 0 ? (
+                                <span>{champions[idea.id].length} champion{champions[idea.id].length !== 1 ? 's' : ''}</span>
+                              ) : (
+                                <span>Champion</span>
+                              )}
+                            </button>
+                            
+                            {/* View discussion */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); openIdeaDetail(idea) }}
+                              className="gap-1.5"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              Discuss
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          </div>
+
+                          {/* Champions avatars */}
+                          {champions[idea.id]?.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-xs text-muted-foreground">Championed by:</span>
+                              <div className="flex -space-x-2">
+                                {champions[idea.id].slice(0, 5).map((champion, i) => (
+                                  <Avatar key={champion.id || i} className="h-6 w-6 border-2 border-background">
+                                    <AvatarImage src={champion.avatar_url} referrerPolicy="no-referrer" />
+                                    <AvatarFallback className="text-[9px] bg-amber-100 text-amber-700">
+                                      {champion.full_name?.[0] || '?'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                ))}
+                                {champions[idea.id].length > 5 && (
+                                  <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-medium border-2 border-background">
+                                    +{champions[idea.id].length - 5}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -1034,6 +1383,241 @@ export default function Ideas() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Modal with Discussion */}
+      <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          {selectedIdea && (
+            <>
+              <DialogHeader className="border-b pb-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <DialogTitle className="text-xl">{selectedIdea.title}</DialogTitle>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <Badge className={CATEGORIES.find(c => c.value === selectedIdea.category)?.color}>
+                        {CATEGORIES.find(c => c.value === selectedIdea.category)?.label}
+                      </Badge>
+                      <Badge className={STATUSES.find(s => s.value === selectedIdea.status)?.color}>
+                        {STATUSES.find(s => s.value === selectedIdea.status)?.label}
+                      </Badge>
+                      {selectedIdea.progress > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Progress value={selectedIdea.progress} className="w-20 h-2" />
+                          <span className="text-xs">{selectedIdea.progress}%</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      {selectedIdea.submitter && (
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={selectedIdea.submitter.avatar_url} referrerPolicy="no-referrer" />
+                          <AvatarFallback>{selectedIdea.submitter.full_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                      )}
+                      <span>{selectedIdea.submitter?.full_name}</span>
+                    </div>
+                    <div className="text-xs mt-1">{formatDate(selectedIdea.created_at)}</div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto py-4 space-y-6">
+                {/* Description */}
+                {selectedIdea.description && (
+                  <div>
+                    <h4 className="font-medium mb-2">Description</h4>
+                    <p className="text-muted-foreground whitespace-pre-wrap">{selectedIdea.description}</p>
+                  </div>
+                )}
+
+                {/* Reactions */}
+                <div>
+                  <h4 className="font-medium mb-2">Reactions</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {REACTIONS.map(({ key, emoji, label }) => {
+                      const count = reactions[selectedIdea.id]?.[key]?.length || 0
+                      const hasReacted = userReactions[selectedIdea.id]?.includes(key)
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => toggleReaction(selectedIdea.id, key)}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all",
+                            hasReacted 
+                              ? "bg-brand-orange/20 ring-2 ring-brand-orange" 
+                              : "bg-muted hover:bg-muted/80"
+                          )}
+                        >
+                          <span className="text-lg">{emoji}</span>
+                          <span>{label}</span>
+                          {count > 0 && <Badge variant="secondary" className="ml-1">{count}</Badge>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Champions */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">Champions</h4>
+                    <Button
+                      variant={userChampioned[selectedIdea.id] ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleChampion(selectedIdea.id)}
+                      className="gap-2"
+                    >
+                      <Trophy className="h-4 w-4" />
+                      {userChampioned[selectedIdea.id] ? "You're Championing!" : "Champion This"}
+                    </Button>
+                  </div>
+                  {champions[selectedIdea.id]?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {champions[selectedIdea.id].map((champion, i) => (
+                        <div key={champion.id || i} className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 rounded-full">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={champion.avatar_url} referrerPolicy="no-referrer" />
+                            <AvatarFallback className="text-[9px]">{champion.full_name?.[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm">{champion.full_name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No champions yet. Be the first!</p>
+                  )}
+                </div>
+
+                {/* Comments Section */}
+                <div>
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Discussion ({comments.length})
+                  </h4>
+                  
+                  {loadingComments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No comments yet. Start the discussion!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {comments
+                        .filter(c => !c.parent_id)
+                        .map(comment => (
+                          <div key={comment.id} className="space-y-3">
+                            {/* Main comment */}
+                            <div className="flex gap-3">
+                              <Avatar className="h-8 w-8 flex-shrink-0">
+                                <AvatarImage src={comment.user?.avatar_url} referrerPolicy="no-referrer" />
+                                <AvatarFallback>{comment.user?.full_name?.[0] || '?'}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 bg-muted rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-sm">{comment.user?.full_name}</span>
+                                  <span className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</span>
+                                </div>
+                                <p className="text-sm">{comment.content}</p>
+                                <button
+                                  onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                                  className="text-xs text-brand-orange hover:underline mt-2 flex items-center gap-1"
+                                >
+                                  <Reply className="h-3 w-3" />
+                                  Reply
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Replies */}
+                            {comments
+                              .filter(c => c.parent_id === comment.id)
+                              .map(reply => (
+                                <div key={reply.id} className="flex gap-3 ml-10">
+                                  <Avatar className="h-6 w-6 flex-shrink-0">
+                                    <AvatarImage src={reply.user?.avatar_url} referrerPolicy="no-referrer" />
+                                    <AvatarFallback className="text-[10px]">{reply.user?.full_name?.[0]}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 bg-muted/50 rounded-lg p-2">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-medium text-xs">{reply.user?.full_name}</span>
+                                      <span className="text-xs text-muted-foreground">{formatDate(reply.created_at)}</span>
+                                    </div>
+                                    <p className="text-sm">{reply.content}</p>
+                                  </div>
+                                </div>
+                              ))
+                            }
+                            
+                            {/* Reply input */}
+                            {replyingTo === comment.id && (
+                              <div className="flex gap-2 ml-10">
+                                <Input
+                                  value={newComment}
+                                  onChange={(e) => setNewComment(e.target.value)}
+                                  placeholder="Write a reply..."
+                                  className="flex-1"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault()
+                                      addComment(selectedIdea.id, comment.id)
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => addComment(selectedIdea.id, comment.id)}
+                                  disabled={!newComment.trim() || sendingComment}
+                                >
+                                  {sendingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+
+                  {/* New comment input */}
+                  <div className="flex gap-3 mt-4 pt-4 border-t">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarImage src={profile?.avatar_url} referrerPolicy="no-referrer" />
+                      <AvatarFallback>{profile?.full_name?.[0] || '?'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 flex gap-2">
+                      <Input
+                        value={replyingTo ? '' : newComment}
+                        onChange={(e) => { if (!replyingTo) setNewComment(e.target.value) }}
+                        placeholder="Add a comment..."
+                        className="flex-1"
+                        disabled={!!replyingTo}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey && !replyingTo) {
+                            e.preventDefault()
+                            addComment(selectedIdea.id)
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={() => addComment(selectedIdea.id)}
+                        disabled={!newComment.trim() || sendingComment || !!replyingTo}
+                      >
+                        {sendingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>
