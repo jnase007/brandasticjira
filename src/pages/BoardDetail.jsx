@@ -322,11 +322,11 @@ export default function BoardDetail() {
         title: newTicket.title,
         description: newTicket.description,
         priority: 'medium',
-        assigned_to: newTicket.assigned_to || null,
+        assigned_to: newTicket.assigned_to && newTicket.assigned_to !== 'unassigned' ? newTicket.assigned_to : null,
         reporter_id: newTicket.reporter_id || user.id,  // Default to current user
         estimated_hours: newTicket.estimated_hours ? parseFloat(newTicket.estimated_hours) : null,
         ticket_type: newTicket.ticket_type || 'task',
-        category_id: newTicket.category_id || null,
+        category_id: newTicket.category_id && newTicket.category_id !== 'no-category' ? newTicket.category_id : null,
         due_date: newTicket.due_date || null,
         board_id: boardId,
         client_id: board.client_id,
@@ -727,7 +727,7 @@ export default function BoardDetail() {
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {teamMembers.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.full_name}
@@ -827,7 +827,7 @@ export default function BoardDetail() {
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Category</SelectItem>
+                  <SelectItem value="no-category">No Category</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       <span className="flex items-center gap-2">

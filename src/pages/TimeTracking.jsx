@@ -385,7 +385,7 @@ export default function TimeTracking() {
       await supabase.from('time_entries').insert({
         user_id: user.id,
         client_id: timeEntry.client_id,
-        ticket_id: timeEntry.ticket_id || null,
+        ticket_id: timeEntry.ticket_id && timeEntry.ticket_id !== 'no-task' ? timeEntry.ticket_id : null,
         description: timeEntry.description,
         minutes: totalMinutes,
         date: timeEntry.date,
@@ -1310,7 +1310,7 @@ export default function TimeTracking() {
                     <SelectValue placeholder={loadingTickets ? "Loading tasks..." : "Select task (optional)"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No specific task</SelectItem>
+                    <SelectItem value="no-task">No specific task</SelectItem>
                     {availableTickets.map(t => (
                       <SelectItem key={t.id} value={t.id}>
                         <div className="flex items-center gap-2">
