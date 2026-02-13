@@ -5,7 +5,8 @@ import {
   User, Clock, DollarSign, Building2, ArrowLeft, Calendar,
   TrendingUp, Timer, CheckCircle, AlertCircle, Cake, Award,
   BarChart3, Activity, Mail, Sparkles, Target, Gift,
-  Download, RefreshCw, Ticket, ChevronRight, Briefcase, Star
+  Download, RefreshCw, Ticket, ChevronRight, Briefcase, Star,
+  Bot, UserRound
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -264,6 +265,17 @@ export default function TeamMemberDetail() {
                                       <Badge variant="outline" className="capitalize">
                                         {member.role || 'Team'}
                                       </Badge>
+                                      {member.is_ai ? (
+                                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30">
+                                          <Bot className="h-3 w-3 mr-1" />
+                                          AI Agent
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30">
+                                          <UserRound className="h-3 w-3 mr-1" />
+                                          Human
+                                        </Badge>
+                                      )}
                                       {isBirthdaySoon && (
                                         <Badge className="bg-pink-500 text-white animate-pulse">
                                           <Cake className="h-3 w-3 mr-1" />

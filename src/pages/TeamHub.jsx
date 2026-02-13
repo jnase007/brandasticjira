@@ -34,6 +34,8 @@ import {
   Send,
   Loader2,
   PartyPopper,
+  Bot,
+  UserRound,
 } from 'lucide-react'
 import { Textarea } from '../components/ui/textarea'
 import { supabase, ensureValidSession } from '../lib/supabase'
@@ -893,9 +895,16 @@ export default function TeamHub() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                                  <h3 className="font-semibold truncate group-hover:text-brand-orange transition-colors">
-                                                    {member.full_name || 'Team Member'}
-                                                  </h3>
+                                                  <div className="flex items-center gap-2">
+                                                    <h3 className="font-semibold truncate group-hover:text-brand-orange transition-colors">
+                                                      {member.full_name || 'Team Member'}
+                                                    </h3>
+                                                    {member.is_ai ? (
+                                                      <Bot className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" title="AI Agent" />
+                                                    ) : (
+                                                      <UserRound className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" title="Human" />
+                                                    )}
+                                                  </div>
                                                   {member.title ? (
                                                     <p className="text-sm text-muted-foreground truncate">{member.title}</p>
                                                   ) : (
