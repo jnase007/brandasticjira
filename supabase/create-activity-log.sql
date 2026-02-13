@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.activity_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   activity_type TEXT NOT NULL,
   user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+  client_id UUID, -- No foreign key constraint in case clients table structure differs
   entity_type TEXT,
   entity_id UUID,
   entity_name TEXT,
