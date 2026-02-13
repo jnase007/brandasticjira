@@ -71,6 +71,19 @@ const MentionInput = forwardRef(({
     setSelectedIndex(0)
   }, [searchQuery, teamMembers])
 
+  // Ref for reusable mirror element
+  const mirrorRef = useRef(null)
+
+  // Cleanup mirror element on unmount
+  useEffect(() => {
+    return () => {
+      if (mirrorRef.current && mirrorRef.current.parentNode) {
+        mirrorRef.current.parentNode.removeChild(mirrorRef.current)
+        mirrorRef.current = null
+      }
+    }
+  }, [])
+
   // Calculate dropdown position based on cursor
   const calculateDropdownPosition = useCallback(() => {
     if (!inputRef.current) return
@@ -78,11 +91,21 @@ const MentionInput = forwardRef(({
     const input = inputRef.current
     const { selectionStart } = input
     
-    // Create a temporary element to measure text dimensions
-    const mirror = document.createElement('div')
-    mirror.style.cssText = window.getComputedStyle(input).cssText
-    mirror.style.position = 'absolute'
-    mirror.style.visibility = 'hidden'
+    // Create or reuse mirror element to measure text dimensions
+    let mirror = mirrorRef.current
+    if (!mirror) {
+      mirror = document.createElement('div')
+      mirror.style.position = 'absolute'
+      mirror.style.visibility = 'hidden'
+      mirror.style.pointerEvents = 'none'
+      document.body.appendChild(mirror)
+      mirrorRef.current = mirror
+    }
+    
+    // Update mirror styles to match input
+    const inputStyles = window.getComputedStyle(input)
+    mirror.style.font = inputStyles.font
+    mirror.style.padding = inputStyles.padding
     mirror.style.whiteSpace = 'pre-wrap'
     mirror.style.wordWrap = 'break-word'
     mirror.style.width = `${input.clientWidth}px`
@@ -92,12 +115,7 @@ const MentionInput = forwardRef(({
     const textBeforeCursor = value.substring(0, selectionStart)
     mirror.textContent = textBeforeCursor
     
-    document.body.appendChild(mirror)
-    
-    const rect = input.getBoundingClientRect()
     const mirrorHeight = mirror.offsetHeight
-    
-    document.body.removeChild(mirror)
 
     // Position dropdown below the current line
     setDropdownPosition({

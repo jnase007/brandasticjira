@@ -18,9 +18,26 @@ export default function LoadingScreen() {
   }, [])
   
   const handleClearAndReload = () => {
-    // Clear all auth-related storage
-    localStorage.clear()
+    // Preserve theme preference before clearing
+    const theme = localStorage.getItem('theme')
+    const userThemes = {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('theme:')) {
+        userThemes[key] = localStorage.getItem(key)
+      }
+    }
+    
+    // Clear auth-related storage only
+    localStorage.removeItem('brandastic-auth')
     sessionStorage.clear()
+    
+    // Restore theme preferences
+    if (theme) localStorage.setItem('theme', theme)
+    Object.entries(userThemes).forEach(([key, value]) => {
+      localStorage.setItem(key, value)
+    })
+    
     // Clear caches if available
     if ('caches' in window) {
       caches.keys().then(names => {

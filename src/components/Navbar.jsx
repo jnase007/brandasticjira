@@ -52,9 +52,12 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState({ tickets: [], clients: [], team: [] })
   const [searching, setSearching] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [darkMode, setDarkMode] = useState(() => 
-    document.documentElement.classList.contains('dark')
-  )
+  const [darkMode, setDarkMode] = useState(() => {
+    // Read from localStorage first, then DOM class
+    const storedTheme = localStorage.getItem('theme')
+    if (storedTheme) return storedTheme === 'dark'
+    return document.documentElement.classList.contains('dark')
+  })
 
   // Keyboard shortcut: Cmd+K or Ctrl+K to open search
   useEffect(() => {

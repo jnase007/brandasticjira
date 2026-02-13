@@ -49,9 +49,19 @@ export function CelebrationBanner() {
 
   useEffect(() => {
     const fetchTodayCelebrations = async () => {
-      // Check localStorage for dismissed celebrations today
+      // Clean up old dismissed celebration keys (keep only today's)
       const today = new Date().toDateString()
       const dismissedKey = `dismissed_celebrations_${today}`
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key?.startsWith('dismissed_celebrations_') && key !== dismissedKey) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+      
+      // Check localStorage for dismissed celebrations today
       let dismissedList = []
       try {
         dismissedList = JSON.parse(localStorage.getItem(dismissedKey) || '[]')
