@@ -155,13 +155,14 @@ export function AuthProvider({ children }) {
           setUser(session.user)
           
           // On sign in, ensure profile exists
-          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          if (event === 'SIGNED_IN') {
             await createProfileIfNeeded(session.user)
           } else {
+            // For other events (TOKEN_REFRESHED handled above), just fetch profile
             await fetchProfile(session.user.id)
           }
-        } else if (event !== 'TOKEN_REFRESHED') {
-          // Only clear user if it's not just a token refresh
+        } else {
+          // No session - clear user state
           setUser(null)
           setProfile(null)
         }
