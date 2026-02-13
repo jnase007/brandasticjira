@@ -103,7 +103,9 @@ export default function Ideas() {
   const [formAttachments, setFormAttachments] = useState([]) // Files to upload
   const [existingAttachments, setExistingAttachments] = useState([]) // Already uploaded
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef(null)
+  const dropZoneRef = useRef(null)
 
   // Fetch ideas
   const fetchIdeas = async () => {
@@ -345,6 +347,47 @@ export default function Ideas() {
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  // Drag and drop handlers
+  const handleDragEnter = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only set to false if we're leaving the drop zone entirely
+    if (e.currentTarget === e.target) {
+      setIsDragging(false)
+    }
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    
+    const files = Array.from(e.dataTransfer.files || [])
+    if (files.length === 0) return
+    
+    // Filter to accepted file types
+    const acceptedTypes = ['image/', 'application/pdf', 'application/msword', 'application/vnd.', 'text/']
+    const validFiles = files.filter(file => 
+      acceptedTypes.some(type => file.type.startsWith(type)) || 
+      file.name.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/i)
+    )
+    
+    if (validFiles.length > 0) {
+      setFormAttachments(prev => [...prev, ...validFiles])
     }
   }
 
@@ -924,28 +967,52 @@ export default function Ideas() {
                 </div>
               )}
               
-              {/* Upload button */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
+              {/* Drop zone */}
+              <div
+                ref={dropZoneRef}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-1.5 gap-2"
+                className={cn(
+                  "mt-2 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all",
+                  isDragging 
+                    ? "border-brand-orange bg-brand-orange/10 scale-[1.02]" 
+                    : "border-muted-foreground/25 hover:border-brand-orange/50 hover:bg-muted/50"
+                )}
               >
-                <Upload className="h-4 w-4" />
-                Add Files
-              </Button>
-              <p className="text-xs text-muted-foreground mt-1">
-                Images, PDFs, and documents supported
-              </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <div className="flex flex-col items-center gap-2">
+                  <div className={cn(
+                    "p-3 rounded-full transition-colors",
+                    isDragging ? "bg-brand-orange/20" : "bg-muted"
+                  )}>
+                    <Upload className={cn(
+                      "h-6 w-6 transition-colors",
+                      isDragging ? "text-brand-orange" : "text-muted-foreground"
+                    )} />
+                  </div>
+                  <div>
+                    <p className={cn(
+                      "font-medium transition-colors",
+                      isDragging ? "text-brand-orange" : "text-foreground"
+                    )}>
+                      {isDragging ? "Drop files here!" : "Drag & drop files here"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      or click to browse • Images, PDFs, and documents
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
