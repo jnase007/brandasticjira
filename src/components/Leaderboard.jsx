@@ -70,7 +70,8 @@ export default function Leaderboard() {
 
         if (error) {
           console.log('Gamification table not found, using profiles fallback')
-          // Fallback: just get profiles and show them with default stats
+          // Fallback: just get profiles and show them with placeholder stats (zeros)
+          // Don't use random data as it confuses users into thinking it's real
           const { data: profiles } = await supabase
             .from('profiles')
             .select('id, full_name, avatar_url')
@@ -80,9 +81,9 @@ export default function Leaderboard() {
           
           data = profiles?.map((p, i) => ({
             user_id: p.id,
-            xp: Math.floor(Math.random() * 500) + 50, // Demo XP
-            tickets_completed: Math.floor(Math.random() * 20),
-            current_streak: Math.floor(Math.random() * 5),
+            xp: 0,
+            tickets_completed: 0,
+            current_streak: 0,
             profile: p
           })) || []
         }

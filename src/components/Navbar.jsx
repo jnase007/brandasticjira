@@ -94,8 +94,21 @@ export default function Navbar() {
   }
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
+    const newMode = !darkMode
+    setDarkMode(newMode)
+    
+    if (newMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+    
+    // Also save user-specific preference if logged in
+    if (profile?.id) {
+      localStorage.setItem(`theme:${profile.id}`, newMode ? 'dark' : 'light')
+    }
   }
 
   const getInitials = (name) => {
