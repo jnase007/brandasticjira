@@ -895,14 +895,20 @@ export default function TeamHub() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                                  <div className="flex items-center gap-2">
+                                                  <div className="flex items-center gap-2 flex-wrap">
                                                     <h3 className="font-semibold truncate group-hover:text-brand-orange transition-colors">
                                                       {member.full_name || 'Team Member'}
                                                     </h3>
                                                     {member.is_ai ? (
-                                                      <Bot className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" title="AI Agent" />
+                                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30">
+                                                        <Bot className="h-2.5 w-2.5 mr-0.5" />
+                                                        AI Agent
+                                                      </Badge>
                                                     ) : (
-                                                      <UserRound className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" title="Human" />
+                                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30">
+                                                        <UserRound className="h-2.5 w-2.5 mr-0.5" />
+                                                        Human
+                                                      </Badge>
                                                     )}
                                                   </div>
                                                   {member.title ? (
