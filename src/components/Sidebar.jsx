@@ -35,6 +35,7 @@ import {
   X,
   Mail,
   Lightbulb,
+  Bot,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -57,6 +58,7 @@ const navItems = [
   { path: '/calendar', icon: CalendarDays, label: 'Calendar', shortcut: 'G E' },
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/ideas', icon: Lightbulb, label: 'Ideas', shortcut: 'G I' },
+  { path: '/ai-squad', icon: Bot, label: 'AI Squad', shortcut: 'G S' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
   { path: '/settings', icon: User, label: 'My Profile', shortcut: 'G P' },
 ]
