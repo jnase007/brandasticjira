@@ -893,13 +893,17 @@ export default function TeamHub() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="font-semibold truncate group-hover:text-brand-orange transition-colors">
-                                    {member.full_name || 'Team Member'}
-                                  </h3>
-                                  <Badge variant="outline" className="text-xs capitalize">
-                                    {member.role || 'Team'}
-                                  </Badge>
-                                </div>
+                                                  <h3 className="font-semibold truncate group-hover:text-brand-orange transition-colors">
+                                                    {member.full_name || 'Team Member'}
+                                                  </h3>
+                                                  {member.title ? (
+                                                    <p className="text-sm text-muted-foreground truncate">{member.title}</p>
+                                                  ) : (
+                                                    <Badge variant="outline" className="text-xs capitalize">
+                                                      {member.role || 'Team'}
+                                                    </Badge>
+                                                  )}
+                                                </div>
                                 {isBirthdaySoon && (
                                   <div className="p-1.5 rounded-full bg-pink-500/10 animate-pulse">
                                     <Cake className="h-4 w-4 text-pink-500" />

@@ -65,6 +65,7 @@ export default function Settings() {
   }, [])
 
   const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [title, setTitle] = useState(profile?.title || '')
   const [tagline, setTagline] = useState(profile?.tagline || '')
   const [birthday, setBirthday] = useState(profile?.birthday || '')
   const [workStartDate, setWorkStartDate] = useState(profile?.work_start_date || '')
@@ -112,6 +113,7 @@ export default function Settings() {
         full_name: profile.full_name 
       })
       setFullName(profile.full_name || '')
+      setTitle(profile.title || '')
       setTagline(profile.tagline || '')
       setBirthday(profile.birthday || '')
       setWorkStartDate(profile.work_start_date || '')
@@ -238,6 +240,10 @@ export default function Settings() {
       }
       
       // Only include optional fields if they have values or are being cleared
+      if (title !== undefined) {
+        updates.title = title || null
+      }
+      
       if (tagline !== undefined) {
         updates.tagline = tagline || null
       }
@@ -636,6 +642,11 @@ export default function Settings() {
                     <div className="flex items-start justify-between">
                       <div>
                         <h2 className="text-2xl font-bold">{profile?.full_name || 'Your Name'}</h2>
+                        {profile?.title && (
+                          <p className="text-sm text-muted-foreground font-medium mt-0.5">
+                            {profile.title}
+                          </p>
+                        )}
                         {profile?.tagline && (
                           <p className="text-sm text-muted-foreground italic mt-0.5">
                             "{profile.tagline}"
@@ -700,6 +711,21 @@ export default function Settings() {
                       Verified via Google
                     </p>
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="title">Job Title / Position 💼</Label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., Creative Director, Senior Developer, Account Manager"
+                    className="mt-1.5"
+                    maxLength={100}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Your role at Brandastic - shown on your team profile
+                  </p>
                 </div>
 
                 <div>

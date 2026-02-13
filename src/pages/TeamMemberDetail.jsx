@@ -259,20 +259,28 @@ export default function TeamMemberDetail() {
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div>
                     {/* Name & Badges */}
-                    <div className="flex items-center gap-3 flex-wrap mb-1">
-                      <h1 className="text-2xl md:text-3xl font-display font-bold">{member.full_name || 'Team Member'}</h1>
-                      <Badge variant="outline" className="capitalize">
-                        {member.role || 'Team'}
-                      </Badge>
-                      {isBirthdaySoon && (
-                        <Badge className="bg-pink-500 text-white animate-pulse">
-                          <Cake className="h-3 w-3 mr-1" />
-                          Birthday Soon!
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {/* Tagline */}
+                                    <div className="flex items-center gap-3 flex-wrap mb-1">
+                                      <h1 className="text-2xl md:text-3xl font-display font-bold">{member.full_name || 'Team Member'}</h1>
+                                      <Badge variant="outline" className="capitalize">
+                                        {member.role || 'Team'}
+                                      </Badge>
+                                      {isBirthdaySoon && (
+                                        <Badge className="bg-pink-500 text-white animate-pulse">
+                                          <Cake className="h-3 w-3 mr-1" />
+                                          Birthday Soon!
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Title/Position */}
+                                    {member.title && (
+                                      <p className="text-muted-foreground font-medium flex items-center gap-2 mb-2">
+                                        <Briefcase className="h-4 w-4 text-brand-orange flex-shrink-0" />
+                                        {member.title}
+                                      </p>
+                                    )}
+                                    
+                                    {/* Tagline */}
                     {member.tagline && (
                       <p className="text-muted-foreground flex items-center gap-2 mb-2">
                         <Sparkles className="h-4 w-4 text-brand-orange flex-shrink-0" />
