@@ -25,22 +25,39 @@ export function AuthProvider({ children }) {
   const [clientPreviewMode, setClientPreviewMode] = useState(false)
   const [previewClientId, setPreviewClientId] = useState(null)
 
-  // Fetch profile helper
+  // Fetch profile helper with timeout
   const fetchProfile = async (userId) => {
+    console.log('[Auth] fetchProfile called for:', userId)
     try {
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      )
+      
+      const fetchPromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle()
+      
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+      
+      console.log('[Auth] fetchProfile result:', data ? 'found' : 'not found', error?.message || '')
 
+      if (error) {
+        console.error('[Auth] Profile fetch error:', error)
+        return null
+      }
+      
       if (data) {
         setProfile(data)
         return data
       }
+      
+      console.log('[Auth] No profile found for user:', userId)
       return null
     } catch (err) {
-      console.error('Error fetching profile:', err)
+      console.error('[Auth] Error fetching profile:', err)
       return null
     }
   }
@@ -48,37 +65,59 @@ export function AuthProvider({ children }) {
   // Create profile if it doesn't exist (for new OAuth users)
   const createProfileIfNeeded = async (user) => {
     if (!user) return null
+    
+    console.log('[Auth] createProfileIfNeeded for:', user.email)
 
-    // Check if profile exists
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle()
+    try {
+      // Check if profile exists with timeout
+      const checkTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile check timeout')), 8000)
+      )
+      
+      const checkPromise = supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle()
+      
+      const { data: existing, error: checkError } = await Promise.race([checkPromise, checkTimeout])
+      
+      if (checkError) {
+        console.error('[Auth] Error checking profile:', checkError)
+      }
 
-    if (existing) {
+      if (existing) {
+        console.log('[Auth] Profile exists, fetching full profile')
+        return fetchProfile(user.id)
+      }
+
+      console.log('[Auth] Creating new profile for:', user.email)
+      
+      // Create new profile
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || 
+                     user.user_metadata?.name || 
+                     user.email?.split('@')[0] || 'User',
+          role: 'team',
+          avatar_url: user.user_metadata?.avatar_url || 
+                      user.user_metadata?.picture || null,
+        }, { onConflict: 'id' })
+
+      if (error) {
+        console.error('[Auth] Error creating profile:', error)
+      } else {
+        console.log('[Auth] Profile created successfully')
+      }
+
       return fetchProfile(user.id)
+    } catch (err) {
+      console.error('[Auth] createProfileIfNeeded error:', err)
+      return null
     }
-
-    // Create new profile
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || 
-                   user.user_metadata?.name || 
-                   user.email?.split('@')[0] || 'User',
-        role: 'team',
-        avatar_url: user.user_metadata?.avatar_url || 
-                    user.user_metadata?.picture || null,
-      }, { onConflict: 'id' })
-
-    if (error) {
-      console.error('Error creating profile:', error)
-    }
-
-    return fetchProfile(user.id)
   }
 
   // Initialize auth - with timeout protection
