@@ -4,8 +4,10 @@ import {
   Lightbulb, Plus, ThumbsUp, ThumbsDown, MessageCircle, Filter,
   TrendingUp, Clock, CheckCircle, XCircle, Loader2, Search,
   Sparkles, Target, Zap, Bug, Megaphone, LayoutGrid, ChevronDown,
-  MoreHorizontal, Edit, Trash2, ArrowUp, ArrowDown
+  MoreHorizontal, Edit, Trash2, ArrowUp, ArrowDown, Paperclip,
+  Image, FileText, X, Upload, ExternalLink
 } from 'lucide-react'
+import { useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate } from '../lib/utils'
@@ -96,6 +98,12 @@ export default function Ideas() {
   const [formDescription, setFormDescription] = useState('')
   const [formCategory, setFormCategory] = useState('feature')
   const [formPriority, setFormPriority] = useState('medium')
+  
+  // Attachment states
+  const [formAttachments, setFormAttachments] = useState([]) // Files to upload
+  const [existingAttachments, setExistingAttachments] = useState([]) // Already uploaded
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const fileInputRef = useRef(null)
 
   // Fetch ideas
   const fetchIdeas = async () => {
@@ -105,7 +113,8 @@ export default function Ideas() {
         .from('ideas')
         .select(`
           *,
-          submitter:submitted_by(id, full_name, avatar_url)
+          submitter:submitted_by(id, full_name, avatar_url),
+          attachments:idea_attachments(id, file_name, file_url, file_type)
         `)
         .order('votes', { ascending: false })
 
@@ -218,6 +227,8 @@ export default function Ideas() {
 
     setSaving(true)
     try {
+      let ideaId = editingIdea?.id
+      
       if (editingIdea) {
         // Update existing
         const { error } = await supabase
@@ -232,11 +243,9 @@ export default function Ideas() {
           .eq('id', editingIdea.id)
 
         if (error) throw error
-
-        toast({ title: '✅ Idea updated!', variant: 'success' })
       } else {
         // Create new
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('ideas')
           .insert({
             title: formTitle.trim(),
@@ -245,11 +254,19 @@ export default function Ideas() {
             priority: formPriority,
             submitted_by: user.id,
           })
+          .select()
+          .single()
 
         if (error) throw error
-
-        toast({ title: '💡 Idea submitted!', variant: 'success' })
+        ideaId = data.id
       }
+
+      // Upload any new attachments
+      if (formAttachments.length > 0 && ideaId) {
+        await uploadAttachments(ideaId, formAttachments)
+      }
+
+      toast({ title: editingIdea ? '✅ Idea updated!' : '💡 Idea submitted!', variant: 'success' })
 
       resetForm()
       setAddDialogOpen(false)
@@ -313,12 +330,111 @@ export default function Ideas() {
     setFormDescription('')
     setFormCategory('feature')
     setFormPriority('medium')
+    setFormAttachments([])
+    setExistingAttachments([])
+  }
+
+  // Handle file selection
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    
+    // Add files to form attachments
+    setFormAttachments(prev => [...prev, ...files])
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // Remove pending file
+  const removeFormAttachment = (index) => {
+    setFormAttachments(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Remove existing attachment
+  const removeExistingAttachment = async (attachmentId) => {
+    try {
+      const { error } = await supabase
+        .from('idea_attachments')
+        .delete()
+        .eq('id', attachmentId)
+      
+      if (error) throw error
+      
+      setExistingAttachments(prev => prev.filter(a => a.id !== attachmentId))
+      toast({ title: 'Attachment removed', variant: 'success' })
+    } catch (error) {
+      console.error('Error removing attachment:', error)
+      toast({ title: 'Error removing attachment', variant: 'destructive' })
+    }
+  }
+
+  // Upload attachments for an idea
+  const uploadAttachments = async (ideaId, files) => {
+    const uploadedAttachments = []
+    
+    for (const file of files) {
+      try {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${ideaId}/${Date.now()}-${file.name}`
+        
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from('idea-attachments')
+          .upload(fileName, file)
+        
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          continue
+        }
+        
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('idea-attachments')
+          .getPublicUrl(fileName)
+        
+        // Determine file type
+        const isImage = file.type.startsWith('image/')
+        const fileType = isImage ? 'image' : 'document'
+        
+        // Save attachment record
+        const { data, error } = await supabase
+          .from('idea_attachments')
+          .insert({
+            idea_id: ideaId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: fileType,
+            file_size: file.size,
+            uploaded_by: user.id
+          })
+          .select()
+          .single()
+        
+        if (!error && data) {
+          uploadedAttachments.push(data)
+        }
+      } catch (err) {
+        console.error('Error uploading file:', err)
+      }
+    }
+    
+    return uploadedAttachments
+  }
+
+  // Get file type icon
+  const getFileIcon = (fileType) => {
+    if (fileType === 'image') return Image
+    return FileText
   }
 
   const openEditDialog = (idea) => {
     setEditingIdea(idea)
     setFormTitle(idea.title)
     setFormDescription(idea.description || '')
+    setExistingAttachments(idea.attachments || [])
     setFormCategory(idea.category)
     setFormPriority(idea.priority)
     setAddDialogOpen(true)
@@ -600,6 +716,42 @@ export default function Ideas() {
                             )}
                           </div>
 
+                          {/* Attachments */}
+                          {idea.attachments && idea.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {idea.attachments.map((attachment) => {
+                                const FileIcon = getFileIcon(attachment.file_type)
+                                const isImage = attachment.file_type === 'image'
+                                
+                                return (
+                                  <a
+                                    key={attachment.id}
+                                    href={attachment.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group relative"
+                                  >
+                                    {isImage ? (
+                                      <div className="w-16 h-16 rounded-lg overflow-hidden border hover:border-brand-orange transition-colors">
+                                        <img 
+                                          src={attachment.file_url} 
+                                          alt={attachment.file_name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/50 hover:border-brand-orange transition-colors">
+                                        <FileIcon className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-xs truncate max-w-[100px]">{attachment.file_name}</span>
+                                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                      </div>
+                                    )}
+                                  </a>
+                                )
+                              })}
+                            </div>
+                          )}
+
                           {/* Meta info */}
                           <div className="flex flex-wrap items-center gap-2 mt-3">
                             <Badge className={categoryInfo.color}>
@@ -612,6 +764,12 @@ export default function Ideas() {
                             <Badge className={statusInfo.color}>
                               {statusInfo.label}
                             </Badge>
+                            {idea.attachments && idea.attachments.length > 0 && (
+                              <Badge variant="outline" className="gap-1">
+                                <Paperclip className="h-3 w-3" />
+                                {idea.attachments.length}
+                              </Badge>
+                            )}
                             
                             <span className="text-xs text-muted-foreground ml-auto flex items-center gap-2">
                               {idea.submitter && (
@@ -712,6 +870,82 @@ export default function Ideas() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Attachments */}
+            <div>
+              <Label className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Attachments
+              </Label>
+              
+              {/* Existing attachments (when editing) */}
+              {existingAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                  {existingAttachments.map((attachment) => {
+                    const FileIcon = getFileIcon(attachment.file_type)
+                    return (
+                      <div key={attachment.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/50 group">
+                        <FileIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs truncate max-w-[120px]">{attachment.file_name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeExistingAttachment(attachment.id)}
+                          className="text-muted-foreground hover:text-red-500 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              
+              {/* Pending uploads */}
+              {formAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                  {formAttachments.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-brand-orange/50 bg-brand-orange/5">
+                      {file.type.startsWith('image/') ? (
+                        <Image className="h-4 w-4 text-brand-orange" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-brand-orange" />
+                      )}
+                      <span className="text-xs truncate max-w-[120px]">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFormAttachment(index)}
+                        className="text-muted-foreground hover:text-red-500 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Upload button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-1.5 gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Add Files
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1">
+                Images, PDFs, and documents supported
+              </p>
             </div>
           </div>
 
