@@ -782,6 +782,34 @@ export default function Admin() {
     }
   }
 
+  // Toggle AI status
+  const handleToggleAiStatus = async (userId, isAi) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_ai: isAi })
+        .eq('id', userId)
+      
+      if (error) throw error
+      
+      setUsers(prev =>
+        prev.map(u => u.id === userId ? { ...u, is_ai: isAi } : u)
+      )
+      
+      toast({
+        title: isAi ? '🤖 Marked as AI Agent' : '👤 Marked as Human',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error updating AI status:', error)
+      toast({
+        title: 'Error updating status',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
   // Role distribution for chart
   const roleDistribution = [
     { label: 'Team', value: users.filter(u => u.role === 'team').length },
@@ -1104,17 +1132,23 @@ export default function Admin() {
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium">{user.full_name || 'No name'}</p>
-                                    {user.is_ai ? (
-                                      <Badge variant="outline" className="text-xs bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30">
-                                        <Bot className="h-3 w-3 mr-1" />
-                                        AI Agent
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30">
-                                        <UserRound className="h-3 w-3 mr-1" />
-                                        Human
-                                      </Badge>
-                                    )}
+                                    <button
+                                      onClick={() => handleToggleAiStatus(user.id, !user.is_ai)}
+                                      className="transition-transform hover:scale-105"
+                                      title="Click to toggle Human/AI Agent"
+                                    >
+                                      {user.is_ai ? (
+                                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-500/20">
+                                          <Bot className="h-3 w-3 mr-1" />
+                                          AI Agent
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-500/20">
+                                          <UserRound className="h-3 w-3 mr-1" />
+                                          Human
+                                        </Badge>
+                                      )}
+                                    </button>
                                   </div>
                                   <p className="text-sm text-muted-foreground">{user.email}</p>
                                 </div>
