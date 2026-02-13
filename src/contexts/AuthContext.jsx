@@ -98,9 +98,13 @@ export function AuthProvider({ children }) {
           }
         }, 15000)
 
-        console.log('[Auth] Initializing, checking for existing session...')
+        // Check localStorage first to see if we have stored auth
+        const storedAuth = localStorage.getItem('brandastic-auth')
+        console.log('[Auth] Initializing, stored auth exists:', !!storedAuth)
         
+        // Try getSession first
         const { data: { session }, error } = await supabase.auth.getSession()
+        console.log('[Auth] getSession result:', session ? session.user?.email : 'null', error ? error.message : 'no error')
 
         if (!mounted) return
 
@@ -116,8 +120,35 @@ export function AuthProvider({ children }) {
           console.log('[Auth] Session found for:', session.user.email)
           setUser(session.user)
           await createProfileIfNeeded(session.user)
+        } else if (storedAuth) {
+          // We have stored auth but getSession returned null - try to recover
+          console.log('[Auth] No session but localStorage has auth - attempting recovery...')
+          try {
+            // Parse stored auth to check if it looks valid
+            const parsed = JSON.parse(storedAuth)
+            if (parsed?.access_token) {
+              // Try to set the session manually
+              const { data: recoveredSession, error: setError } = await supabase.auth.setSession({
+                access_token: parsed.access_token,
+                refresh_token: parsed.refresh_token
+              })
+              if (recoveredSession?.user && !setError) {
+                console.log('[Auth] Session recovered for:', recoveredSession.user.email)
+                setUser(recoveredSession.user)
+                await createProfileIfNeeded(recoveredSession.user)
+              } else {
+                console.log('[Auth] Recovery failed:', setError?.message)
+                setUser(null)
+                setProfile(null)
+              }
+            }
+          } catch (parseError) {
+            console.log('[Auth] Could not parse stored auth:', parseError)
+            setUser(null)
+            setProfile(null)
+          }
         } else {
-          console.log('[Auth] No session found')
+          console.log('[Auth] No session found and no stored auth')
           setUser(null)
           setProfile(null)
         }
