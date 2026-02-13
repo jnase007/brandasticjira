@@ -338,7 +338,7 @@ export default function TeamHub() {
         supabase.from('clients').select('*').neq('is_active', false).order('name'),
         supabase.from('client_team_assignments').select('*'),
         supabase.from('ad_spend').select('*').order('month'),
-        supabase.from('profiles').select('*').or('active.is.null,active.eq.true').order('full_name'),
+        supabase.from('profiles').select('*').or('is_active.is.null,is_active.eq.true').order('full_name'),
       ])
 
       console.log('[TeamHub] Fetch results:', {
