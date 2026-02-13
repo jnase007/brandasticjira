@@ -88,38 +88,48 @@ export function AuthProvider({ children }) {
 
     const initAuth = async () => {
       try {
-        // Set a timeout - if auth takes more than 8 seconds, something is wrong
+        // Set a longer timeout - 15 seconds to handle slow connections
         timeoutId = setTimeout(() => {
           if (mounted && loading) {
-            console.warn('[Auth] Timeout - clearing stale data and retrying')
-            // Clear potentially corrupted auth data - use correct storage key
-            localStorage.removeItem('brandastic-auth')
-            // Force reload to get fresh state
+            console.warn('[Auth] Timeout after 15s - setting loading to false')
+            // DON'T clear localStorage - just stop loading
+            // The session might still be valid, just slow to load
             setLoading(false)
-            setUser(null)
-            setProfile(null)
           }
-        }, 8000)
+        }, 15000)
 
+        console.log('[Auth] Initializing, checking for existing session...')
+        
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (!mounted) return
 
         if (error) {
           console.error('[Auth] Session error:', error)
-          // Clear bad session data
-          await supabase.auth.signOut({ scope: 'local' })
+          // Only clear if it's a genuine auth error, not a network error
+          if (error.message?.includes('invalid') || error.message?.includes('expired')) {
+            await supabase.auth.signOut({ scope: 'local' })
+          }
           setUser(null)
           setProfile(null)
         } else if (session?.user) {
+          console.log('[Auth] Session found for:', session.user.email)
           setUser(session.user)
           await createProfileIfNeeded(session.user)
+        } else {
+          console.log('[Auth] No session found')
+          setUser(null)
+          setProfile(null)
         }
       } catch (error) {
         console.error('[Auth] Init error:', error)
-        // On error, clear auth state to allow fresh login
-        setUser(null)
-        setProfile(null)
+        // Don't clear auth on network errors - user might still have valid session
+        if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          console.warn('[Auth] Network error - keeping existing state')
+        } else {
+          setUser(null)
+          setProfile(null)
+        }
       } finally {
         if (timeoutId) clearTimeout(timeoutId)
         if (mounted) setLoading(false)
@@ -131,13 +141,14 @@ export function AuthProvider({ children }) {
     // Listen for auth changes - this is the single source of truth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[Auth] Event:', event, session ? 'has session' : 'no session')
+        console.log('[Auth] Event:', event, session?.user?.email || 'no session')
 
         if (!mounted) return
 
         // Handle different auth events
         if (event === 'TOKEN_REFRESHED') {
           // Token was refreshed - just update user, don't refetch profile
+          console.log('[Auth] Token refreshed for:', session?.user?.email)
           if (session?.user) {
             setUser(session.user)
           }
@@ -145,6 +156,7 @@ export function AuthProvider({ children }) {
         }
 
         if (event === 'SIGNED_OUT') {
+          console.log('[Auth] User signed out')
           setUser(null)
           setProfile(null)
           setLoading(false)
@@ -154,15 +166,17 @@ export function AuthProvider({ children }) {
         if (session?.user) {
           setUser(session.user)
           
-          // On sign in, ensure profile exists
-          if (event === 'SIGNED_IN') {
+          // On sign in or initial session, ensure profile exists
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            console.log('[Auth] Creating/fetching profile for:', session.user.email)
             await createProfileIfNeeded(session.user)
           } else {
-            // For other events (TOKEN_REFRESHED handled above), just fetch profile
+            // For other events, just fetch profile
             await fetchProfile(session.user.id)
           }
-        } else {
-          // No session - clear user state
+        } else if (event !== 'TOKEN_REFRESHED') {
+          // No session and not just a token refresh - clear user state
+          console.log('[Auth] No session, clearing state')
           setUser(null)
           setProfile(null)
         }
