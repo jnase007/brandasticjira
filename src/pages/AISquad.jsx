@@ -1,609 +1,512 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import {
-  Bot, Users, Target, TrendingUp, Zap, MessageSquare, Mail,
-  Search, BarChart3, Sparkles, ArrowRight, CheckCircle, Clock,
-  DollarSign, Rocket, Brain, Eye, Heart, Shield, Globe, Megaphone,
-  PenTool, Code, Palette, Calendar, FileText, Phone, Linkedin
+  Bot, Users, Target, TrendingUp, Clock, DollarSign, 
+  BarChart3, CheckCircle, Calendar, Briefcase, ArrowUpRight,
+  Zap, Activity, Eye, RefreshCw, Filter, ChevronDown
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { cn, getInitials } from '../lib/utils'
+import { cn, getInitials, formatDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Progress } from '../components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Skeleton } from '../components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
 
 // Animation variants
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0 },
 }
 
-// AI Squad Member definitions with missions, goals, and KPIs
-const AI_SQUAD_MEMBERS = [
-  {
-    id: 'william',
-    name: 'William Harris',
-    role: 'Chief Strategy AI',
-    avatar: null, // Will be loaded from DB
-    specialization: 'Business Development & Outreach',
-    icon: Target,
-    color: 'from-blue-500 to-cyan-500',
-    mission: 'Generate $50K+ in new business pipeline through intelligent outreach and lead qualification.',
-    goals: [
-      'Send 500+ personalized outreach messages/month',
-      'Book 20+ qualified discovery calls',
-      'Achieve 15% reply rate on cold outreach',
-    ],
-    kpis: [
-      { label: 'Leads Generated', value: 847, target: 1000, unit: '' },
-      { label: 'Reply Rate', value: 12.4, target: 15, unit: '%' },
-      { label: 'Meetings Booked', value: 23, target: 30, unit: '' },
-    ],
-    tools: ['Apollo', 'HeyReach', 'LinkedIn Sales Nav'],
-    status: 'active',
-  },
-  {
-    id: 'amelia',
-    name: 'Amelia Clark',
-    role: 'Creative Director AI',
-    avatar: null,
-    specialization: 'Content & Design Strategy',
-    icon: Palette,
-    color: 'from-pink-500 to-rose-500',
-    mission: 'Create compelling content that drives engagement and establishes thought leadership.',
-    goals: [
-      'Produce 30+ pieces of content/month',
-      'Increase social engagement by 25%',
-      'Maintain brand consistency score of 95%+',
-    ],
-    kpis: [
-      { label: 'Content Pieces', value: 34, target: 30, unit: '' },
-      { label: 'Engagement Rate', value: 4.2, target: 5, unit: '%' },
-      { label: 'Brand Score', value: 97, target: 95, unit: '%' },
-    ],
-    tools: ['Figma', 'Canva', 'Midjourney'],
-    status: 'active',
-  },
-  {
-    id: 'benjamin',
-    name: 'Benjamin Lewis',
-    role: 'Analytics AI',
-    avatar: null,
-    specialization: 'Data Analysis & Reporting',
-    icon: BarChart3,
-    color: 'from-green-500 to-emerald-500',
-    mission: 'Transform data into actionable insights that drive 20% improvement in client ROI.',
-    goals: [
-      'Deliver weekly performance reports',
-      'Identify 5+ optimization opportunities/client',
-      'Reduce reporting time by 50%',
-    ],
-    kpis: [
-      { label: 'Reports Generated', value: 156, target: 150, unit: '' },
-      { label: 'Insights Delivered', value: 89, target: 100, unit: '' },
-      { label: 'Time Saved', value: 45, target: 50, unit: 'hrs' },
-    ],
-    tools: ['Google Analytics', 'Looker', 'BigQuery'],
-    status: 'active',
-  },
-  {
-    id: 'evelyn',
-    name: 'Evelyn Hall',
-    role: 'Customer Success AI',
-    avatar: null,
-    specialization: 'Client Relations & Support',
-    icon: Heart,
-    color: 'from-purple-500 to-violet-500',
-    mission: 'Maintain 95%+ client retention through proactive engagement and exceptional support.',
-    goals: [
-      'Respond to all inquiries within 2 hours',
-      'Conduct monthly check-ins with all clients',
-      'Achieve 9.5+ NPS score',
-    ],
-    kpis: [
-      { label: 'Response Time', value: 1.2, target: 2, unit: 'hrs' },
-      { label: 'Client Retention', value: 96, target: 95, unit: '%' },
-      { label: 'NPS Score', value: 9.2, target: 9.5, unit: '' },
-    ],
-    tools: ['Intercom', 'Slack', 'Notion'],
-    status: 'active',
-  },
-  {
-    id: 'oliver',
-    name: 'Oliver Wright',
-    role: 'SEO Specialist AI',
-    avatar: null,
-    specialization: 'Search Optimization',
-    icon: Search,
-    color: 'from-orange-500 to-amber-500',
-    mission: 'Improve organic visibility and drive 40% increase in qualified organic traffic.',
-    goals: [
-      'Audit and optimize 100+ pages/month',
-      'Build 50+ quality backlinks',
-      'Achieve top 10 rankings for priority keywords',
-    ],
-    kpis: [
-      { label: 'Pages Optimized', value: 87, target: 100, unit: '' },
-      { label: 'Backlinks Built', value: 42, target: 50, unit: '' },
-      { label: 'Keywords Ranked', value: 156, target: 200, unit: '' },
-    ],
-    tools: ['Ahrefs', 'SEMrush', 'Screaming Frog'],
-    status: 'active',
-  },
-  {
-    id: 'sophia',
-    name: 'Sophia Chen',
-    role: 'Paid Media AI',
-    avatar: null,
-    specialization: 'Advertising & Media Buying',
-    icon: Megaphone,
-    color: 'from-red-500 to-pink-500',
-    mission: 'Maximize ROAS across all paid channels while maintaining cost efficiency.',
-    goals: [
-      'Manage $500K+ in monthly ad spend',
-      'Achieve 4x+ ROAS across accounts',
-      'Reduce CPA by 20%',
-    ],
-    kpis: [
-      { label: 'Ad Spend Managed', value: 487, target: 500, unit: 'K' },
-      { label: 'Average ROAS', value: 4.2, target: 4, unit: 'x' },
-      { label: 'CPA Reduction', value: 18, target: 20, unit: '%' },
-    ],
-    tools: ['Google Ads', 'Meta Ads', 'TikTok Ads'],
-    status: 'active',
-  },
-  {
-    id: 'james',
-    name: 'James Porter',
-    role: 'Development AI',
-    avatar: null,
-    specialization: 'Web Development & Automation',
-    icon: Code,
-    color: 'from-slate-500 to-zinc-600',
-    mission: 'Build and maintain high-performance digital experiences that convert.',
-    goals: [
-      'Complete 20+ development tickets/month',
-      'Maintain 99.9% uptime across sites',
-      'Achieve 90+ PageSpeed scores',
-    ],
-    kpis: [
-      { label: 'Tickets Completed', value: 24, target: 20, unit: '' },
-      { label: 'Site Uptime', value: 99.97, target: 99.9, unit: '%' },
-      { label: 'Avg PageSpeed', value: 92, target: 90, unit: '' },
-    ],
-    tools: ['React', 'Next.js', 'Vercel'],
-    status: 'active',
-  },
-  {
-    id: 'emma',
-    name: 'Emma Davis',
-    role: 'Social Media AI',
-    avatar: null,
-    specialization: 'Social Strategy & Community',
-    icon: Globe,
-    color: 'from-sky-500 to-blue-500',
-    mission: 'Build engaged communities and drive brand awareness across social platforms.',
-    goals: [
-      'Post 60+ pieces of content/month',
-      'Grow follower base by 10%/month',
-      'Drive 25% of traffic from social',
-    ],
-    kpis: [
-      { label: 'Posts Published', value: 67, target: 60, unit: '' },
-      { label: 'Follower Growth', value: 8.5, target: 10, unit: '%' },
-      { label: 'Social Traffic', value: 22, target: 25, unit: '%' },
-    ],
-    tools: ['Buffer', 'Sprout Social', 'Later'],
-    status: 'active',
-  },
-  {
-    id: 'isabella',
-    name: 'Isabella Martinez',
-    role: 'QA & Research AI',
-    avatar: null,
-    specialization: 'Quality Assurance & Market Research',
-    icon: Eye,
-    color: 'from-teal-500 to-cyan-500',
-    mission: 'Ensure quality standards and provide competitive intelligence for strategic decisions.',
-    goals: [
-      'Review 100% of deliverables before launch',
-      'Conduct monthly competitive analysis',
-      'Identify 10+ market opportunities/quarter',
-    ],
-    kpis: [
-      { label: 'QA Reviews', value: 234, target: 200, unit: '' },
-      { label: 'Bug Detection', value: 98, target: 95, unit: '%' },
-      { label: 'Research Reports', value: 12, target: 12, unit: '' },
-    ],
-    tools: ['Notion', 'Airtable', 'SimilarWeb'],
-    status: 'active',
-  },
-]
-
-// How It Works steps
-const HOW_IT_WORKS = [
-  {
-    step: 1,
-    title: 'Strategy & Planning',
-    description: 'AI agents analyze your goals and create data-driven strategies',
-    icon: Brain,
-  },
-  {
-    step: 2,
-    title: 'Execution & Optimization',
-    description: 'Agents work 24/7 executing campaigns and optimizing in real-time',
-    icon: Zap,
-  },
-  {
-    step: 3,
-    title: 'Analysis & Reporting',
-    description: 'Continuous monitoring with actionable insights delivered daily',
-    icon: BarChart3,
-  },
-  {
-    step: 4,
-    title: 'Scale & Grow',
-    description: 'AI learns and improves, scaling what works for maximum ROI',
-    icon: Rocket,
-  },
-]
-
 export default function AISquad() {
   const { profile, isAdmin } = useAuth()
-  const [squadMembers, setSquadMembers] = useState(AI_SQUAD_MEMBERS)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('all')
-  
-  // Revenue goal tracking
-  const [revenueGoal] = useState(500000) // $500K annual goal
-  const [currentRevenue] = useState(287500) // Current progress
-  const revenueProgress = (currentRevenue / revenueGoal) * 100
+  const [refreshing, setRefreshing] = useState(false)
+  const [aiAgents, setAiAgents] = useState([])
+  const [timeRange, setTimeRange] = useState('month') // week, month, quarter, year
+  const [stats, setStats] = useState({
+    totalAgents: 0,
+    totalHours: 0,
+    totalRevenue: 0,
+    totalTickets: 0,
+    avgHourlyRate: 0,
+  })
+
+  // Fetch AI squad data with real metrics
+  const fetchAISquadData = useCallback(async (showRefresh = false) => {
+    if (showRefresh) setRefreshing(true)
+    else setLoading(true)
+
+    try {
+      // Calculate date range
+      const now = new Date()
+      let startDate = new Date()
+      switch (timeRange) {
+        case 'week':
+          startDate.setDate(now.getDate() - 7)
+          break
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1)
+          break
+        case 'quarter':
+          startDate.setMonth(now.getMonth() - 3)
+          break
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1)
+          break
+      }
+      const startDateStr = startDate.toISOString().split('T')[0]
+
+      // Fetch AI agents from profiles
+      const { data: agents, error: agentsError } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, email, title, role, cost_rate, is_ai')
+        .eq('is_ai', true)
+        .order('full_name')
+
+      if (agentsError) {
+        console.error('Error fetching AI agents:', agentsError)
+        setAiAgents([])
+        return
+      }
+
+      if (!agents?.length) {
+        setAiAgents([])
+        setStats({ totalAgents: 0, totalHours: 0, totalRevenue: 0, totalTickets: 0, avgHourlyRate: 0 })
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+
+      const agentIds = agents.map(a => a.id)
+
+      // Fetch time entries for AI agents
+      const { data: timeEntries } = await supabase
+        .from('time_entries')
+        .select('user_id, minutes, client_id, created_at')
+        .in('user_id', agentIds)
+        .gte('created_at', startDateStr)
+
+      // Fetch tickets completed by AI agents
+      const { data: tickets } = await supabase
+        .from('tickets')
+        .select('assigned_to, status, updated_at')
+        .in('assigned_to', agentIds)
+        .eq('status', 'done')
+        .gte('updated_at', startDateStr)
+
+      // Fetch clients for context
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('id, name, color')
+
+      const clientMap = (clients || []).reduce((acc, c) => {
+        acc[c.id] = c
+        return acc
+      }, {})
+
+      // Process data for each agent
+      const enrichedAgents = agents.map(agent => {
+        const agentTimeEntries = (timeEntries || []).filter(te => te.user_id === agent.id)
+        const agentTickets = (tickets || []).filter(t => t.assigned_to === agent.id)
+        
+        const totalMinutes = agentTimeEntries.reduce((sum, te) => sum + (te.minutes || 0), 0)
+        const totalHours = totalMinutes / 60
+        const hourlyRate = agent.cost_rate || 75 // Default $75/hr if not set
+        const revenueContribution = totalHours * hourlyRate
+
+        // Get unique clients worked on
+        const clientIds = [...new Set(agentTimeEntries.map(te => te.client_id).filter(Boolean))]
+        const clientsWorkedOn = clientIds.map(id => clientMap[id]).filter(Boolean)
+
+        // Calculate daily average
+        const daysInRange = Math.ceil((now - startDate) / (1000 * 60 * 60 * 24))
+        const avgHoursPerDay = totalHours / daysInRange
+
+        return {
+          ...agent,
+          totalHours,
+          totalMinutes,
+          hourlyRate,
+          revenueContribution,
+          ticketsCompleted: agentTickets.length,
+          clientsWorkedOn,
+          avgHoursPerDay,
+          timeEntries: agentTimeEntries,
+        }
+      })
+
+      // Sort by revenue contribution
+      enrichedAgents.sort((a, b) => b.revenueContribution - a.revenueContribution)
+
+      // Calculate totals
+      const totalHours = enrichedAgents.reduce((sum, a) => sum + a.totalHours, 0)
+      const totalRevenue = enrichedAgents.reduce((sum, a) => sum + a.revenueContribution, 0)
+      const totalTickets = enrichedAgents.reduce((sum, a) => sum + a.ticketsCompleted, 0)
+      const avgRate = enrichedAgents.length > 0 
+        ? enrichedAgents.reduce((sum, a) => sum + a.hourlyRate, 0) / enrichedAgents.length 
+        : 0
+
+      setAiAgents(enrichedAgents)
+      setStats({
+        totalAgents: enrichedAgents.length,
+        totalHours,
+        totalRevenue,
+        totalTickets,
+        avgHourlyRate: avgRate,
+      })
+    } catch (err) {
+      console.error('Error fetching AI squad data:', err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [timeRange])
 
   useEffect(() => {
-    async function loadSquadAvatars() {
-      try {
-        // Fetch AI squad members from profiles
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, title, is_ai')
-          .eq('is_ai', true)
-        
-        if (data) {
-          // Update squad members with real avatars from DB
-          setSquadMembers(prev => prev.map(member => {
-            const dbMember = data.find(d => 
-              d.full_name?.toLowerCase().includes(member.name.split(' ')[0].toLowerCase())
-            )
-            return dbMember ? { ...member, avatar: dbMember.avatar_url } : member
-          }))
-        }
-      } catch (err) {
-        console.log('Could not load squad avatars:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadSquadAvatars()
-  }, [])
+    fetchAISquadData()
+  }, [fetchAISquadData])
 
-  const calculateOverallProgress = (kpis) => {
-    if (!kpis?.length) return 0
-    const total = kpis.reduce((sum, kpi) => {
-      const progress = Math.min(100, (kpi.value / kpi.target) * 100)
-      return sum + progress
-    }, 0)
-    return Math.round(total / kpis.length)
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value)
+  }
+
+  const formatHours = (hours) => {
+    if (hours < 1) return `${Math.round(hours * 60)}m`
+    return `${hours.toFixed(1)}h`
+  }
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case 'week': return 'This Week'
+      case 'month': return 'This Month'
+      case 'quarter': return 'This Quarter'
+      case 'year': return 'This Year'
+      default: return 'This Month'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b bg-gradient-to-r from-brand-orange/5 via-purple-500/5 to-blue-500/5">
-        <div className="absolute inset-0 bg-grid-white/5 [mask-image:radial-gradient(white,transparent_70%)]" />
-        <div className="relative max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center"
-          >
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-orange to-orange-600 shadow-lg shadow-brand-orange/25">
-                <Bot className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-4xl md:text-5xl font-display font-bold bg-gradient-to-r from-brand-orange via-purple-500 to-blue-500 bg-clip-text text-transparent">
-                AI Squad
-              </h1>
-            </div>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-              Meet your 24/7 marketing team. 9 specialized AI agents working around the clock 
-              to grow your business, optimize campaigns, and deliver results.
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-purple-500/10">
+            <Bot className="h-6 w-6 text-purple-500" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-display font-bold">AI Squad</h1>
+            <p className="text-sm text-muted-foreground">
+              {stats.totalAgents} AI agents contributing to the team
             </p>
-            
-            {/* Stats */}
-            <div className="flex flex-wrap justify-center gap-8 mb-8">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-brand-orange">9</p>
-                <p className="text-sm text-muted-foreground">AI Agents</p>
-              </div>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-purple-500">24/7</p>
-                <p className="text-sm text-muted-foreground">Always On</p>
-              </div>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-blue-500">∞</p>
-                <p className="text-sm text-muted-foreground">Scalability</p>
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </div>
-      </section>
+        
+        <div className="flex items-center gap-2">
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-[140px]">
+              <Calendar className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="quarter">This Quarter</SelectItem>
+              <SelectItem value="year">This Year</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => fetchAISquadData(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+          </Button>
+        </div>
+      </div>
 
-      {/* Revenue Progress Bar */}
-      <section className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card className="bg-gradient-to-r from-green-500/5 to-emerald-500/5 border-green-500/20">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-500/10">
-                    <DollarSign className="h-5 w-5 text-green-500" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Revenue Goal Progress</h3>
-                    <p className="text-sm text-muted-foreground">Annual target: ${revenueGoal.toLocaleString()}</p>
-                  </div>
+      {/* Stats Overview */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      >
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">AI Agents</p>
+                  <p className="text-2xl font-bold">{stats.totalAgents}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-500">${currentRevenue.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">{revenueProgress.toFixed(1)}% achieved</p>
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <Bot className="h-5 w-5 text-purple-500" />
                 </div>
-              </div>
-              <Progress value={revenueProgress} className="h-3 bg-green-500/10" />
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>Q1: $125K</span>
-                <span>Q2: $250K</span>
-                <span>Q3: $375K</span>
-                <span>Q4: $500K</span>
               </div>
             </CardContent>
           </Card>
         </motion.div>
-      </section>
 
-      {/* How It Works */}
-      <section className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <h2 className="text-2xl font-display font-bold mb-6 text-center">How It Works</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {HOW_IT_WORKS.map((step, i) => (
-              <motion.div
-                key={step.step}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * i }}
-                className="relative"
-              >
-                <Card className="h-full bg-gradient-to-br from-card to-muted/30 hover:shadow-lg transition-all">
-                  <CardContent className="p-6 text-center">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-orange/10 mb-4">
-                      <step.icon className="h-6 w-6 text-brand-orange" />
-                    </div>
-                    <Badge className="mb-2">Step {step.step}</Badge>
-                    <h3 className="font-semibold mb-2">{step.title}</h3>
-                    <p className="text-sm text-muted-foreground">{step.description}</p>
-                  </CardContent>
-                </Card>
-                {i < HOW_IT_WORKS.length - 1 && (
-                  <div className="hidden md:block absolute top-1/2 -right-2 transform -translate-y-1/2 z-10">
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Hours Logged</p>
+                  <p className="text-2xl font-bold">{formatHours(stats.totalHours)}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Clock className="h-5 w-5 text-blue-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
-      </section>
 
-      {/* Squad Members */}
-      <section className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Revenue Value</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalRevenue)}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <DollarSign className="h-5 w-5 text-green-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Tasks Completed</p>
+                  <p className="text-2xl font-bold">{stats.totalTickets}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-brand-orange/10">
+                  <CheckCircle className="h-5 w-5 text-brand-orange" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* AI Agents Grid */}
+      {aiAgents.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No AI Agents Found</h3>
+            <p className="text-muted-foreground mb-4">
+              Mark team members as "AI Agent" in the Admin panel to see them here.
+            </p>
+            {isAdmin && (
+              <Button asChild>
+                <Link to="/admin">Go to Admin Panel</Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-display font-bold">Meet The Squad</h2>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="all">All Agents</TabsTrigger>
-                <TabsTrigger value="marketing">Marketing</TabsTrigger>
-                <TabsTrigger value="tech">Tech</TabsTrigger>
-                <TabsTrigger value="support">Support</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+          {aiAgents.map((agent, index) => {
+            const progressPercent = stats.totalRevenue > 0 
+              ? (agent.revenueContribution / stats.totalRevenue) * 100 
+              : 0
 
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {squadMembers.map((member) => {
-              const overallProgress = calculateOverallProgress(member.kpis)
-              const Icon = member.icon
-              
-              return (
-                <motion.div key={member.id} variants={itemVariants}>
-                  <Card className="h-full hover:shadow-xl transition-all duration-300 overflow-hidden group">
-                    {/* Header with gradient */}
-                    <div className={cn(
-                      "h-2 bg-gradient-to-r",
-                      member.color
-                    )} />
-                    
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start gap-4">
-                        <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
-                          <AvatarImage src={member.avatar} referrerPolicy="no-referrer" />
-                          <AvatarFallback className={cn(
-                            "bg-gradient-to-br text-white text-lg font-bold",
-                            member.color
-                          )}>
-                            {getInitials(member.name)}
+            return (
+              <motion.div key={agent.id} variants={itemVariants}>
+                <Card className="h-full hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start gap-3">
+                      <Link to={`/team/${agent.id}`}>
+                        <Avatar className="h-12 w-12 border-2 border-purple-500/20">
+                          <AvatarImage src={agent.avatar_url} referrerPolicy="no-referrer" />
+                          <AvatarFallback className="bg-purple-500/10 text-purple-600">
+                            {getInitials(agent.full_name)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <CardTitle className="text-lg">{member.name}</CardTitle>
-                            <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/30">
-                              <Bot className="h-3 w-3 mr-1" />
-                              AI
-                            </Badge>
-                          </div>
-                          <CardDescription className="flex items-center gap-1">
-                            <Icon className="h-3 w-3" />
-                            {member.role}
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="space-y-4">
-                      {/* Mission */}
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Mission</p>
-                        <p className="text-sm">{member.mission}</p>
-                      </div>
-
-                      {/* Goals */}
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Goals</p>
-                        <ul className="space-y-1">
-                          {member.goals.map((goal, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                              <span>{goal}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* KPIs */}
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">KPIs</p>
-                        <div className="space-y-2">
-                          {member.kpis.map((kpi, i) => {
-                            const progress = Math.min(100, (kpi.value / kpi.target) * 100)
-                            const isOnTrack = progress >= 80
-                            return (
-                              <div key={i}>
-                                <div className="flex justify-between text-xs mb-1">
-                                  <span>{kpi.label}</span>
-                                  <span className={isOnTrack ? 'text-green-500' : 'text-yellow-500'}>
-                                    {kpi.value}{kpi.unit} / {kpi.target}{kpi.unit}
-                                  </span>
-                                </div>
-                                <Progress 
-                                  value={progress} 
-                                  className={cn(
-                                    "h-1.5",
-                                    isOnTrack ? "bg-green-500/10" : "bg-yellow-500/10"
-                                  )}
-                                />
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Tools */}
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Tools</p>
-                        <div className="flex flex-wrap gap-1">
-                          {member.tools.map((tool, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {tool}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Overall Progress */}
-                      <div className="pt-2 border-t">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Overall Progress</span>
-                          <Badge className={cn(
-                            overallProgress >= 90 ? "bg-green-500" :
-                            overallProgress >= 70 ? "bg-blue-500" :
-                            overallProgress >= 50 ? "bg-yellow-500" : "bg-red-500"
-                          )}>
-                            {overallProgress}%
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Link 
+                            to={`/team/${agent.id}`}
+                            className="font-semibold hover:text-brand-orange transition-colors truncate"
+                          >
+                            {agent.full_name}
+                          </Link>
+                          <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/30 text-xs">
+                            <Bot className="h-3 w-3 mr-0.5" />
+                            AI
                           </Badge>
                         </div>
-                        <Progress value={overallProgress} className="mt-2 h-2" />
+                        <p className="text-sm text-muted-foreground truncate">
+                          {agent.title || 'AI Agent'}
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )
-            })}
-          </motion.div>
-        </motion.div>
-      </section>
+                      {index < 3 && (
+                        <Badge variant="outline" className={cn(
+                          "text-xs",
+                          index === 0 && "border-yellow-500 text-yellow-600",
+                          index === 1 && "border-gray-400 text-gray-500",
+                          index === 2 && "border-amber-600 text-amber-700"
+                        )}>
+                          #{index + 1}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
 
-      {/* CTA Section */}
-      <section className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card className="bg-gradient-to-r from-brand-orange/10 via-purple-500/10 to-blue-500/10 border-0 overflow-hidden">
-            <CardContent className="p-8 md:p-12 text-center relative">
-              <div className="absolute inset-0 bg-grid-white/5 [mask-image:radial-gradient(white,transparent_70%)]" />
-              <div className="relative">
-                <Sparkles className="h-12 w-12 mx-auto text-brand-orange mb-4" />
-                <h2 className="text-3xl font-display font-bold mb-4">
-                  Ready to Scale with AI?
-                </h2>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-                  Our AI Squad is ready to take your marketing to the next level. 
-                  Get started today and see results in weeks, not months.
-                </p>
-                <div className="flex flex-wrap justify-center gap-4">
-                  <Button size="lg" className="bg-brand-orange hover:bg-brand-orange/90">
-                    <Rocket className="h-5 w-5 mr-2" />
-                    Get Started
-                  </Button>
-                  <Button size="lg" variant="outline">
-                    <Calendar className="h-5 w-5 mr-2" />
-                    Book a Demo
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  <CardContent className="space-y-4">
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-lg font-bold">{formatHours(agent.totalHours)}</p>
+                        <p className="text-xs text-muted-foreground">Hours</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-lg font-bold text-green-600">{formatCurrency(agent.revenueContribution)}</p>
+                        <p className="text-xs text-muted-foreground">Value</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-lg font-bold">{agent.ticketsCompleted}</p>
+                        <p className="text-xs text-muted-foreground">Tasks</p>
+                      </div>
+                    </div>
+
+                    {/* Rate & Average */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Rate</span>
+                      <span className="font-medium">${agent.hourlyRate}/hr</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Avg per day</span>
+                      <span className="font-medium">{formatHours(agent.avgHoursPerDay)}</span>
+                    </div>
+
+                    {/* Contribution Bar */}
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">Team Contribution</span>
+                        <span className="font-medium">{progressPercent.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={progressPercent} className="h-2" />
+                    </div>
+
+                    {/* Clients Worked On */}
+                    {agent.clientsWorkedOn.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">Clients ({agent.clientsWorkedOn.length})</p>
+                        <div className="flex flex-wrap gap-1">
+                          {agent.clientsWorkedOn.slice(0, 4).map(client => (
+                            <Badge 
+                              key={client.id} 
+                              variant="outline" 
+                              className="text-xs"
+                              style={{ borderColor: client.color, color: client.color }}
+                            >
+                              {client.name}
+                            </Badge>
+                          ))}
+                          {agent.clientsWorkedOn.length > 4 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{agent.clientsWorkedOn.length - 4}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* View Profile Link */}
+                    <Button asChild variant="ghost" size="sm" className="w-full mt-2">
+                      <Link to={`/team/${agent.id}`}>
+                        View Full Profile
+                        <ArrowUpRight className="h-4 w-4 ml-1" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )
+          })}
         </motion.div>
-      </section>
+      )}
+
+      {/* About Section */}
+      <Card className="bg-muted/30">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-purple-500/10">
+              <Bot className="h-6 w-6 text-purple-500" />
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1">About AI Squad</h3>
+              <p className="text-sm text-muted-foreground">
+                AI Squad members are automated agents that contribute to the team by handling tasks, 
+                logging time, and generating revenue value. Their contributions are calculated based on 
+                their hourly rate and time logged against client projects. Mark team members as "AI Agent" 
+                in the <Link to="/admin" className="text-brand-orange hover:underline">Admin Panel</Link> to 
+                track their contributions here.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
