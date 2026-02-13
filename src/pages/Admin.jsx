@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   User,
   FileText,
+  Camera,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -200,6 +201,11 @@ export default function Admin() {
   const [editingTitleUserId, setEditingTitleUserId] = useState(null)
   const [titleValue, setTitleValue] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
+  
+  // Avatar upload for users
+  const [uploadingAvatarUserId, setUploadingAvatarUserId] = useState(null)
+  const avatarInputRef = useRef(null)
+  const [avatarTargetUserId, setAvatarTargetUserId] = useState(null)
 
   // Overhead settings (shared across admin + team hub)
   const [monthlyOverhead, setMonthlyOverhead] = useState(() => {
@@ -567,6 +573,70 @@ export default function Admin() {
       })
     } finally {
       setSavingTitle(false)
+    }
+  }
+
+  // Handle avatar upload for a user
+  const handleAvatarClick = (userId) => {
+    setAvatarTargetUserId(userId)
+    avatarInputRef.current?.click()
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !avatarTargetUserId) return
+
+    setUploadingAvatarUserId(avatarTargetUserId)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${avatarTargetUserId}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath)
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', avatarTargetUserId)
+
+      if (updateError) throw updateError
+
+      // Update local state
+      setUsers(prev =>
+        prev.map(u => u.id === avatarTargetUserId ? { ...u, avatar_url: publicUrl } : u)
+      )
+
+      toast({
+        title: '✅ Avatar updated',
+        description: 'Profile photo has been changed.',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Error uploading avatar:', error)
+      toast({
+        title: 'Error uploading avatar',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingAvatarUserId(null)
+      setAvatarTargetUserId(null)
+      // Reset file input
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = ''
+      }
     }
   }
 
@@ -1010,12 +1080,25 @@ export default function Admin() {
                           >
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
-                                <Avatar className="h-9 w-9">
-                                  <AvatarImage src={user.avatar_url} />
-                                  <AvatarFallback className="bg-brand-orange/10 text-brand-orange">
-                                    {getInitials(user.full_name)}
-                                  </AvatarFallback>
-                                </Avatar>
+                                <div 
+                                  className="relative group cursor-pointer"
+                                  onClick={() => handleAvatarClick(user.id)}
+                                >
+                                  <Avatar className="h-9 w-9">
+                                    <AvatarImage src={user.avatar_url} referrerPolicy="no-referrer" />
+                                    <AvatarFallback className="bg-brand-orange/10 text-brand-orange">
+                                      {getInitials(user.full_name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {/* Upload overlay */}
+                                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {uploadingAvatarUserId === user.id ? (
+                                      <Loader2 className="h-4 w-4 text-white animate-spin" />
+                                    ) : (
+                                      <Camera className="h-4 w-4 text-white" />
+                                    )}
+                                  </div>
+                                </div>
                                 <div>
                                   <p className="font-medium">{user.full_name || 'No name'}</p>
                                   <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -1679,6 +1762,15 @@ export default function Admin() {
           fetchData(true)
           setEditingClient(null)
         }}
+      />
+
+      {/* Hidden file input for avatar upload */}
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleAvatarUpload}
+        className="hidden"
       />
 
       {/* Delete Confirmation Dialog */}
