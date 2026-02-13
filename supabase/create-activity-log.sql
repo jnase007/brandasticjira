@@ -1,27 +1,34 @@
--- Activity log table for real-time feed
-create table if not exists public.activity_log (
-  id uuid primary key default gen_random_uuid(),
-  activity_type text not null,
-  entity_type text null,
-  entity_id uuid null,
-  entity_name text null,
-  user_id uuid not null,
-  client_id uuid null,
-  metadata jsonb null default '{}'::jsonb,
-  created_at timestamptz not null default now()
+-- ============================================
+-- CREATE ACTIVITY_LOG TABLE
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.activity_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  activity_type TEXT NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+  entity_type TEXT,
+  entity_id UUID,
+  entity_name TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-alter table public.activity_log enable row level security;
+-- Enable RLS
+ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
 
-drop policy if exists "Activity log readable by authenticated users" on public.activity_log;
-create policy "Activity log readable by authenticated users"
-  on public.activity_log for select
-  to authenticated
-  using (true);
+-- RLS Policies
+CREATE POLICY "Authenticated users can read activity" ON public.activity_log
+  FOR SELECT TO authenticated
+  USING (true);
 
-drop policy if exists "Activity log insert by authenticated users" on public.activity_log;
-create policy "Activity log insert by authenticated users"
-  on public.activity_log for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+CREATE POLICY "Authenticated users can insert activity" ON public.activity_log
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
 
+-- Index for faster queries
+CREATE INDEX IF NOT EXISTS idx_activity_log_user ON public.activity_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_client ON public.activity_log(client_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON public.activity_log(created_at DESC);
+
+SELECT 'Activity log table created!' as status;
