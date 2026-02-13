@@ -341,18 +341,6 @@ export default function TeamHub() {
         supabase.from('profiles').select('*').or('is_active.is.null,is_active.eq.true').order('full_name'),
       ])
 
-      console.log('[TeamHub] Fetch results:', {
-        clients: clientsRes.data?.length,
-        clientsError: clientsRes.error,
-        team: teamRes.data?.length,
-        teamError: teamRes.error,
-        teamData: teamRes.data,
-      })
-      
-      if (teamRes.error) {
-        console.error('[TeamHub] Team fetch error:', teamRes.error)
-      }
-      
       setClients(clientsRes.data || [])
       setAdSpend(adSpendRes.data || [])
       setTeamMembers(teamRes.data || [])
