@@ -338,7 +338,7 @@ export default function TeamHub() {
         supabase.from('clients').select('*').neq('is_active', false).order('name'),
         supabase.from('client_team_assignments').select('*'),
         supabase.from('ad_spend').select('*').order('month'),
-        supabase.from('profiles').select('*').in('role', ['team', 'admin']).neq('active', false).order('full_name'),
+        supabase.from('profiles').select('*').in('role', ['team', 'admin']).or('active.eq.true,active.is.null').order('full_name'),
       ])
 
       setClients(clientsRes.data || [])
