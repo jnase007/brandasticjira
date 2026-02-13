@@ -92,9 +92,8 @@ export function AuthProvider({ children }) {
         timeoutId = setTimeout(() => {
           if (mounted && loading) {
             console.warn('[Auth] Timeout - clearing stale data and retrying')
-            // Clear potentially corrupted auth data
-            localStorage.removeItem('sb-auth-token')
-            localStorage.removeItem('supabase.auth.token')
+            // Clear potentially corrupted auth data - use correct storage key
+            localStorage.removeItem('brandastic-auth')
             // Force reload to get fresh state
             setLoading(false)
             setUser(null)
@@ -132,20 +131,37 @@ export function AuthProvider({ children }) {
     // Listen for auth changes - this is the single source of truth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[Auth] Event:', event)
+        console.log('[Auth] Event:', event, session ? 'has session' : 'no session')
 
         if (!mounted) return
+
+        // Handle different auth events
+        if (event === 'TOKEN_REFRESHED') {
+          // Token was refreshed - just update user, don't refetch profile
+          if (session?.user) {
+            setUser(session.user)
+          }
+          return
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
 
         if (session?.user) {
           setUser(session.user)
           
           // On sign in, ensure profile exists
-          if (event === 'SIGNED_IN') {
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
             await createProfileIfNeeded(session.user)
           } else {
             await fetchProfile(session.user.id)
           }
-        } else {
+        } else if (event !== 'TOKEN_REFRESHED') {
+          // Only clear user if it's not just a token refresh
           setUser(null)
           setProfile(null)
         }

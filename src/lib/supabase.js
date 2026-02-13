@@ -14,6 +14,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     detectSessionInUrl: true,
     storage: localStorage,
     storageKey: 'brandastic-auth',
+    flowType: 'pkce', // More secure OAuth flow
   },
   global: {
     headers: {
