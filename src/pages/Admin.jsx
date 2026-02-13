@@ -37,6 +37,8 @@ import {
   User,
   FileText,
   Camera,
+  Bot,
+  UserRound,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -1100,7 +1102,20 @@ export default function Admin() {
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="font-medium">{user.full_name || 'No name'}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{user.full_name || 'No name'}</p>
+                                    {user.is_ai ? (
+                                      <Badge variant="outline" className="text-xs bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30">
+                                        <Bot className="h-3 w-3 mr-1" />
+                                        AI Agent
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30">
+                                        <UserRound className="h-3 w-3 mr-1" />
+                                        Human
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <p className="text-sm text-muted-foreground">{user.email}</p>
                                 </div>
                               </div>
