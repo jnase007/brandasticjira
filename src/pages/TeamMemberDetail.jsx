@@ -92,23 +92,59 @@ export default function TeamMemberDetail() {
 
       setMember(memberData)
 
-      // Fetch time entries for this member
-      const { data: timeData } = await supabase
-        .from('time_entries')
-        .select('*, clients:client_id(id, name, color, slug)')
-        .eq('user_id', memberId)
-        .order('date', { ascending: false })
-        .limit(100)
+      // Fetch time entries for this member (with fallback for schema issues)
+      let timeData = null
+      try {
+        const { data, error } = await supabase
+          .from('time_entries')
+          .select('*, clients:client_id(id, name, color, slug)')
+          .eq('user_id', memberId)
+          .order('date', { ascending: false })
+          .limit(100)
+        
+        if (error) {
+          // Fallback: simple query without joins
+          const { data: fallbackData } = await supabase
+            .from('time_entries')
+            .select('*')
+            .eq('user_id', memberId)
+            .order('created_at', { ascending: false })
+            .limit(100)
+          timeData = fallbackData
+        } else {
+          timeData = data
+        }
+      } catch (e) {
+        console.log('Time entries fetch error:', e)
+      }
 
       setTimeEntries(timeData || [])
 
-      // Fetch tickets assigned to this member
-      const { data: ticketData } = await supabase
-        .from('tickets')
-        .select('*, boards(name, clients(id, name, color)), client:clients(id, name, color, slug)')
-        .eq('assigned_to', memberId)
-        .order('updated_at', { ascending: false })
-        .limit(50)
+      // Fetch tickets assigned to this member (with fallback)
+      let ticketData = null
+      try {
+        const { data, error } = await supabase
+          .from('tickets')
+          .select('*, boards(name, clients(id, name, color)), client:clients(id, name, color, slug)')
+          .eq('assigned_to', memberId)
+          .order('updated_at', { ascending: false })
+          .limit(50)
+        
+        if (error) {
+          // Fallback: simple query
+          const { data: fallbackData } = await supabase
+            .from('tickets')
+            .select('*')
+            .eq('assigned_to', memberId)
+            .order('updated_at', { ascending: false })
+            .limit(50)
+          ticketData = fallbackData
+        } else {
+          ticketData = data
+        }
+      } catch (e) {
+        console.log('Tickets fetch error:', e)
+      }
 
       setTickets(ticketData || [])
 

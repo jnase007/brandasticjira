@@ -140,7 +140,13 @@ export function SmartInsights() {
 
         setInsights(insightsList)
       } catch (error) {
-        console.error('Error generating insights:', error)
+        console.log('Error generating insights (tables may not exist yet):', error?.message || error)
+        // Show welcome insight on error
+        setInsights([{
+          type: 'tip',
+          title: 'Welcome to Brandastic! 👋',
+          description: 'Start by tracking time or completing tasks to see your insights.',
+        }])
       } finally {
         setLoading(false)
       }

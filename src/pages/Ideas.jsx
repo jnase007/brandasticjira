@@ -161,10 +161,16 @@ export default function Ideas() {
     if (!ideaIds?.length) return
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('idea_reactions')
         .select('idea_id, user_id, reaction')
         .in('idea_id', ideaIds)
+      
+      // Gracefully handle missing table
+      if (error) {
+        console.log('Reactions table may not exist yet:', error.message)
+        return
+      }
       
       const reactionsMap = {}
       const userReactionsMap = {}
@@ -183,7 +189,7 @@ export default function Ideas() {
       setReactions(reactionsMap)
       setUserReactions(userReactionsMap)
     } catch (err) {
-      console.log('Reactions table may not exist yet')
+      console.log('Reactions fetch error:', err?.message)
     }
   }, [user?.id])
 
@@ -192,10 +198,16 @@ export default function Ideas() {
     if (!ideaIds?.length) return
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('idea_champions')
         .select('idea_id, user_id, user:profiles(id, full_name, avatar_url)')
         .in('idea_id', ideaIds)
+      
+      // Gracefully handle missing table
+      if (error) {
+        console.log('Champions table may not exist yet:', error.message)
+        return
+      }
       
       const championsMap = {}
       const userChampionedMap = {}
@@ -212,7 +224,7 @@ export default function Ideas() {
       setChampions(championsMap)
       setUserChampioned(userChampionedMap)
     } catch (err) {
-      console.log('Champions table may not exist yet')
+      console.log('Champions fetch error:', err?.message)
     }
   }, [user?.id])
 
