@@ -6,8 +6,13 @@ import {
   Upload, X, Image as ImageIcon, Check, ChevronRight, ChevronLeft,
   ChevronUp, ChevronDown, Minus,
   Sparkles, Plus, Kanban, ArrowRight, Zap, Target, DollarSign,
-  Calendar, Briefcase, MessageSquare
+  Calendar, Briefcase, MessageSquare, Rocket
 } from 'lucide-react'
+import { 
+  CLIENT_TYPES, 
+  CLIENT_TYPE_OPTIONS, 
+  getClientTypeConfig 
+} from '../lib/clientTypes'
 import { supabase } from '../lib/supabase'
 import { cn, slugify } from '../lib/utils'
 import { Button } from './ui/button'
@@ -119,7 +124,9 @@ export default function ClientDialog({
     is_active: true,
     logo_url: '',
     banner_url: '',
-    // New pipeline/engagement fields
+    // Client type classification
+    client_type: CLIENT_TYPES.RETAINER, // retainer, project, personal_saas
+    // Pipeline/engagement fields
     client_status: 'active', // prospect, active, inactive
     engagement_type: 'retainer', // retainer, one_time, hourly, discovery
     estimated_monthly_hours: null,
@@ -164,7 +171,9 @@ export default function ClientDialog({
           is_active: client.is_active !== false,
           logo_url: client.logo_url || '',
           banner_url: client.banner_url || '',
-          // New fields
+          // Client type classification
+          client_type: client.client_type || CLIENT_TYPES.RETAINER,
+          // Pipeline fields
           client_status: client.client_status || 'active',
           engagement_type: client.engagement_type || 'retainer',
           estimated_monthly_hours: client.estimated_monthly_hours || null,
@@ -192,7 +201,9 @@ export default function ClientDialog({
           is_active: true,
           logo_url: '',
           banner_url: '',
-          // New fields default
+          // Client type classification
+          client_type: CLIENT_TYPES.RETAINER,
+          // Pipeline fields default
           client_status: 'active',
           engagement_type: 'retainer',
           estimated_monthly_hours: null,
@@ -428,6 +439,9 @@ export default function ClientDialog({
       if (formData.contact_phone?.trim()) dataToSave.contact_phone = formData.contact_phone.trim()
       if (formData.banner_url) dataToSave.banner_url = formData.banner_url
       if (!client) dataToSave.ticket_prefix = generatePrefix(formData.name.trim())
+      
+      // Client type classification
+      if (formData.client_type) dataToSave.client_type = formData.client_type
       
       // Pipeline fields - wrap in try/catch in case columns don't exist
       if (formData.client_status) dataToSave.client_status = formData.client_status
@@ -770,9 +784,45 @@ export default function ClientDialog({
                           </p>
                         </div>
 
-                        {/* Client Type Toggle */}
+                        {/* Client Type Classification */}
                         <div className="pt-2">
-                          <Label className="text-sm font-medium mb-2 block">Client Type</Label>
+                          <Label className="text-sm font-medium mb-2 block">Client Classification</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {CLIENT_TYPE_OPTIONS.map((option) => {
+                              const Icon = option.icon
+                              const isSelected = formData.client_type === option.value
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ 
+                                    ...prev, 
+                                    client_type: option.value 
+                                  }))}
+                                  className={cn(
+                                    "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center",
+                                    isSelected
+                                      ? `${option.colors.border} ${option.colors.bg}`
+                                      : "border-muted hover:border-brand-orange/50"
+                                  )}
+                                >
+                                  <Icon className={cn(
+                                    "h-5 w-5",
+                                    isSelected ? option.colors.icon : "text-muted-foreground"
+                                  )} />
+                                  <div>
+                                    <p className="font-semibold text-sm">{option.label}</p>
+                                    <p className="text-[10px] text-muted-foreground leading-tight">{option.description.split(' ').slice(0, 3).join(' ')}</p>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Client Status Toggle */}
+                        <div className="pt-2">
+                          <Label className="text-sm font-medium mb-2 block">Client Status</Label>
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               type="button"

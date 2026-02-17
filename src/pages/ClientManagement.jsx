@@ -13,6 +13,12 @@ import {
 import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, formatRelativeDate, getInitials } from '../lib/utils'
+import { 
+  CLIENT_TYPES, 
+  CLIENT_TYPE_OPTIONS, 
+  getClientTypeConfig, 
+  getClientTypeBadgeClasses 
+} from '../lib/clientTypes'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -121,6 +127,7 @@ export default function ClientManagement() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('clients')
   const [statusFilter, setStatusFilter] = useState('active') // 'active', 'inactive', 'all'
+  const [clientTypeFilter, setClientTypeFilter] = useState('all') // 'all', 'retainer', 'project', 'personal_saas'
   
   // Data
   const [clients, setClients] = useState([])
@@ -595,6 +602,7 @@ export default function ClientManagement() {
 
   const filteredClients = clientsByStatus
     .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(c => clientTypeFilter === 'all' || c.client_type === clientTypeFilter)
     .sort((a, b) => {
       // Pinned clients first
       const aPinned = pinnedClients.includes(a.id)
@@ -1021,6 +1029,33 @@ export default function ClientManagement() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {/* Client Type Filter */}
+                  <Select value={clientTypeFilter} onValueChange={setClientTypeFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Filter className="h-3 w-3 text-slate-500" />
+                          All Types
+                        </div>
+                      </SelectItem>
+                      {CLIENT_TYPE_OPTIONS.map((option) => {
+                        const Icon = option.icon
+                        const count = clients.filter(c => c.client_type === option.value).length
+                        return (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <Icon className={cn("h-3 w-3", option.colors.icon)} />
+                              {option.label} ({count})
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
@@ -1084,13 +1119,14 @@ export default function ClientManagement() {
                             : 'Import clients to get started.'
                     }
                   </p>
-                  {(statusFilter !== 'all' || searchQuery) && (
+                  {(statusFilter !== 'all' || searchQuery || clientTypeFilter !== 'all') && (
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => {
                         setStatusFilter('all')
                         setSearchQuery('')
+                        setClientTypeFilter('all')
                       }}
                     >
                       <Filter className="h-4 w-4 mr-2" />
@@ -1161,8 +1197,25 @@ export default function ClientManagement() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold truncate">{client.name}</h3>
+                            {/* Client Type Badge */}
+                            {(() => {
+                              const typeConfig = getClientTypeConfig(client.client_type)
+                              const TypeIcon = typeConfig.icon
+                              return (
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "text-[10px] px-1.5 py-0",
+                                    getClientTypeBadgeClasses(client.client_type)
+                                  )}
+                                >
+                                  <TypeIcon className="h-2.5 w-2.5 mr-0.5" />
+                                  {typeConfig.label}
+                                </Badge>
+                              )
+                            })()}
                             {client.ticket_prefix && (
                               <Badge variant="outline" className="text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-[10px] px-1.5 py-0 font-mono">
                                 {client.ticket_prefix}

@@ -45,6 +45,7 @@ import AnimatedCounter from '../components/AnimatedCounter'
 import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplates'
 import ClientDialog from '../components/ClientDialog'
+import { getClientTypeConfig, getClientTypeBadgeClasses } from '../lib/clientTypes'
 
 // Pipeline stages with colors
 const PIPELINE_STAGES = [
@@ -1705,6 +1706,24 @@ export default function ClientDetail() {
                     {/* Name & Badges */}
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h1 className="text-2xl md:text-3xl font-display font-bold">{client.name}</h1>
+                      
+                      {/* Client Type Badge */}
+                      {(() => {
+                        const typeConfig = getClientTypeConfig(client.client_type)
+                        const TypeIcon = typeConfig.icon
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-xs",
+                              getClientTypeBadgeClasses(client.client_type)
+                            )}
+                          >
+                            <TypeIcon className="h-3 w-3 mr-1" />
+                            {typeConfig.label}
+                          </Badge>
+                        )
+                      })()}
                       
                       {/* Pipeline Stage Badge */}
                       {editingStage ? (

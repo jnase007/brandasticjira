@@ -17,6 +17,7 @@ import { supabase, ensureValidSession } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
 import { cn, formatDate, formatDuration, getInitials } from '../lib/utils'
+import { CLIENT_TYPE_LABELS } from '../lib/clientTypes'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -1290,7 +1291,12 @@ export default function TimeTracking() {
                           className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: c.color || '#F7931E' }}
                         />
-                        {c.name}
+                        <span>{c.name}</span>
+                        {c.client_type && c.client_type !== 'retainer' && (
+                          <span className="text-xs text-muted-foreground">
+                            ({CLIENT_TYPE_LABELS[c.client_type] || c.client_type})
+                          </span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
