@@ -306,7 +306,8 @@ export default function FloatingTimer({
       
       for (const ticket of tasksToSearch) {
         if (searchQuery.trim()) {
-          const { match, score, ranges } = fuzzySearch(searchQuery, ticket.title)
+          const searchText = [ticket.title, ticket.ticket_id].filter(Boolean).join(' ')
+          const { match, score, ranges } = fuzzySearch(searchQuery, searchText)
           if (match) {
             results.push({
               type: 'ticket',

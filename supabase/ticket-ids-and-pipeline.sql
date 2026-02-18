@@ -71,8 +71,11 @@ BEGIN
   INTO v_prefix, v_number
   FROM public.clients
   WHERE id = NEW.client_id;
-  
-  -- Generate ticket ID (e.g., "BRA-1")
+
+  -- Short ticket numbers: cap prefix at 3 chars (e.g. "ADO-1", "BRA-2")
+  v_prefix := UPPER(LEFT(REGEXP_REPLACE(COALESCE(v_prefix, ''), '[^a-zA-Z]', '', 'g'), 3));
+  IF v_prefix = '' THEN v_prefix := 'TKT'; END IF;
+
   v_ticket_id := v_prefix || '-' || v_number;
   
   -- Update the ticket with the generated ID
@@ -121,7 +124,9 @@ BEGIN
     FROM public.clients WHERE id = v_ticket.client_id;
     
     v_prefix := COALESCE(v_ticket.ticket_prefix, UPPER(LEFT(REGEXP_REPLACE(v_ticket.name, '[^a-zA-Z]', '', 'g'), 3)));
-    
+    v_prefix := UPPER(LEFT(REGEXP_REPLACE(COALESCE(v_prefix, ''), '[^a-zA-Z]', '', 'g'), 3));
+    IF v_prefix = '' THEN v_prefix := 'TKT'; END IF;
+
     -- Update ticket
     UPDATE public.tickets 
     SET ticket_id = v_prefix || '-' || v_number
@@ -158,7 +163,10 @@ BEGIN
   INTO v_prefix, v_number
   FROM public.clients
   WHERE id = p_client_id;
-  
+
+  v_prefix := UPPER(LEFT(REGEXP_REPLACE(COALESCE(v_prefix, ''), '[^a-zA-Z]', '', 'g'), 3));
+  IF v_prefix = '' THEN v_prefix := 'TKT'; END IF;
+
   RETURN v_prefix || '-' || v_number;
 END;
 $$ LANGUAGE plpgsql;

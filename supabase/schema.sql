@@ -327,9 +327,9 @@ DECLARE
   v_number INTEGER;
   v_ticket_id TEXT;
 BEGIN
-  -- Get or create counter for client
+  -- Get or create counter for client (short prefix: max 3 chars from slug)
   INSERT INTO public.ticket_counters (client_id, prefix, current_number)
-  SELECT p_client_id, UPPER(LEFT(c.slug, 4)), 0
+  SELECT p_client_id, UPPER(LEFT(REGEXP_REPLACE(COALESCE(c.slug, c.name, ''), '[^a-zA-Z0-9]', '', 'g'), 3)), 0
   FROM public.clients c WHERE c.id = p_client_id
   ON CONFLICT (client_id) DO NOTHING;
 
@@ -339,13 +339,14 @@ BEGIN
   WHERE client_id = p_client_id
   RETURNING prefix, current_number INTO v_prefix, v_number;
 
-  -- Fallback if no counter exists
   IF v_prefix IS NULL THEN
-    v_prefix := 'AGCY';
+    v_prefix := 'TKT';
     v_number := FLOOR(RANDOM() * 10000)::INTEGER;
   END IF;
 
-  v_ticket_id := v_prefix || '-' || v_number;
+  -- Short ticket numbers: always output max 3-char prefix (e.g. ADO-1, BRA-2)
+  v_ticket_id := UPPER(LEFT(REGEXP_REPLACE(v_prefix, '[^a-zA-Z]', '', 'g'), 3)) || '-' || v_number;
+  IF v_ticket_id LIKE '-%' THEN v_ticket_id := 'TKT-' || v_number; END IF;
   RETURN v_ticket_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

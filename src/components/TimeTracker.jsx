@@ -385,55 +385,6 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
         </Button>
       </div>
 
-      {/* Time Entries List */}
-      {timeEntries.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground px-1">
-            Recent Entries
-          </h4>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {timeEntries.map((entry) => (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-start justify-between gap-3 p-3 rounded-lg border bg-card group"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">
-                      {formatDuration(entry.duration_minutes || entry.minutes || 0)}
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-muted-foreground text-xs">
-                      {formatDate(entry.start_time || entry.date, 'MMM d, h:mm a')}
-                    </span>
-                  </div>
-                  {entry.notes && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
-                      {entry.notes}
-                    </p>
-                  )}
-                  {entry.user && (
-                    <p className="text-xs text-muted-foreground/70 mt-1">
-                      by {entry.user.full_name}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => handleDeleteEntry(entry.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Manual Entry Dialog */}
       <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
         <DialogContent>

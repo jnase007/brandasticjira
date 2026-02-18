@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHand
 import { motion, AnimatePresence } from 'framer-motion'
 import { AtSign, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { cn } from '../lib/utils'
+import { cn, linkifySegments } from '../lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 
 /**
@@ -396,28 +396,48 @@ export async function sendMentionNotifications({
 }
 
 /**
- * Component to render text with highlighted mentions
+ * Component to render text with highlighted @mentions and clickable URLs
  */
 export function MentionText({ text, className }) {
   if (!text) return null
 
-  // Replace @Name with styled spans
-  const parts = text.split(/(@[^@\s]+(?:\s[^@\s]+)?)/g)
+  // Split by @mentions first
+  const mentionParts = text.split(/(@[^@\s]+(?:\s[^@\s]+)?)/g)
 
   return (
-    <span className={className}>
-      {parts.map((part, index) => {
+    <span className={cn('whitespace-pre-wrap', className)}>
+      {mentionParts.map((part, index) => {
         if (part.startsWith('@')) {
           return (
-            <span 
-              key={index} 
+            <span
+              key={index}
               className="text-brand-orange font-medium bg-brand-orange/10 px-1 rounded"
             >
               {part}
             </span>
           )
         }
-        return part
+        // Linkify URLs in non-mention text
+        const segments = linkifySegments(part)
+        return (
+          <span key={index}>
+            {segments.map((seg, i) =>
+              seg.type === 'link' ? (
+                <a
+                  key={i}
+                  href={seg.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-orange hover:underline underline-offset-2"
+                >
+                  {seg.value}
+                </a>
+              ) : (
+                seg.value
+              )
+            )}
+          </span>
+        )
       })}
     </span>
   )

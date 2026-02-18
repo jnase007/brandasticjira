@@ -980,14 +980,14 @@ export default function ClientManagement() {
         {/* Clients Tab */}
         <TabsContent value="clients">
           <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
+            <CardHeader className="min-w-0 overflow-hidden">
+              <div className="flex flex-col gap-4 min-w-0 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
                   <CardTitle className="text-slate-900 dark:text-white">Client Directory</CardTitle>
                   <CardDescription className="text-slate-500 dark:text-white/50">All clients with portal access</CardDescription>
                 </div>
-                <div className="flex gap-3 items-center">
-                  <div className="relative w-64">
+                <div className="flex flex-wrap gap-2 items-center min-w-0 md:gap-3 md:flex-nowrap">
+                  <div className="relative w-full min-w-0 md:w-64 shrink-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-white/50" />
                     <Input
                       placeholder="Search clients... (⌘K)"
@@ -999,7 +999,7 @@ export default function ClientManagement() {
                   
                   {/* Status Filter */}
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-full min-w-[8rem] md:w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1032,7 +1032,7 @@ export default function ClientManagement() {
                   
                   {/* Client Type Filter */}
                   <Select value={clientTypeFilter} onValueChange={setClientTypeFilter}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-full min-w-[8rem] md:w-40">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>

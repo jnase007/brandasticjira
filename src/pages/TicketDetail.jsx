@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, useLocation, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import {
   Target,
   ClipboardList,
   RefreshCw,
+  Pencil,
 } from 'lucide-react'
 import {
   getTicket,
@@ -45,6 +46,8 @@ import {
   logActivity,
   getTeamMembers,
   getTimeEntries,
+  deleteTimeEntry,
+  updateTimeEntry,
   uploadAttachment,
   deleteAttachment,
   ensureValidSession,
@@ -242,8 +245,9 @@ function StatusPipeline({ currentStatus, onStatusChange, disabled, ticketType = 
 }
 
 export default function TicketDetail() {
-  const { ticketId } = useParams()
+  const { ticketId, clientSlug } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, profile, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
@@ -262,14 +266,25 @@ export default function TicketDetail() {
   const [sendingComment, setSendingComment] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
+  const [editingTimeEntry, setEditingTimeEntry] = useState(null)
+  const [savingTimeEntry, setSavingTimeEntry] = useState(false)
 
   const activeTicketId = resolvedTicketId || (isUuid(ticketId) ? ticketId : null)
 
-  // Autosave function
+  const startAfterDueError = useMemo(() => {
+    const start = editedTicket.start_date
+    const due = editedTicket.due_date
+    if (!start || !due) return null
+    if (new Date(start) > new Date(due)) return 'Start date cannot be after due date.'
+    return null
+  }, [editedTicket.start_date, editedTicket.due_date])
+
+  // Autosave function - use server response so Updated and other fields stay in sync
   const autosaveFn = useCallback(async (data) => {
     if (!activeTicketId || !editMode) return
-    
-    await updateTicket(activeTicketId, {
+    if (data.start_date && data.due_date && new Date(data.start_date) > new Date(data.due_date)) return
+
+    const res = await updateTicket(activeTicketId, {
       title: data.title,
       description: data.description,
       status: data.status,
@@ -280,8 +295,7 @@ export default function TicketDetail() {
       estimated_hours: data.estimated_hours || null,
       tags: data.tags || [],
     })
-    
-    setTicket((prev) => ({ ...prev, ...data }))
+    if (res.data) setTicket((prev) => ({ ...prev, ...res.data }))
   }, [activeTicketId, editMode])
 
   // Use autosave hook
@@ -368,6 +382,18 @@ export default function TicketDetail() {
     }
     fetchData()
   }, [fetchData, authLoading, user?.id])
+
+  // Replace URL with short ticket key when page was opened with UUID (so address bar shows e.g. ADO-1)
+  useEffect(() => {
+    if (!ticket?.ticket_id || !isUuid(ticketId)) return
+    const slug = ticket.client?.slug || clientSlug
+    const canonicalPath = slug
+      ? `/clients/${slug}/tickets/${ticket.ticket_id}`
+      : `/tickets/${ticket.ticket_id}`
+    if (location.pathname !== canonicalPath) {
+      navigate(canonicalPath, { replace: true })
+    }
+  }, [ticket?.id, ticket?.ticket_id, ticket?.client?.slug, ticketId, clientSlug, location.pathname, navigate])
 
   // Real-time comments
   useCommentsRealtime(activeTicketId, {
@@ -640,6 +666,10 @@ export default function TicketDetail() {
   }
 
   const boardLink = ticket?.board_id ? `/boards/${ticket.board_id}` : '/boards'
+  const displayTicketKey = (() => {
+    const key = ticket?.ticket_id || (ticket?.id ? `TASK-${String(ticket.id).slice(0, 8)}` : ticketId) || ''
+    return String(key).trim() || '—'
+  })()
 
   // Handle status change from pipeline
   const handleStatusChange = async (newStatus) => {
@@ -743,21 +773,28 @@ export default function TicketDetail() {
             <span className="hidden sm:inline">Back</span>
           </Button>
           <div>
-            {/* Ticket Key - Prominent with copy button */}
+            {/* Ticket number - always visible at top of page (QA: ticket key on task) */}
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-lg font-bold text-brand-orange bg-brand-orange/10 px-2.5 py-0.5 rounded-md">
-                {ticket.ticket_id}
+              <span
+                className="inline-flex items-center font-mono text-base font-semibold min-w-[4rem] text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/50 border border-orange-200 dark:border-orange-700 px-2.5 py-1 rounded-md"
+                title="Ticket number"
+              >
+                {displayTicketKey}
               </span>
               <Button 
                 variant="ghost" 
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-brand-orange"
                 onClick={() => {
-                  const shortUrl = `${window.location.origin}/clients/${ticket.client?.slug || ticket.client_id}/tickets/${ticket.ticket_id}`
+                  const key = ticket.ticket_id || displayTicketKey
+                  const path = (ticket.client?.slug || ticket.client_id)
+                    ? `/clients/${ticket.client?.slug || ticket.client_id}/tickets/${key}`
+                    : `/tickets/${key}`
+                  const shortUrl = `${window.location.origin}${path}`
                   navigator.clipboard.writeText(shortUrl)
                   toast({
                     title: 'Link copied!',
-                    description: `${ticket.ticket_id} link copied to clipboard`,
+                    description: `${displayTicketKey} link copied to clipboard`,
                     variant: 'success',
                   })
                 }}
@@ -804,9 +841,20 @@ export default function TicketDetail() {
                 )}
               </AnimatePresence>
               
-              <Button variant="outline" onClick={() => {
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditMode(false)
+                  setEditedTicket(ticket)
+                }}
+                className="text-muted-foreground"
+              >
+                Close
+              </Button>
+              <Button variant="outline" onClick={async () => {
+                await fetchData()
                 setEditMode(false)
-                setEditedTicket(ticket)
               }}>
                 Cancel
               </Button>
@@ -1064,9 +1112,14 @@ export default function TicketDetail() {
                       type="date"
                       value={editedTicket.due_date || ''}
                       onChange={(e) => setEditedTicket((prev) => ({ ...prev, due_date: e.target.value }))}
-                      className="mt-1.5"
+                      className={cn("mt-1.5", startAfterDueError && "border-destructive")}
                     />
                   </div>
+                  {startAfterDueError && (
+                    <p className="col-span-2 text-sm text-destructive" role="alert">
+                      {startAfterDueError}
+                    </p>
+                  )}
                   <div>
                     <Label>Estimated Hours</Label>
                     <Input
@@ -1364,11 +1417,37 @@ export default function TicketDetail() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold">{formatDuration(entry.minutes || 0)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(entry.date || entry.created_at)}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="text-sm font-semibold w-16 text-right">
+                            {formatDuration(entry.minutes ?? entry.duration_minutes ?? 0)}
                           </p>
+                          <p className="text-xs text-muted-foreground w-24 text-right">
+                            {formatDate(entry.date || entry.start_time || entry.created_at)}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => setEditingTimeEntry(entry)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={async () => {
+                              const { error } = await deleteTimeEntry(entry.id)
+                              if (error) {
+                                toast({ title: 'Failed to delete entry', variant: 'destructive' })
+                                return
+                              }
+                              toast({ title: 'Entry removed' })
+                              fetchData()
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     ))
@@ -1448,6 +1527,81 @@ export default function TicketDetail() {
           </motion.div>
         </div>
       </div>
+
+      {/* Edit Time Entry Dialog */}
+      <Dialog open={!!editingTimeEntry} onOpenChange={(open) => !open && setEditingTimeEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Time Entry</DialogTitle>
+          </DialogHeader>
+          {editingTimeEntry && (
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                const form = e.target
+                const minutes = parseInt(form.minutes?.value || '0', 10)
+                const date = form.date?.value || editingTimeEntry.date
+                const notes = form.notes?.value ?? editingTimeEntry.notes ?? ''
+                setSavingTimeEntry(true)
+                const { error } = await updateTimeEntry(editingTimeEntry.id, {
+                  minutes,
+                  duration_minutes: minutes,
+                  date: date.includes('T') ? date.split('T')[0] : date,
+                  notes: notes || null,
+                  description: notes || null,
+                })
+                setSavingTimeEntry(false)
+                if (error) {
+                  toast({ title: 'Failed to update entry', variant: 'destructive' })
+                  return
+                }
+                toast({ title: 'Entry updated' })
+                setEditingTimeEntry(null)
+                fetchData()
+              }}
+            >
+              <div>
+                <Label>Minutes</Label>
+                <Input
+                  type="number"
+                  name="minutes"
+                  min={0}
+                  defaultValue={editingTimeEntry.minutes ?? editingTimeEntry.duration_minutes ?? 0}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  name="date"
+                  defaultValue={(editingTimeEntry.date || editingTimeEntry.start_time || editingTimeEntry.created_at || '').toString().slice(0, 10)}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  name="notes"
+                  rows={2}
+                  defaultValue={editingTimeEntry.notes || editingTimeEntry.description || ''}
+                  className="mt-1.5"
+                  placeholder="What was worked on?"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingTimeEntry(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={savingTimeEntry}>
+                  {savingTimeEntry ? 'Saving...' : 'Save'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

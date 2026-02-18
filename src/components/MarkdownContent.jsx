@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ExternalLink, FileText, Download, X, ZoomIn } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { cn, linkifySegments } from '../lib/utils'
 
 /**
  * Renders markdown content with proper image/link display
@@ -165,13 +165,29 @@ export default function MarkdownContent({
   const hasMarkdown = content.includes('![') || content.includes('](')
 
   if (!hasMarkdown) {
+    const segments = linkifySegments(content)
     return (
       <p 
         className={cn("text-muted-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors", className)}
         onClick={onClick}
         title="Click to edit"
       >
-        {content}
+        {segments.map((seg, i) =>
+          seg.type === 'link' ? (
+            <a
+              key={i}
+              href={seg.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-brand-orange hover:underline underline-offset-2"
+            >
+              {seg.value}
+            </a>
+          ) : (
+            seg.value
+          )
+        )}
       </p>
     )
   }
@@ -185,9 +201,25 @@ export default function MarkdownContent({
       >
         {renderedContent?.map((part) => {
           if (part.type === 'text') {
+            const segments = linkifySegments(part.content)
             return (
               <span key={part.key} className="text-muted-foreground whitespace-pre-wrap">
-                {part.content}
+                {segments.map((seg, i) =>
+                  seg.type === 'link' ? (
+                    <a
+                      key={i}
+                      href={seg.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-brand-orange hover:underline underline-offset-2"
+                    >
+                      {seg.value}
+                    </a>
+                  ) : (
+                    seg.value
+                  )
+                )}
               </span>
             )
           }

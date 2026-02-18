@@ -105,6 +105,28 @@ export default function TaskBoard() {
     ticket_type: 'task',
   }
   const [newTask, setNewTask] = useState(emptyTaskForm)
+  const [createDialogClientRate, setCreateDialogClientRate] = useState(null)
+  
+  // Fetch client rate when client is selected in create dialog
+  useEffect(() => {
+    if (!newTask.client_id) {
+      setCreateDialogClientRate(null)
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('client_rates')
+      .select('hourly_rate')
+      .eq('client_id', newTask.client_id)
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data?.hourly_rate) setCreateDialogClientRate(data.hourly_rate)
+        else if (!cancelled) setCreateDialogClientRate(null)
+      })
+    return () => { cancelled = true }
+  }, [newTask.client_id])
   
   // Reset form when dialog closes
   const handleCreateDialogChange = (open) => {
@@ -840,26 +862,41 @@ export default function TaskBoard() {
               <Plus className="h-5 w-5 text-brand-orange" />
               Create New Task
             </DialogTitle>
-            {/* Show billing type when client is selected */}
+            {/* Show client type and rate when client is selected */}
             {newTask.client_id && (() => {
-              const selectedClient = clients.find(c => c.id === newTask.client_id)
-              return selectedClient?.engagement_type ? (
-                <div className="flex items-center gap-2 mt-2">
-                  <div className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-medium",
-                    selectedClient.engagement_type === 'retainer' 
-                      ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400"
-                      : "bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400"
-                  )}>
-                    {selectedClient.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 A La Carte'}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {selectedClient.engagement_type === 'retainer' 
-                      ? 'Time will be tracked against monthly retainer'
-                      : 'This will be billed as project work'}
-                  </span>
+              const selectedClientData = clients.find(c => c.id === newTask.client_id)
+              const hasType = selectedClientData?.engagement_type
+              const hasRate = createDialogClientRate != null
+              if (!hasType && !hasRate) return null
+              return (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {hasType && (
+                    <div className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium",
+                      selectedClientData.engagement_type === 'retainer' 
+                        ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400"
+                        : "bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400"
+                    )}>
+                      {selectedClientData.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 A La Carte'}
+                    </div>
+                  )}
+                  {hasRate && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                        ${createDialogClientRate}/hr
+                      </span>
+                    </div>
+                  )}
+                  {hasType && (
+                    <span className="text-xs text-muted-foreground">
+                      {selectedClientData.engagement_type === 'retainer' 
+                        ? 'Time will be tracked against monthly retainer'
+                        : 'This will be billed as project work'}
+                    </span>
+                  )}
                 </div>
-              ) : null
+              )
             })()}
           </DialogHeader>
           

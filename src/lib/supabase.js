@@ -150,7 +150,7 @@ export async function getBoard(boardId) {
     .from('boards')
     .select(`
       *,
-      client:clients(id, name, color, logo_url, slug, monthly_hours)
+      client:clients(id, name, color, logo_url, slug, monthly_hours, engagement_type)
     `)
     .eq('id', boardId)
     .single()
@@ -654,6 +654,20 @@ export async function createManualTimeEntry(entryData) {
       .single())
   }
 
+  return { data, error }
+}
+
+export async function updateTimeEntry(entryId, updates) {
+  const payload = { ...updates }
+  if (payload.minutes != null && payload.duration_minutes === undefined) {
+    payload.duration_minutes = payload.minutes
+  }
+  const { data, error } = await supabase
+    .from('time_entries')
+    .update(payload)
+    .eq('id', entryId)
+    .select()
+    .single()
   return { data, error }
 }
 

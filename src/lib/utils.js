@@ -275,6 +275,34 @@ export function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
+/** Match http/https URLs (bare URLs in text) for linkification. Only allows http(s) for safety. */
+const BARE_URL_REGEX = /https?:\/\/[^\s<>"']+/g
+
+/**
+ * Split text into segments of plain text and link objects. Use to render URLs as clickable links.
+ * @returns Array<{ type: 'text' | 'link', value: string, href?: string }>
+ */
+export function linkifySegments(text) {
+  if (!text || typeof text !== 'string') return [{ type: 'text', value: text || '' }]
+  const segments = []
+  let lastIndex = 0
+  let match
+  BARE_URL_REGEX.lastIndex = 0
+  while ((match = BARE_URL_REGEX.exec(text)) !== null) {
+    const rawUrl = match[0]
+    const href = rawUrl.replace(/[.,;:)!?]+$/, '') // trim trailing punctuation from href
+    if (lastIndex < match.index) {
+      segments.push({ type: 'text', value: text.slice(lastIndex, match.index) })
+    }
+    segments.push({ type: 'link', value: href, href })
+    lastIndex = match.index + rawUrl.length
+  }
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', value: text.slice(lastIndex) })
+  }
+  return segments.length ? segments : [{ type: 'text', value: text }]
+}
+
 /**
  * Parse ticket ID (e.g., "AGENCY-123") to get parts
  */

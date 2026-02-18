@@ -227,7 +227,7 @@ export function FileUpload({
     ? 'image/*' 
     : accept === 'document' 
       ? '.pdf,.doc,.docx,.txt,.csv'
-      : '*'
+      : 'image/*,.pdf,application/pdf,.doc,.docx,.txt,.csv,application/*'
 
   return (
     <div className={cn("space-y-4", className)}>
