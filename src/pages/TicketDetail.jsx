@@ -798,8 +798,11 @@ export default function TicketDetail() {
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-brand-orange"
                 onClick={() => {
-                  // Copy a URL that actually resolves: use real ticket_id from DB, or full UUID
-                  const linkKey = ticket.ticket_id?.trim() || ticket.id
+                  // Copy a URL that resolves: use short ticket_id (e.g. EQM-1) only if it's the real DB key; else use UUID so lookup works
+                  const shortKeyPattern = /^[A-Z]{2,3}-\d+$/
+                  const linkKey = (ticket.ticket_id?.trim() && shortKeyPattern.test(ticket.ticket_id.trim()))
+                    ? ticket.ticket_id.trim()
+                    : ticket.id
                   const path = (ticket.client?.slug || ticket.client_id)
                     ? `/clients/${ticket.client?.slug || ticket.client_id}/tickets/${linkKey}`
                     : `/tickets/${linkKey}`
