@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useLocation, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -258,6 +258,7 @@ export default function TicketDetail() {
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
+  const editSnapshotRef = useRef(null) // ticket state when edit mode was opened (for Cancel revert)
   const [editedTicket, setEditedTicket] = useState({})
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -278,6 +279,16 @@ export default function TicketDetail() {
     if (new Date(start) > new Date(due)) return 'Start date cannot be after due date.'
     return null
   }, [editedTicket.start_date, editedTicket.due_date])
+
+  // Snapshot ticket only when entering edit mode so Cancel can revert to that state
+  const prevEditModeRef = useRef(false)
+  useEffect(() => {
+    if (editMode && !prevEditModeRef.current && ticket) {
+      editSnapshotRef.current = { ...ticket }
+    }
+    if (!editMode) editSnapshotRef.current = null
+    prevEditModeRef.current = editMode
+  }, [editMode, ticket])
 
   // Autosave function - use server response so Updated and other fields stay in sync
   const autosaveFn = useCallback(async (data) => {
@@ -383,9 +394,10 @@ export default function TicketDetail() {
     fetchData()
   }, [fetchData, authLoading, user?.id])
 
-  // Replace URL with short ticket key when page was opened with UUID (so address bar shows e.g. ADO-1)
+  // Use short ticket URL (e.g. /clients/brandastic/tickets/BC-1) whenever we have a short ticket_id
+  const isShortTicketKey = ticket?.ticket_id && /^[A-Z]{2,3}-\d+$/.test(ticket.ticket_id)
   useEffect(() => {
-    if (!ticket?.ticket_id || !isUuid(ticketId)) return
+    if (!ticket?.ticket_id || !isShortTicketKey) return
     const slug = ticket.client?.slug || clientSlug
     const canonicalPath = slug
       ? `/clients/${slug}/tickets/${ticket.ticket_id}`
@@ -393,7 +405,7 @@ export default function TicketDetail() {
     if (location.pathname !== canonicalPath) {
       navigate(canonicalPath, { replace: true })
     }
-  }, [ticket?.id, ticket?.ticket_id, ticket?.client?.slug, ticketId, clientSlug, location.pathname, navigate])
+  }, [ticket?.id, ticket?.ticket_id, ticket?.client?.slug, ticketId, clientSlug, location.pathname, navigate, isShortTicketKey])
 
   // Real-time comments
   useCommentsRealtime(activeTicketId, {
@@ -566,11 +578,11 @@ export default function TicketDetail() {
 
       if (newAttachments.length > 0) {
         const updatedAttachments = [...(ticket.attachments || []), ...newAttachments]
-        const { error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+        const { data, error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
 
         if (error) throw error
 
-        setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+        setTicket((prev) => (data ? { ...prev, ...data } : { ...prev, attachments: updatedAttachments }))
         toast({
           title: 'Files uploaded',
           description: `${newAttachments.length} file(s) uploaded successfully.`,
@@ -594,8 +606,8 @@ export default function TicketDetail() {
     try {
       await deleteAttachment(attachment.path)
       const updatedAttachments = ticket.attachments.filter((a) => a.path !== attachment.path)
-      await updateTicket(activeTicketId, { attachments: updatedAttachments })
-      setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+      const { data } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+      setTicket((prev) => (data ? { ...prev, ...data } : { ...prev, attachments: updatedAttachments }))
       toast({
         title: 'Attachment removed',
       })
@@ -786,12 +798,13 @@ export default function TicketDetail() {
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-brand-orange"
                 onClick={() => {
-                  const key = ticket.ticket_id || displayTicketKey
+                  // Copy a URL that actually resolves: use real ticket_id from DB, or full UUID
+                  const linkKey = ticket.ticket_id?.trim() || ticket.id
                   const path = (ticket.client?.slug || ticket.client_id)
-                    ? `/clients/${ticket.client?.slug || ticket.client_id}/tickets/${key}`
-                    : `/tickets/${key}`
-                  const shortUrl = `${window.location.origin}${path}`
-                  navigator.clipboard.writeText(shortUrl)
+                    ? `/clients/${ticket.client?.slug || ticket.client_id}/tickets/${linkKey}`
+                    : `/tickets/${linkKey}`
+                  const url = `${window.location.origin}${path}`
+                  navigator.clipboard.writeText(url)
                   toast({
                     title: 'Link copied!',
                     description: `${displayTicketKey} link copied to clipboard`,
@@ -812,50 +825,86 @@ export default function TicketDetail() {
         <div className="flex items-center gap-2">
           {editMode ? (
             <>
-              {/* Autosave indicator */}
-              <AnimatePresence>
-                {autosaveEnabled && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    className="flex items-center gap-2 text-sm text-muted-foreground mr-2"
-                  >
-                    {isAutosaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
-                        <span>Saving...</span>
-                      </>
-                    ) : hasUnsavedChanges ? (
-                      <>
-                        <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                        <span>Unsaved</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4 text-green-500" />
-                        <span className="text-green-500">Saved</span>
-                      </>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
+              {/* Saved indicator + Close (grouped so Close is clearly to the right of Saved) */}
+              <div className="flex items-center gap-2 mr-2">
+                <AnimatePresence>
+                  {autosaveEnabled && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      className="flex items-center gap-2 text-sm text-muted-foreground"
+                    >
+                      {isAutosaving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
+                          <span>Saving...</span>
+                        </>
+                      ) : hasUnsavedChanges ? (
+                        <>
+                          <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                          <span>Unsaved</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 text-green-500" />
+                          <span className="text-green-500">Saved</span>
+                        </>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditMode(false)
+                    setEditedTicket(ticket)
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={() => {
+                onClick={async () => {
+                  const snapshot = editSnapshotRef.current
+                  if (snapshot && activeTicketId) {
+                    try {
+                      const { data, error } = await updateTicket(activeTicketId, {
+                        title: snapshot.title,
+                        description: snapshot.description,
+                        status: snapshot.status,
+                        assigned_to: snapshot.assigned_to ?? null,
+                        reporter_id: snapshot.reporter_id ?? null,
+                        due_date: snapshot.due_date ?? null,
+                        start_date: snapshot.start_date ?? null,
+                        estimated_hours: snapshot.estimated_hours ?? null,
+                        tags: snapshot.tags ?? [],
+                      })
+                      if (error) throw error
+                      if (data) {
+                        setTicket(data)
+                        setEditedTicket(data)
+                      } else {
+                        setTicket(snapshot)
+                        setEditedTicket(snapshot)
+                      }
+                    } catch (err) {
+                      toast({
+                        title: 'Error',
+                        description: 'Could not revert changes.',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                  } else {
+                    await fetchData()
+                  }
                   setEditMode(false)
-                  setEditedTicket(ticket)
                 }}
-                className="text-muted-foreground"
               >
-                Close
-              </Button>
-              <Button variant="outline" onClick={async () => {
-                await fetchData()
-                setEditMode(false)
-              }}>
                 Cancel
               </Button>
               {!autosaveEnabled && (
@@ -966,9 +1015,9 @@ export default function TicketDetail() {
                           uploadedAt: file.uploadedAt,
                         },
                       ]
-                      const { error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+                      const { data, error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
                       if (!error) {
-                        setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+                        setTicket((prev) => (data ? { ...prev, ...data } : { ...prev, attachments: updatedAttachments }))
                       }
                     }}
                     bucket="documents"
@@ -1103,7 +1152,8 @@ export default function TicketDetail() {
                       type="date"
                       value={editedTicket.start_date || ''}
                       onChange={(e) => setEditedTicket((prev) => ({ ...prev, start_date: e.target.value }))}
-                      className="mt-1.5"
+                      className={cn("mt-1.5", startAfterDueError && "border-destructive")}
+                      aria-invalid={!!startAfterDueError}
                     />
                   </div>
                   <div>
@@ -1113,10 +1163,12 @@ export default function TicketDetail() {
                       value={editedTicket.due_date || ''}
                       onChange={(e) => setEditedTicket((prev) => ({ ...prev, due_date: e.target.value }))}
                       className={cn("mt-1.5", startAfterDueError && "border-destructive")}
+                      aria-invalid={!!startAfterDueError}
                     />
                   </div>
                   {startAfterDueError && (
-                    <p className="col-span-2 text-sm text-destructive" role="alert">
+                    <p className="col-span-2 text-sm text-destructive font-medium flex items-center gap-1.5" role="alert">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
                       {startAfterDueError}
                     </p>
                   )}
@@ -1370,7 +1422,7 @@ export default function TicketDetail() {
                         uploadedAt: file.uploadedAt,
                       },
                     ]
-                    const { error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+                    const { data, error } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
                     if (error) {
                       toast({
                         title: 'Error',
@@ -1379,15 +1431,15 @@ export default function TicketDetail() {
                       })
                       return
                     }
-                    setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+                    setTicket((prev) => (data ? { ...prev, ...data } : { ...prev, attachments: updatedAttachments }))
                   }}
                   onRemove={async (file) => {
                     // Remove from ticket attachments
                     const updatedAttachments = (ticket.attachments || []).filter(
                       (a) => a.path !== file.path && a.url !== file.url
                     )
-                    await updateTicket(activeTicketId, { attachments: updatedAttachments })
-                    setTicket((prev) => ({ ...prev, attachments: updatedAttachments }))
+                    const { data } = await updateTicket(activeTicketId, { attachments: updatedAttachments })
+                    setTicket((prev) => (data ? { ...prev, ...data } : { ...prev, attachments: updatedAttachments }))
                   }}
                 />
               </TabsContent>
@@ -1401,8 +1453,8 @@ export default function TicketDetail() {
                   ) : (
                     timeEntries.map((entry) => (
                       <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/30">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar className="h-8 w-8">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <Avatar className="h-8 w-8 shrink-0">
                             <AvatarImage src={entry.user?.avatar_url} />
                             <AvatarFallback className="text-xs">
                               {getInitials(entry.user?.full_name || 'NA')}
@@ -1415,20 +1467,21 @@ export default function TicketDetail() {
                             <p className="text-xs text-muted-foreground truncate">
                               {entry.description || entry.notes || 'Time entry'}
                             </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {formatDate(entry.date || entry.start_time || entry.created_at)}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <p className="text-sm font-semibold w-16 text-right">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-sm font-semibold w-14 text-right tabular-nums" title="Time">
                             {formatDuration(entry.minutes ?? entry.duration_minutes ?? 0)}
-                          </p>
-                          <p className="text-xs text-muted-foreground w-24 text-right">
-                            {formatDate(entry.date || entry.start_time || entry.created_at)}
-                          </p>
+                          </span>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => setEditingTimeEntry(entry)}
+                            title="Edit entry"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -1436,6 +1489,7 @@ export default function TicketDetail() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            title="Delete entry"
                             onClick={async () => {
                               const { error } = await deleteTimeEntry(entry.id)
                               if (error) {

@@ -858,18 +858,25 @@ export default function TaskBoard() {
       <Dialog open={createDialogOpen} onOpenChange={handleCreateDialogChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-brand-orange" />
-              Create New Task
-            </DialogTitle>
-            {/* Show client type and rate when client is selected */}
-            {newTask.client_id && (() => {
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-brand-orange" />
+                Create New Task
+              </DialogTitle>
+            </div>
+            {newTask.client_id ? (
+            <div className="flex items-center justify-between gap-4 mt-1">
+              <p className="text-sm text-muted-foreground">
+                Create a task and assign it to a team member
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+            {(() => {
               const selectedClientData = clients.find(c => c.id === newTask.client_id)
               const hasType = selectedClientData?.engagement_type
               const hasRate = createDialogClientRate != null
               if (!hasType && !hasRate) return null
               return (
-                <div className="flex flex-wrap items-center gap-2 mt-2">
+                <>
                   {hasType && (
                     <div className={cn(
                       "px-2.5 py-1 rounded-lg text-xs font-medium",
@@ -886,6 +893,7 @@ export default function TaskBoard() {
                       <span className="text-sm font-semibold text-green-700 dark:text-green-400">
                         ${createDialogClientRate}/hr
                       </span>
+                      <span className="text-xs text-green-600 dark:text-green-500">client rate</span>
                     </div>
                   )}
                   {hasType && (
@@ -895,9 +903,12 @@ export default function TaskBoard() {
                         : 'This will be billed as project work'}
                     </span>
                   )}
-                </div>
+                </>
               )
             })()}
+              </div>
+            </div>
+            ) : null}
           </DialogHeader>
           
           <div className="space-y-4 py-4">

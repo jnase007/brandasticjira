@@ -330,9 +330,10 @@ export async function createTicket(ticketData) {
 }
 
 export async function updateTicket(ticketId, updates) {
+  const payload = { ...updates, updated_at: new Date().toISOString() }
   const { data: ticket, error } = await supabase
     .from('tickets')
-    .update(updates)
+    .update(payload)
     .eq('id', ticketId)
     .select('*')
     .single()

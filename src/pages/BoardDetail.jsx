@@ -668,8 +668,11 @@ export default function BoardDetail() {
       <Dialog open={createDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>Create New Task</DialogTitle>
+            <DialogTitle>Create New Task</DialogTitle>
+            <div className="flex items-center justify-between gap-4 mt-1">
+              <p className="text-sm text-muted-foreground">
+                Create a task and assign it to a team member
+              </p>
               <div className="flex items-center gap-2">
                 {/* Billing Type Indicator */}
                 {board?.client?.engagement_type && (
@@ -688,7 +691,7 @@ export default function BoardDetail() {
                   <span className="text-sm font-semibold text-green-700 dark:text-green-400">
                     ${clientRate}/hr
                   </span>
-                  <span className="text-xs text-green-600 dark:text-green-500">rate</span>
+                  <span className="text-xs text-green-600 dark:text-green-500">client rate</span>
                 </div>
               </div>
             </div>

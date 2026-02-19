@@ -235,7 +235,7 @@ export default function FloatingTimer({
         const { data: ticketsData, error: ticketsError } = await supabase
           .from('tickets')
           .select(`
-            id, title, ticket_id,
+            id, title, ticket_id, client_id,
             boards (id, name, client_id, clients (id, name, color))
           `)
           .order('updated_at', { ascending: false })
@@ -257,11 +257,11 @@ export default function FloatingTimer({
     loadData()
   }, [])
 
-  // Get tasks for selected client
+  // Get tasks for selected client (match by ticket.client_id or board's client)
   const clientTasks = useMemo(() => {
     if (!selectedClient) return []
     return tickets.filter(ticket => {
-      const ticketClientId = ticket.boards?.clients?.id || ticket.boards?.client_id
+      const ticketClientId = ticket.client_id || ticket.boards?.clients?.id || ticket.boards?.client_id
       return ticketClientId === selectedClient.id
     })
   }, [selectedClient, tickets])

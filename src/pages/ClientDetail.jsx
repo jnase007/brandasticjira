@@ -354,10 +354,10 @@ export default function ClientDetail() {
 
       setTimeEntries(normalizedTimeEntries)
 
-      // Fetch tickets for this client
+      // Fetch tickets for this client (include boards.id so board counts match task list)
       const { data: ticketData } = await supabase
         .from('tickets')
-        .select('*, boards(name)')
+        .select('*, boards(id, name)')
         .eq('client_id', resolvedClientId)
         .order('updated_at', { ascending: false })
         .limit(50)
@@ -2606,9 +2606,15 @@ export default function ClientDetail() {
                                 <span className="font-medium text-sm truncate">{board.name}</span>
                               </div>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{tickets.filter(t => t.board_id === board.id && normalizeStatus(t.status) !== 'closed').length} active</span>
+                                <span>{tickets.filter(t => {
+                                  const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
+                                  return onBoard && normalizeStatus(t.status) !== 'closed'
+                                }).length} active</span>
                                 <span>•</span>
-                                <span className="text-green-600">{tickets.filter(t => t.board_id === board.id && normalizeStatus(t.status) === 'closed').length} closed</span>
+                                <span className="text-green-600">{tickets.filter(t => {
+                                  const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
+                                  return onBoard && normalizeStatus(t.status) === 'closed'
+                                }).length} closed</span>
                               </div>
                             </Link>
                           ))}
