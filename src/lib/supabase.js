@@ -749,7 +749,7 @@ export async function uploadAttachment(file, clientId, ticketId) {
 
   const { data, error } = await supabase.storage
     .from('documents')
-    .upload(filePath, file)
+    .upload(filePath, file, { contentType: file.type || undefined })
 
   if (error) {
     return { data: null, error }

@@ -27,6 +27,14 @@ const ALLOWED_TYPES = {
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 
+// Sanitize filename for Supabase Storage key (no spaces or special chars)
+function sanitizeStorageName(name) {
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : ''
+  const base = name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : name
+  const safe = base.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '')
+  return (safe || 'file').slice(0, 200) + ext
+}
+
 export function FileUpload({
   bucket = 'documents',
   folder = '',
@@ -62,7 +70,8 @@ export function FileUpload({
 
   // Upload file to Supabase
   const uploadFile = async (file) => {
-    const fileId = `${Date.now()}-${file.name}`
+    const safeName = sanitizeStorageName(file.name)
+    const fileId = `${Date.now()}-${safeName}`
     const filePath = folder ? `${folder}/${fileId}` : fileId
     
     setUploading((prev) => ({ ...prev, [file.name]: true }))
@@ -74,6 +83,7 @@ export function FileUpload({
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
+          contentType: file.type || undefined,
         })
 
       if (error) throw error
@@ -414,10 +424,11 @@ export function InlineFileUpload({ onUpload, accept = 'all' }) {
     setUploading(true)
     
     try {
-      const fileId = `${Date.now()}-${file.name}`
+      const safeName = sanitizeStorageName(file.name)
+      const fileId = `${Date.now()}-${safeName}`
       const { data, error } = await supabase.storage
         .from('documents')
-        .upload(fileId, file)
+        .upload(fileId, file, { contentType: file.type || undefined })
 
       if (error) throw error
 

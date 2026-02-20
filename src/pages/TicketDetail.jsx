@@ -11,6 +11,7 @@ import {
   Upload,
   X,
   File,
+  FileText,
   Image as ImageIcon,
   Download,
   MoreVertical,
@@ -265,6 +266,8 @@ export default function TicketDetail() {
   const [newComment, setNewComment] = useState('')
   const [mentionedUserIds, setMentionedUserIds] = useState([])
   const [sendingComment, setSendingComment] = useState(false)
+  const [commentPendingFiles, setCommentPendingFiles] = useState([])
+  const commentFileInputRef = useRef(null)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
   const [editingTimeEntry, setEditingTimeEntry] = useState(null)
@@ -494,8 +497,10 @@ export default function TicketDetail() {
 
   // Add comment
   const handleAddComment = async () => {
-    if (!newComment.trim()) return
-    if (!activeTicketId) {
+    const hasText = newComment.trim().length > 0
+    const hasAttachments = commentPendingFiles.length > 0
+    if (!hasText && !hasAttachments) return
+    if (!activeTicketId || !ticket?.client_id) {
       toast({
         title: 'Unable to add comment',
         description: 'Ticket is still loading. Please try again in a moment.',
@@ -506,10 +511,23 @@ export default function TicketDetail() {
 
     setSendingComment(true)
     try {
+      let attachments = []
+      if (commentPendingFiles.length > 0) {
+        const uploadPromises = commentPendingFiles.map((file) =>
+          uploadAttachment(file, ticket.client_id, activeTicketId)
+        )
+        const results = await Promise.all(uploadPromises)
+        attachments = results
+          .filter((r) => r.data)
+          .map((r) => ({ path: r.data.path, url: r.data.url, name: r.data.name, type: r.data.type, size: r.data.size }))
+      }
+
+      const contentToSend = newComment.trim() || ' '
       const { data, error } = await createComment({
         ticket_id: activeTicketId,
         user_id: user.id,
-        content: newComment,
+        content: contentToSend,
+        attachments: attachments.length ? attachments : undefined,
       })
 
       if (error) throw error
@@ -525,12 +543,13 @@ export default function TicketDetail() {
           entityType: 'ticket',
           entityId: activeTicketId,
           entityName: ticket?.ticket_id || ticket?.title,
-          messagePreview: newComment,
+          messagePreview: contentToSend,
           clientId: ticket?.client_id || ticket?.client?.id,
         })
       }
       
       setNewComment('')
+      setCommentPendingFiles([])
       setMentionedUserIds([])
       logActivity({
         activity_type: 'comment_added',
@@ -1332,7 +1351,7 @@ export default function TicketDetail() {
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-8 w-8 flex-shrink-0">
                           <AvatarImage src={comment.user?.avatar_url} />
                           <AvatarFallback className="text-xs">
                             {getInitials(comment.user?.full_name)}
@@ -1347,7 +1366,41 @@ export default function TicketDetail() {
                               {formatRelativeDate(comment.created_at)}
                             </span>
                           </div>
-                          <MentionText text={comment.content} className="text-sm whitespace-pre-wrap" />
+                          {comment.content?.trim() && (
+                            <MentionText text={comment.content} className="text-sm whitespace-pre-wrap" />
+                          )}
+                          {comment.attachments?.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {comment.attachments.map((att, idx) => (
+                                <div key={att.path || idx} className="flex items-center gap-1.5">
+                                  {att.type?.startsWith('image/') ? (
+                                    <a
+                                      href={att.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block rounded border overflow-hidden max-w-[200px] max-h-[160px] hover:opacity-90"
+                                    >
+                                      <img
+                                        src={att.url}
+                                        alt={att.name || 'Attachment'}
+                                        className="max-w-[200px] max-h-[160px] object-contain"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={att.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                                    >
+                                      <FileText className="h-4 w-4 flex-shrink-0" />
+                                      <span className="truncate max-w-[180px]">{att.name || 'PDF'}</span>
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))
@@ -1356,29 +1409,86 @@ export default function TicketDetail() {
 
                 {/* Add Comment */}
                 <div className="flex gap-3">
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarImage src={profile?.avatar_url} />
                     <AvatarFallback className="text-xs">
                       {getInitials(profile?.full_name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 flex flex-col gap-2">
+                  <div className="flex-1 flex flex-col gap-2 min-w-0">
                     <MentionInput
                       value={newComment}
                       onChange={setNewComment}
                       onMentionsChange={setMentionedUserIds}
-                      placeholder="Add a comment... Type @ to mention someone"
-                      multiline={false}
+                      placeholder="Add a comment... Type @ to mention someone. Attach images or PDFs below."
+                      multiline={true}
+                      rows={10}
+                      className="min-h-[220px] resize-y"
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault()
                           handleAddComment()
                         }
                       }}
                     />
-                    <div className="flex justify-end">
-                    <Button
-                      onClick={handleAddComment}
-                      disabled={!newComment.trim() || sendingComment}
+                    <input
+                      ref={commentFileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files ? Array.from(e.target.files) : []
+                        setCommentPendingFiles((prev) => [...prev, ...files].slice(0, 10))
+                        e.target.value = ''
+                      }}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => commentFileInputRef.current?.click()}
+                        disabled={sendingComment}
+                      >
+                        <Paperclip className="h-4 w-4 mr-1" />
+                        Attach image or PDF
+                      </Button>
+                      {commentPendingFiles.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {commentPendingFiles.length} file(s) attached
+                        </span>
+                      )}
+                    </div>
+                    {commentPendingFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {commentPendingFiles.map((file, i) => (
+                          <div
+                            key={`${file.name}-${i}`}
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-muted text-sm"
+                          >
+                            {file.type.startsWith('image/') ? (
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="truncate max-w-[160px]" title={file.name}>{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setCommentPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                              className="p-0.5 rounded hover:bg-muted-foreground/20"
+                              aria-label="Remove"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        onClick={handleAddComment}
+                        disabled={(!newComment.trim() && commentPendingFiles.length === 0) || sendingComment}
                         size="sm"
                       >
                         {sendingComment ? (
@@ -1389,7 +1499,7 @@ export default function TicketDetail() {
                             Send
                           </>
                         )}
-                    </Button>
+                      </Button>
                     </div>
                   </div>
                 </div>
