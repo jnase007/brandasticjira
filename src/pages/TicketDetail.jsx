@@ -773,152 +773,59 @@ export default function TicketDetail() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate(-1)}
-            className="gap-1.5 text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back</span>
-          </Button>
-          <div>
-            {/* Ticket number - always visible at top of page (QA: ticket key on task) */}
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className="inline-flex items-center font-mono text-base font-semibold min-w-[4rem] text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/50 border border-orange-200 dark:border-orange-700 px-2.5 py-1 rounded-md"
-                title="Ticket number"
-              >
-                {displayTicketKey}
-              </span>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-brand-orange"
-                onClick={() => {
-                  // Copy a URL that resolves: use short ticket_id (e.g. EQM-1) only if it's the real DB key; else use UUID so lookup works
-                  const shortKeyPattern = /^[A-Z]{2,3}-\d+$/
-                  const linkKey = (ticket.ticket_id?.trim() && shortKeyPattern.test(ticket.ticket_id.trim()))
-                    ? ticket.ticket_id.trim()
-                    : ticket.id
-                  const path = (ticket.client?.slug || ticket.client_id)
-                    ? `/clients/${ticket.client?.slug || ticket.client_id}/tickets/${linkKey}`
-                    : `/tickets/${linkKey}`
-                  const url = `${window.location.origin}${path}`
-                  navigator.clipboard.writeText(url)
-                  toast({
-                    title: 'Link copied!',
-                    description: `${displayTicketKey} link copied to clipboard`,
-                    variant: 'success',
-                  })
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                </svg>
-              </Button>
-            </div>
-            <h1 className="text-2xl font-display font-bold">{ticket.title}</h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {editMode ? (
-            <>
-              {/* Saved indicator + Close (grouped so Close is clearly to the right of Saved) */}
-              <div className="flex items-center gap-2 mr-2">
-                <AnimatePresence>
-                  {autosaveEnabled && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      className="flex items-center gap-2 text-sm text-muted-foreground"
-                    >
-                      {isAutosaving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
-                          <span>Saving...</span>
-                        </>
-                      ) : hasUnsavedChanges ? (
-                        <>
-                          <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                          <span>Unsaved</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4 text-green-500" />
-                          <span className="text-green-500">Saved</span>
-                        </>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                <Button
-                  variant="outline"
-                  size="sm"
+      <div className="mb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate(-1)}
+              className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back</span>
+            </Button>
+            <div className="min-w-0">
+              {/* Ticket number - always visible at top of page (QA: ticket key on task) */}
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="inline-flex items-center font-mono text-base font-semibold min-w-[4rem] text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/50 border border-orange-200 dark:border-orange-700 px-2.5 py-1 rounded-md"
+                  title="Ticket number"
+                >
+                  {displayTicketKey}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-brand-orange"
                   onClick={() => {
-                    setEditMode(false)
-                    setEditedTicket(ticket)
+                    const shortKeyPattern = /^[A-Z]{2,3}-\d+$/
+                    const linkKey = (ticket.ticket_id?.trim() && shortKeyPattern.test(ticket.ticket_id.trim()))
+                      ? ticket.ticket_id.trim()
+                      : ticket.id
+                    const path = (ticket.client?.slug || ticket.client_id)
+                      ? `/clients/${ticket.client?.slug || ticket.client_id}/tickets/${linkKey}`
+                      : `/tickets/${linkKey}`
+                    const url = `${window.location.origin}${path}`
+                    navigator.clipboard.writeText(url)
+                    toast({
+                      title: 'Link copied!',
+                      description: `${displayTicketKey} link copied to clipboard`,
+                      variant: 'success',
+                    })
                   }}
                 >
-                  Close
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                  </svg>
                 </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const snapshot = editSnapshotRef.current
-                  if (snapshot && activeTicketId) {
-                    try {
-                      const { data, error } = await updateTicket(activeTicketId, {
-                        title: snapshot.title,
-                        description: snapshot.description,
-                        status: snapshot.status,
-                        assigned_to: snapshot.assigned_to ?? null,
-                        reporter_id: snapshot.reporter_id ?? null,
-                        due_date: snapshot.due_date ?? null,
-                        start_date: snapshot.start_date ?? null,
-                        estimated_hours: snapshot.estimated_hours ?? null,
-                        tags: snapshot.tags ?? [],
-                      })
-                      if (error) throw error
-                      if (data) {
-                        setTicket(data)
-                        setEditedTicket(data)
-                      } else {
-                        setTicket(snapshot)
-                        setEditedTicket(snapshot)
-                      }
-                    } catch (err) {
-                      toast({
-                        title: 'Error',
-                        description: 'Could not revert changes.',
-                        variant: 'destructive',
-                      })
-                      return
-                    }
-                  } else {
-                    await fetchData()
-                  }
-                  setEditMode(false)
-                }}
-              >
-                Cancel
-              </Button>
-              {!autosaveEnabled && (
-                <Button onClick={handleSave} disabled={saving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {saving ? 'Saving...' : 'Save'}
-                </Button>
-              )}
-            </>
-          ) : (
-            <>
+              <h1 className="text-2xl font-display font-bold truncate">{ticket.title}</h1>
+            </div>
+          </div>
+          {!editMode && (
+            <div className="flex items-center gap-2 shrink-0">
               <Button variant="outline" onClick={() => setEditMode(true)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
@@ -939,9 +846,100 @@ export default function TicketDetail() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </>
+            </div>
           )}
         </div>
+
+        {/* Edit-mode actions on their own row so Cancel is never under the app profile */}
+        {editMode && (
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t">
+            <AnimatePresence>
+              {autosaveEnabled && (
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                  {isAutosaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
+                      <span>Saving...</span>
+                    </>
+                  ) : hasUnsavedChanges ? (
+                    <>
+                      <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                      <span>Unsaved</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 text-green-500" />
+                      <span className="text-green-500">Saved</span>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditMode(false)
+                setEditedTicket(ticket)
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const snapshot = editSnapshotRef.current
+                if (snapshot && activeTicketId) {
+                  try {
+                    const { data, error } = await updateTicket(activeTicketId, {
+                      title: snapshot.title,
+                      description: snapshot.description,
+                      status: snapshot.status,
+                      assigned_to: snapshot.assigned_to ?? null,
+                      reporter_id: snapshot.reporter_id ?? null,
+                      due_date: snapshot.due_date ?? null,
+                      start_date: snapshot.start_date ?? null,
+                      estimated_hours: snapshot.estimated_hours ?? null,
+                      tags: snapshot.tags ?? [],
+                    })
+                    if (error) throw error
+                    if (data) {
+                      setTicket(data)
+                      setEditedTicket(data)
+                    } else {
+                      setTicket(snapshot)
+                      setEditedTicket(snapshot)
+                    }
+                  } catch (err) {
+                    toast({
+                      title: 'Error',
+                      description: 'Could not revert changes.',
+                      variant: 'destructive',
+                    })
+                    return
+                  }
+                } else {
+                  await fetchData()
+                }
+                setEditMode(false)
+              }}
+            >
+              Cancel
+            </Button>
+            {!autosaveEnabled && (
+              <Button onClick={handleSave} disabled={saving}>
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Status Pipeline - Visual workflow indicator */}
