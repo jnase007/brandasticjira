@@ -179,6 +179,7 @@ export default function ClientDetail() {
     service_category: '',
     estimated_hours: '',
     due_date: '',
+    billing_type: 'retainer',  // 'retainer' = included in monthly hours; 'alacarte' = separate project
   })
   const [newTask, setNewTask] = useState(getEmptyTaskForm())
   const [savingTask, setSavingTask] = useState(false)
@@ -1314,6 +1315,7 @@ export default function ClientDetail() {
         status: 'new',
         priority: 'medium', // Default priority
         created_by: user.id,
+        billing_type: (client?.engagement_type === 'retainer' ? (newTask.billing_type || 'retainer') : 'alacarte'),
       }
       
       // Add estimated hours if provided
@@ -3880,9 +3882,28 @@ export default function ClientDetail() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Defaults to you</p>
               </div>
             </div>
+            
+            {/* Bill as: Retainer vs A la carte (only for retainer clients) */}
+            {client?.engagement_type === 'retainer' && (
+              <div className="space-y-2">
+                <Label>Bill as</Label>
+                <Select
+                  value={newTask.billing_type || 'retainer'}
+                  onValueChange={(v) => setNewTask(prev => ({ ...prev, billing_type: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="retainer">📅 Retainer (included in monthly hours)</SelectItem>
+                    <SelectItem value="alacarte">🎯 A la carte (separate project / out of scope)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Use a la carte for out-of-scope work (e.g. photoshoot) billed separately.</p>
+              </div>
+            )}
             
             {/* Estimated Hours */}
             <div className="space-y-2">

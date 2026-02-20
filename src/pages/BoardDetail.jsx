@@ -109,6 +109,7 @@ export default function BoardDetail() {
     ticket_type: 'task',
     category_id: '',
     due_date: '',
+    billing_type: 'retainer',  // 'retainer' = included in monthly hours; 'alacarte' = separate project
   }
   const [newTicket, setNewTicket] = useState(emptyTicketForm)
   
@@ -334,6 +335,7 @@ export default function BoardDetail() {
         status: 'new',
         resolution: 'unresolved',
         position: (groupedTickets.new?.length || 0),
+        billing_type: board?.client?.engagement_type === 'retainer' ? (newTicket.billing_type || 'retainer') : 'alacarte',
       }
 
       const { data, error } = await createTicket(ticketData)
@@ -758,9 +760,28 @@ export default function BoardDetail() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">Defaults to you</p>
               </div>
             </div>
+
+            {/* Bill as: Retainer vs A la carte (only when board client is retainer) */}
+            {board?.client?.engagement_type === 'retainer' && (
+              <div>
+                <Label>Bill as</Label>
+                <Select
+                  value={newTicket.billing_type || 'retainer'}
+                  onValueChange={(v) => setNewTicket(prev => ({ ...prev, billing_type: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="retainer">📅 Retainer (included in monthly hours)</SelectItem>
+                    <SelectItem value="alacarte">🎯 A la carte (separate project / out of scope)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Use a la carte for out-of-scope work (e.g. photoshoot) billed separately.</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>

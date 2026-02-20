@@ -103,6 +103,7 @@ export default function TaskBoard() {
     estimated_hours: '',
     due_date: '',
     ticket_type: 'task',
+    billing_type: 'retainer',  // 'retainer' = included in monthly hours; 'alacarte' = separate project
   }
   const [newTask, setNewTask] = useState(emptyTaskForm)
   const [createDialogClientRate, setCreateDialogClientRate] = useState(null)
@@ -410,6 +411,7 @@ export default function TaskBoard() {
     
     setCreating(true)
     try {
+      const selectedClientData = clients.find(c => c.id === newTask.client_id)
       const taskData = {
         title: newTask.title.trim(),
         description: newTask.description.trim() || null,
@@ -421,6 +423,7 @@ export default function TaskBoard() {
         created_by: user.id,
         ticket_type: newTask.ticket_type || 'task',
         due_date: newTask.due_date || null,
+        billing_type: selectedClientData?.engagement_type === 'retainer' ? (newTask.billing_type || 'retainer') : 'alacarte',
       }
       
       if (newTask.estimated_hours) {
@@ -1020,9 +1023,28 @@ export default function TaskBoard() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">Defaults to you</p>
               </div>
             </div>
+            
+            {/* Bill as: Retainer vs A la carte (only when selected client is retainer) */}
+            {newTask.client_id && clients.find(c => c.id === newTask.client_id)?.engagement_type === 'retainer' && (
+              <div>
+                <Label>Bill as</Label>
+                <Select
+                  value={newTask.billing_type || 'retainer'}
+                  onValueChange={(v) => setNewTask(prev => ({ ...prev, billing_type: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="retainer">📅 Retainer (included in monthly hours)</SelectItem>
+                    <SelectItem value="alacarte">🎯 A la carte (separate project / out of scope)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Use a la carte for out-of-scope work (e.g. photoshoot) billed separately.</p>
+              </div>
+            )}
             
             <div className="grid grid-cols-2 gap-4">
               <div>
