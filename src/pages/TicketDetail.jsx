@@ -467,6 +467,14 @@ export default function TicketDetail() {
       })
       return
     }
+    if (startAfterDueError) {
+      toast({
+        title: 'Invalid dates',
+        description: startAfterDueError,
+        variant: 'destructive',
+      })
+      return
+    }
     setSaving(true)
     try {
       const { data, error } = await updateTicket(activeTicketId, {
@@ -988,7 +996,7 @@ export default function TicketDetail() {
               Cancel
             </Button>
             {!autosaveEnabled && (
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || !!startAfterDueError}>
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save'}
               </Button>
@@ -1644,24 +1652,27 @@ export default function TicketDetail() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="text-sm font-semibold w-14 text-right tabular-nums" title="Time">
                             {formatDuration(entry.minutes ?? entry.duration_minutes ?? 0)}
                           </span>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            size="sm"
+                            className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
                             onClick={() => setEditingTimeEntry(entry)}
                             title="Edit entry"
+                            aria-label="Edit time entry"
                           >
                             <Pencil className="h-3.5 w-3.5" />
+                            <span className="text-xs hidden sm:inline">Edit</span>
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            size="sm"
+                            className="h-8 gap-1.5 text-muted-foreground hover:text-destructive"
                             title="Delete entry"
+                            aria-label="Delete time entry"
                             onClick={async () => {
                               const { error } = await deleteTimeEntry(entry.id)
                               if (error) {
@@ -1673,6 +1684,7 @@ export default function TicketDetail() {
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
+                            <span className="text-xs hidden sm:inline">Delete</span>
                           </Button>
                         </div>
                       </div>

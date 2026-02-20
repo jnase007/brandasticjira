@@ -266,6 +266,13 @@ export default function FloatingTimer({
     })
   }, [selectedClient, tickets])
 
+  // Looks like a task ID (e.g. BRA-17, ABC123, PROJ-42)
+  const looksLikeTaskId = useMemo(() => {
+    const q = (searchQuery || '').trim().toUpperCase()
+    if (!q || q.length < 2) return false
+    return /^[A-Z0-9]+-?\d*$/.test(q) || /^[A-Z]+\d+$/i.test(q)
+  }, [searchQuery])
+
   // Combine and filter search results based on current step
   const searchResults = useMemo(() => {
     const results = []
@@ -300,44 +307,75 @@ export default function FloatingTimer({
           })
         }
       }
-    } else if (selectionStep === 'task' && selectedClient) {
-      // Step 2: Show tasks for selected client only
-      const tasksToSearch = searchQuery.trim() ? clientTasks : clientTasks.slice(0, 15)
-      
-      for (const ticket of tasksToSearch) {
-        if (searchQuery.trim()) {
-          const searchText = [ticket.title, ticket.ticket_id].filter(Boolean).join(' ')
-          const { match, score, ranges } = fuzzySearch(searchQuery, searchText)
-          if (match) {
+    } else if (selectionStep === 'task') {
+      const q = (searchQuery || '').trim()
+      const queryLower = q.toLowerCase()
+
+      // Task ID search: search ALL tickets by ticket_id (exact or starts-with) so user can jump to any task
+      if (looksLikeTaskId && q) {
+        for (const ticket of tickets) {
+          const tid = (ticket.ticket_id || '').toLowerCase()
+          const exactMatch = tid === queryLower
+          const startsWith = tid.startsWith(queryLower)
+          if (exactMatch || startsWith) {
+            const clientFromTicket = ticket.boards?.clients || clients.find(c => c.id === ticket.client_id) || selectedClient
+            if (!clientFromTicket) continue
             results.push({
               type: 'ticket',
               id: ticket.id,
               name: ticket.title,
               ticket_id: ticket.ticket_id,
               boardName: ticket.boards?.name,
-              score,
-              ranges,
-              data: { ticket, client: selectedClient }
+              score: exactMatch ? 120 : 100,
+              ranges: [[0, (ticket.ticket_id || '').length]],
+              data: { ticket, client: clientFromTicket }
             })
           }
-        } else {
-          results.push({
-            type: 'ticket',
-            id: ticket.id,
-            name: ticket.title,
-            ticket_id: ticket.ticket_id,
-            boardName: ticket.boards?.name,
-            score: 50,
-            ranges: [],
-            data: { ticket, client: selectedClient }
-          })
+        }
+      }
+
+      // Tasks for selected client (by title or ticket_id via fuzzy search)
+      if (selectedClient) {
+        const tasksToSearch = q ? clientTasks : clientTasks.slice(0, 15)
+        for (const ticket of tasksToSearch) {
+          if (q) {
+            const searchText = [ticket.title, ticket.ticket_id].filter(Boolean).join(' ')
+            const ticketIdExact = (ticket.ticket_id || '').toLowerCase() === queryLower
+            const { match, score, ranges } = fuzzySearch(searchQuery, searchText)
+            const finalScore = ticketIdExact ? Math.max(score, 115) : score
+            if (match && !results.some(r => r.type === 'ticket' && r.id === ticket.id)) {
+              results.push({
+                type: 'ticket',
+                id: ticket.id,
+                name: ticket.title,
+                ticket_id: ticket.ticket_id,
+                boardName: ticket.boards?.name,
+                score: finalScore,
+                ranges,
+                data: { ticket, client: selectedClient }
+              })
+            }
+          } else {
+            if (!results.some(r => r.type === 'ticket' && r.id === ticket.id)) {
+              results.push({
+                type: 'ticket',
+                id: ticket.id,
+                name: ticket.title,
+                ticket_id: ticket.ticket_id,
+                boardName: ticket.boards?.name,
+                score: 50,
+                ranges: [],
+                data: { ticket, client: selectedClient }
+              })
+            }
+          }
         }
       }
     }
     
     // Sort by score
     return results.sort((a, b) => b.score - a.score).slice(0, 15)
-  }, [searchQuery, clients, clientTasks, selectionStep, selectedClient])
+  }, [searchQuery, clients, clientTasks, tickets, selectionStep, selectedClient, looksLikeTaskId])
 
   // Display items is now just the search results (already handles empty query)
   const displayItems = searchResults
@@ -412,7 +450,8 @@ export default function FloatingTimer({
         description: `Now select or create a task for ${item.name}`
       })
     } else if (item.type === 'ticket') {
-      // Step 2 complete: task selected
+      // Step 2 complete: task selected (client may change if task was found by ID search)
+      if (item.data.client) setSelectedClient(item.data.client)
       setSelectedTicket(item.data.ticket)
       setDescription(item.data.ticket.title)
       setShowPicker(false)
@@ -420,7 +459,7 @@ export default function FloatingTimer({
       
       toast({
         title: '🎫 Task selected',
-        description: item.name
+        description: (item.data.ticket?.ticket_id ? `${item.data.ticket.ticket_id}: ` : '') + item.name
       })
     }
     
@@ -905,7 +944,7 @@ export default function FloatingTimer({
                     placeholder={
                       selectionStep === 'client'
                         ? "Search clients..."
-                        : `Search tasks for ${selectedClient?.name}...`
+                        : `Search by task ID (e.g. BRA-17) or name...`
                     }
                     className={cn(
                       "w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all",
