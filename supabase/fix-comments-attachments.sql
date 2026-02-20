@@ -1,5 +1,9 @@
 -- Ensure comments policies exist and storage is configured for attachments
 
+-- Add attachments column to comments if missing (fixes "Could not find 'attachments' column" error)
+ALTER TABLE public.comments
+  ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+
 -- Comments policies (safe to re-run)
 drop policy if exists "Users can view comments on accessible tickets" on public.comments;
 create policy "Users can view comments on accessible tickets" on public.comments

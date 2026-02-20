@@ -267,7 +267,43 @@ export default function TicketDetail() {
   const [mentionedUserIds, setMentionedUserIds] = useState([])
   const [sendingComment, setSendingComment] = useState(false)
   const [commentPendingFiles, setCommentPendingFiles] = useState([])
+  const [commentDragOver, setCommentDragOver] = useState(false)
   const commentFileInputRef = useRef(null)
+
+  // Drag-and-drop for comment attachments (same as description field)
+  const commentAcceptTypes = (file) =>
+    file.type?.startsWith('image/') || file.type === 'application/pdf'
+  const handleCommentDragEnter = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!sendingComment) setCommentDragOver(true)
+  }
+  const handleCommentDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!e.currentTarget.contains(e.relatedTarget)) setCommentDragOver(false)
+  }
+  const handleCommentDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  const handleCommentDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCommentDragOver(false)
+    if (sendingComment) return
+    const files = e.dataTransfer?.files
+    if (!files?.length) return
+    const accepted = Array.from(files).filter(commentAcceptTypes)
+    if (accepted.length < files.length) {
+      toast({
+        title: 'Some files skipped',
+        description: 'Only images and PDFs can be attached to comments.',
+        variant: 'destructive',
+      })
+    }
+    setCommentPendingFiles((prev) => [...prev, ...accepted].slice(0, 10))
+  }
   const [uploadingFile, setUploadingFile] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
   const [editingTimeEntry, setEditingTimeEntry] = useState(null)
@@ -1415,15 +1451,24 @@ export default function TicketDetail() {
                       {getInitials(profile?.full_name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 flex flex-col gap-2 min-w-0">
+                  <div
+                    className="flex-1 flex flex-col gap-2 min-w-0 relative"
+                    onDragEnter={handleCommentDragEnter}
+                    onDragLeave={handleCommentDragLeave}
+                    onDragOver={handleCommentDragOver}
+                    onDrop={handleCommentDrop}
+                  >
                     <MentionInput
                       value={newComment}
                       onChange={setNewComment}
                       onMentionsChange={setMentionedUserIds}
-                      placeholder="Add a comment... Type @ to mention someone. Attach images or PDFs below."
+                      placeholder="Add a comment... Type @ to mention someone. Drag & drop or attach images/PDFs below."
                       multiline={true}
                       rows={10}
-                      className="min-h-[220px] resize-y"
+                      className={cn(
+                        'min-h-[220px] resize-y transition-all',
+                        commentDragOver && 'border-2 border-dashed border-brand-orange rounded-lg',
+                      )}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                           e.preventDefault()
@@ -1431,6 +1476,22 @@ export default function TicketDetail() {
                         }
                       }}
                     />
+                    <AnimatePresence>
+                      {commentDragOver && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 bg-brand-orange/10 border-2 border-dashed border-brand-orange rounded-lg flex items-center justify-center pointer-events-none z-10"
+                        >
+                          <div className="text-center">
+                            <Upload className="h-8 w-8 text-brand-orange mx-auto mb-2" />
+                            <p className="text-sm font-medium text-brand-orange">Drop files to attach</p>
+                            <p className="text-xs text-muted-foreground">Images and PDFs</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     <input
                       ref={commentFileInputRef}
                       type="file"
