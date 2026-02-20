@@ -157,6 +157,37 @@ export async function getBoard(boardId) {
   return { data, error }
 }
 
+/**
+ * Get or create a "General Tasks" board for a client. Use when creating tasks
+ * that should default to a general board under the client.
+ */
+export async function getOrCreateGeneralBoardForClient(clientId, createdByUserId) {
+  if (!clientId) return { data: null, error: new Error('clientId required') }
+  const { data: boards, error: fetchError } = await supabase
+    .from('boards')
+    .select('id, name')
+    .eq('client_id', clientId)
+    .eq('is_archived', false)
+  if (fetchError) return { data: null, error: fetchError }
+  const general = (boards || []).find(
+    (b) => b.name === 'General Tasks' || b.name === 'General'
+  )
+  if (general?.id) return { data: general.id, error: null }
+  const { data: newBoard, error: createError } = await supabase
+    .from('boards')
+    .insert({
+      name: 'General Tasks',
+      description: 'Quick tasks and one-off items',
+      client_id: clientId,
+      created_by: createdByUserId || null,
+      is_archived: false,
+    })
+    .select('id')
+    .single()
+  if (createError || !newBoard) return { data: null, error: createError }
+  return { data: newBoard.id, error: null }
+}
+
 export async function createBoard(boardData) {
   const { data, error } = await supabase
     .from('boards')

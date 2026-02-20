@@ -10,7 +10,7 @@ import {
   CheckSquare, Square, X, Trash2, UserPlus, MoveRight,
   CalendarDays, ClipboardList, DollarSign
 } from 'lucide-react'
-import { supabase, ensureValidSession } from '../lib/supabase'
+import { supabase, ensureValidSession, getOrCreateGeneralBoardForClient } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatRelativeDate, formatDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -412,10 +412,17 @@ export default function TaskBoard() {
     setCreating(true)
     try {
       const selectedClientData = clients.find(c => c.id === newTask.client_id)
+      const { data: boardId, error: boardError } = await getOrCreateGeneralBoardForClient(newTask.client_id, user.id)
+      if (boardError || !boardId) {
+        toast({ title: 'Error', description: 'Could not find or create a board for this client.', variant: 'destructive' })
+        setCreating(false)
+        return
+      }
       const taskData = {
         title: newTask.title.trim(),
         description: newTask.description.trim() || null,
         client_id: newTask.client_id,
+        board_id: boardId,
         assigned_to: newTask.assigned_to || user.id,
         reporter_id: newTask.reporter_id || user.id,  // Default to current user
         status: 'new',
