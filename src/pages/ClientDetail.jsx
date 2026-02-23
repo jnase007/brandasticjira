@@ -13,7 +13,7 @@ import {
   Kanban, Circle, Upload, X, Trash2, MoreVertical, Pencil, Repeat, CalendarDays,
   PlayCircle, UserCheck, ThumbsUp, Receipt, CheckCircle2, ArrowUpDown, Search, ClipboardList
 } from 'lucide-react'
-import { supabase, logActivity, getTimeEntries, ensureValidSession } from '../lib/supabase'
+import { supabase, logActivity, getTimeEntries, ensureValidSession, getOrCreateGeneralBoardForClient } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, isUuid } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -176,10 +176,10 @@ export default function ClientDetail() {
     board_id: '', 
     assignee_id: '',
     reporter_id: '',  // Will default to current user
-    service_category: '',
     estimated_hours: '',
     due_date: '',
-    billing_type: 'retainer',  // 'retainer' = included in monthly hours; 'alacarte' = separate project
+    billing_type: 'retainer',
+    ticket_type: 'task',
   })
   const [newTask, setNewTask] = useState(getEmptyTaskForm())
   const [savingTask, setSavingTask] = useState(false)
@@ -1271,50 +1271,25 @@ export default function ClientDetail() {
     
     setSavingTask(true)
     try {
-      let boardId = newTask.board_id
-      
-      // If no board selected, create or find a "General Tasks" board
-      if (!boardId) {
-        // Check if a General Tasks board already exists
-        const { data: existingBoard } = await supabase
-          .from('boards')
-          .select('id')
-          .eq('client_id', resolvedClientId)
-          .eq('name', 'General Tasks')
-          .maybeSingle()
-        
-        if (existingBoard) {
-          boardId = existingBoard.id
-        } else {
-          // Create a new General Tasks board
-          const { data: newBoard, error: boardError } = await supabase
-            .from('boards')
-            .insert({
-              name: 'General Tasks',
-              description: 'Quick tasks and one-off items',
-              client_id: resolvedClientId,
-              created_by: user.id,
-              is_archived: false,
-            })
-            .select()
-            .single()
-          
-          if (boardError) throw boardError
-          boardId = newBoard.id
-        }
+      const { data: boardId, error: boardError } = await getOrCreateGeneralBoardForClient(resolvedClientId, user.id)
+      if (boardError || !boardId) {
+        toast({ title: 'Error', description: 'Could not find or create a board for this client.', variant: 'destructive' })
+        setSavingTask(false)
+        return
       }
       
-      // Simplified task data - just the essentials
+      // Task data - matches other create-task flows
       const taskData = {
         title: newTask.title,
         description: newTask.description,
         board_id: boardId,
         client_id: resolvedClientId,
-        assigned_to: newTask.assignee_id || user.id, // Default to current user
-        reporter_id: newTask.reporter_id || user.id, // Default to current user
+        assigned_to: newTask.assignee_id || user.id,
+        reporter_id: newTask.reporter_id || user.id,
         status: 'new',
-        priority: 'medium', // Default priority
+        priority: 'medium',
         created_by: user.id,
+        ticket_type: newTask.ticket_type || 'task',
         billing_type: (client?.engagement_type === 'retainer' ? (newTask.billing_type || 'retainer') : 'alacarte'),
       }
       
@@ -3707,36 +3682,31 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
       
-      {/* Create Task Dialog - Simplified per QA feedback */}
+      {/* Create Task Dialog - matches TaskBoard / BoardDetail style */}
       <Dialog open={createTaskOpen} onOpenChange={handleCreateTaskDialogChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-brand-orange" />
-              New Task for {client?.name}
-              {client?.ticket_prefix && (
-                <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded">
-                  {client.ticket_prefix}
-                </span>
-              )}
-            </DialogTitle>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-brand-orange" />
+                Create New Task
+              </DialogTitle>
+            </div>
+            <div className="flex items-center justify-between gap-4 mt-1">
               <p className="text-sm text-muted-foreground">
-                Create a task and assign it to a team member
+                Create a task for {client?.name} and assign it to a team member
               </p>
-              <div className="flex items-center gap-2">
-                {/* Billing Type Indicator */}
+              <div className="flex flex-wrap items-center gap-2">
                 {client?.engagement_type && (
                   <div className={cn(
                     "px-2.5 py-1 rounded-lg text-xs font-medium",
-                    client.engagement_type === 'retainer' 
+                    client.engagement_type === 'retainer'
                       ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400"
                       : "bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400"
                   )}>
                     {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 A La Carte'}
                   </div>
                 )}
-                {/* Client Rate Reminder */}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                   <DollarSign className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-semibold text-green-700 dark:text-green-400">
@@ -3747,153 +3717,92 @@ export default function ClientDetail() {
               </div>
             </div>
           </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto space-y-5 py-4">
-            {/* Service Category - Shows suggestions */}
-            {client?.account_services && client.account_services.length > 0 && (
-              <div className="space-y-2">
-                <Label>Service Category</Label>
-                <div className="flex flex-wrap gap-2">
-                  {client.account_services.map((service) => (
-                    <button
-                      key={service}
-                      type="button"
-                      onClick={() => setNewTask(prev => ({ 
-                        ...prev, 
-                        service_category: prev.service_category === service ? '' : service 
-                      }))}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                        newTask.service_category === service
-                          ? "bg-brand-orange text-white"
-                          : "bg-muted hover:bg-muted/80 text-foreground"
-                      )}
-                    >
-                      {service}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Task Suggestions - Show when category is selected */}
-            {newTask.service_category && TASK_SUGGESTIONS[newTask.service_category] && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-brand-purple" />
-                  Quick Ideas
-                </Label>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {TASK_SUGGESTIONS[newTask.service_category].slice(0, 4).map((suggestion, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setNewTask(prev => ({
-                        ...prev,
-                        title: suggestion.title,
-                        description: suggestion.description,
-                      }))}
-                      className={cn(
-                        "p-3 rounded-lg border text-left transition-all hover:border-brand-purple/50 hover:bg-brand-purple/5",
-                        newTask.title === suggestion.title && "border-brand-purple bg-brand-purple/5"
-                      )}
-                    >
-                      <p className="font-medium text-sm">{suggestion.title}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-1">{suggestion.description}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Task Title */}
-            <div className="space-y-2">
-              <Label>Task Title *</Label>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="client-task-title">Task Title *</Label>
               <Input
+                id="client-task-title"
                 placeholder="What needs to be done?"
                 value={newTask.title}
                 onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-                className="text-base"
+                className="mt-1.5"
               />
             </div>
-            
-            {/* Description */}
-            <div className="space-y-2">
-              <Label>Description</Label>
+            <div>
+              <Label htmlFor="client-task-description">Description</Label>
               <Textarea
-                placeholder="Add details, context, or requirements..."
+                id="client-task-description"
+                placeholder="Add more details..."
                 value={newTask.description}
                 onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                className="mt-1.5"
                 rows={3}
               />
             </div>
-            
-            {/* Assign To and Reporter */}
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Assign To */}
-              <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <Label>Assign To</Label>
-                <Select 
-                  value={newTask.assignee_id || user?.id || ''} 
+                <Select
+                  value={newTask.assignee_id || user?.id || ''}
                   onValueChange={(value) => setNewTask(prev => ({ ...prev, assignee_id: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Select team member" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allTeamMembers.map(member => (
+                    {allTeamMembers.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
-                        <span className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={member.avatar_url} />
-                            <AvatarFallback className="text-[10px]">{member.full_name?.[0]}</AvatarFallback>
+                            <AvatarFallback className="text-[10px]">
+                              {member.full_name?.charAt(0) || '?'}
+                            </AvatarFallback>
                           </Avatar>
                           {member.full_name}
-                          {member.id === user?.id && <span className="text-xs text-muted-foreground">(you)</span>}
-                        </span>
+                          {member.id === user?.id && <span className="text-muted-foreground">(you)</span>}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              
-              {/* Reporter */}
-              <div className="space-y-2">
+              <div>
                 <Label>Reporter</Label>
-                <Select 
-                  value={newTask.reporter_id || user?.id || ''} 
+                <Select
+                  value={newTask.reporter_id || user?.id || ''}
                   onValueChange={(value) => setNewTask(prev => ({ ...prev, reporter_id: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Select reporter" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allTeamMembers.map(member => (
+                    {allTeamMembers.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
-                        <span className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={member.avatar_url} />
-                            <AvatarFallback className="text-[10px]">{member.full_name?.[0]}</AvatarFallback>
+                            <AvatarFallback className="text-[10px]">
+                              {member.full_name?.charAt(0) || '?'}
+                            </AvatarFallback>
                           </Avatar>
                           {member.full_name}
-                          {member.id === user?.id && <span className="text-xs text-muted-foreground">(you)</span>}
-                        </span>
+                          {member.id === user?.id && <span className="text-muted-foreground">(you)</span>}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            
-            {/* Bill as: Retainer vs A la carte (only for retainer clients) */}
             {client?.engagement_type === 'retainer' && (
-              <div className="space-y-2">
+              <div>
                 <Label>Bill as</Label>
                 <Select
                   value={newTask.billing_type || 'retainer'}
                   onValueChange={(v) => setNewTask(prev => ({ ...prev, billing_type: v }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1.5">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3901,48 +3810,66 @@ export default function ClientDetail() {
                     <SelectItem value="alacarte">🎯 A la carte (separate project / out of scope)</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Use a la carte for out-of-scope work (e.g. photoshoot) billed separately.</p>
+                <p className="text-xs text-muted-foreground mt-1">Use a la carte for out-of-scope work (e.g. photoshoot) billed separately.</p>
               </div>
             )}
-            
-            {/* Estimated Hours */}
-            <div className="space-y-2">
-              <Label>Estimated Hours</Label>
-              <Input
-                type="number"
-                step="0.5"
-                min="0"
-                placeholder="e.g., 2"
-                value={newTask.estimated_hours}
-                onChange={(e) => setNewTask(prev => ({ ...prev, estimated_hours: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">Optional time estimate</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Estimated Hours</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="e.g., 2"
+                  value={newTask.estimated_hours}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, estimated_hours: e.target.value }))}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Type</Label>
+                <Select
+                  value={newTask.ticket_type || 'task'}
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, ticket_type: value }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="task">
+                      <span className="flex items-center gap-2">
+                        <ClipboardList className="h-4 w-4" />
+                        Task
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="client_homework">
+                      <span className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-orange-500" />
+                        Client Homework
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            
-            {/* Due Date - Optional */}
-            <div className="space-y-2">
+            <div>
               <Label className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4" />
                 Due Date
-                <span className="text-xs text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Input
                 type="date"
                 value={newTask.due_date}
                 onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
+                className="mt-1.5"
               />
             </div>
           </div>
-          
-          <DialogFooter className="border-t pt-4">
+          <DialogFooter>
             <Button variant="outline" onClick={() => handleCreateTaskDialogChange(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleCreateTask} 
-              disabled={savingTask || !newTask.title.trim()}
-              className="bg-brand-orange hover:bg-brand-orange/90"
-            >
+            <Button onClick={handleCreateTask} disabled={savingTask || !newTask.title.trim()}>
               {savingTask ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
