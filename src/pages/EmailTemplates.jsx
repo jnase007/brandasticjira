@@ -613,7 +613,7 @@ export default function EmailTemplates() {
                 Email Templates
               </h1>
               <p className="text-slate-500 dark:text-white/60">
-                Preview and export templates for SendGrid
+                Preview and export templates for Resend
               </p>
             </div>
           </div>

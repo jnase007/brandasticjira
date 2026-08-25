@@ -17,6 +17,27 @@ test.describe('Smoke', () => {
     // Route is protected; unauthenticated users are redirected to login
     await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible()
   })
+
+  test('Email templates are not public', async ({ page }) => {
+    await page.goto('/email-templates')
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByRole('heading', { name: /email templates/i })).toHaveCount(0)
+    await expect(page.getByText(/resend\.com integration/i)).toHaveCount(0)
+  })
+
+  test('Logged-out client dashboard redirects to client login', async ({ page }) => {
+    await page.goto('/client-dashboard')
+    await expect(page).toHaveURL(/\/client-login/)
+    await expect(page.locator('.animate-pulse')).toHaveCount(0)
+  })
+
+  test('robots.txt disallows crawlers', async ({ page }) => {
+    const res = await page.goto('/robots.txt')
+    expect(res?.ok()).toBeTruthy()
+    const body = await res.text()
+    expect(body).toContain('Disallow: /')
+    expect(body).not.toContain('<!DOCTYPE html>')
+  })
 })
 
 test.describe('Authenticated smoke', () => {

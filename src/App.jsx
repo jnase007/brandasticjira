@@ -790,19 +790,26 @@ function App() {
   // Confetti component
   const confetti = <Confetti trigger={confettiTrigger} />
 
-  // Public routes (Login, Demo, Email Templates) - no sidebar
-  if (!user && (location.pathname === '/login' || location.pathname === '/demo' || location.pathname === '/email-templates')) {
+  // Public routes (no sidebar). Email templates stay admin-only.
+  const isPublicPath =
+    location.pathname === '/login' ||
+    location.pathname === '/client-login' ||
+    location.pathname === '/demo' ||
+    location.pathname.startsWith('/client-view/')
+
+  if (!user && isPublicPath) {
     return (
       <div className="min-h-screen bg-background">
         <PageLoadingBar isLoading={isNavigating} />
         {confetti}
+        {(location.pathname === '/login' || location.pathname === '/client-login') && <InstallPrompt />}
         <Suspense fallback={<PageLoader />}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/login" element={<Login />} />
               <Route path="/client-login" element={<ClientLogin />} />
               <Route path="/demo" element={<Demo />} />
-              <Route path="/email-templates" element={<EmailTemplates />} />
+              <Route path="/client-view/:token" element={<ClientPublic />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </AnimatePresence>
@@ -1151,7 +1158,7 @@ function App() {
           <Routes location={location} key={location.pathname}>
             <Route path="/login" element={<Login />} />
             <Route path="/client-login" element={<ClientLogin />} />
-            <Route path="/client-dashboard" element={<ClientDashboard />} />
+            <Route path="/client-dashboard" element={<Navigate to="/client-login" replace />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/client-view/:token" element={<ClientPublic />} />
             <Route path="*" element={<Navigate to="/login" replace />} />

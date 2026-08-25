@@ -27,21 +27,10 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
+  "categories": [
+    "business",
+    "productivity"
   ],
-  "categories": ["business", "productivity"],
   "shortcuts": [
     {
       "name": "Dashboard",

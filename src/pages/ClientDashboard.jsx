@@ -114,9 +114,18 @@ export default function ClientDashboard() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  useEffect(() => {
+    if (!user) {
+      navigate('/client-login', { replace: true })
+    }
+  }, [user, navigate])
+
   // Fetch client data
   const fetchData = useCallback(async (showRefresh = false) => {
-    if (!user) return
+    if (!user) {
+      navigate('/client-login', { replace: true })
+      return
+    }
     
     if (showRefresh) setRefreshing(true)
     else setLoading(true)
@@ -194,7 +203,7 @@ export default function ClientDashboard() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [user, toast])
+  }, [user, toast, navigate])
 
   useEffect(() => {
     fetchData()

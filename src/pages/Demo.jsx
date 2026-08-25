@@ -236,7 +236,7 @@ export default function Demo() {
           </div>
           <Link to="/login">
             <Button size="sm" className="h-8 bg-white text-brand-orange hover:bg-white/90 font-medium">
-              Sign Up for Real
+              Team Sign In
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </Link>

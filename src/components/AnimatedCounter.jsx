@@ -10,7 +10,7 @@ export default function AnimatedCounter({
   className = ''
 }) {
   const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: "-100px" })
+  const isInView = useInView(ref, { once: true, amount: 0, margin: "200px" })
   const [hasAnimated, setHasAnimated] = useState(false)
   
   const spring = useSpring(0, {
@@ -25,7 +25,7 @@ export default function AnimatedCounter({
   })
 
   useEffect(() => {
-    if (isInView && !hasAnimated) {
+    if (!hasAnimated) {
       spring.set(value)
       setHasAnimated(true)
     }

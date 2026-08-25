@@ -295,16 +295,6 @@ export default function ClientPublic() {
                   <Link to="/login">Return to Login</Link>
                 </Button>
               </div>
-              
-              {/* Admin hint */}
-              <div className="mt-8 p-4 bg-muted/50 rounded-lg text-left text-sm">
-                <p className="font-medium mb-2">Admin troubleshooting:</p>
-                <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                  <li>Ensure the client has "Public Sharing" enabled</li>
-                  <li>Run the <code className="bg-muted px-1 rounded">public-client-access.sql</code> script in Supabase</li>
-                  <li>Check Netlify has <code className="bg-muted px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> set</li>
-                </ul>
-              </div>
             </CardContent>
           </Card>
         </div>
