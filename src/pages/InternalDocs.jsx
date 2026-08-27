@@ -197,54 +197,56 @@ export default function InternalDocs() {
               ) : (
                 visible.map((doc) => {
                   const loomId = parseLoomId(doc.url || '')
+                  const playing = loomId && openId === doc.id
                   return (
-                    <div key={doc.id} className="flex items-start gap-3 p-4 border-b last:border-0">
-                      <div className="h-11 w-16 rounded-lg bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                        {doc.kind === 'loom' ? 'LOOM' : 'NOTE'}
+                    <div key={doc.id} className="p-4 border-b last:border-0">
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          className="h-16 w-24 rounded-xl bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0"
+                          onClick={() => loomId && setOpenId(playing ? null : doc.id)}
+                        >
+                          {doc.kind === 'loom' ? (playing ? 'HIDE' : 'PLAY') : 'NOTE'}
+                        </button>
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => loomId && setOpenId(playing ? null : doc.id)}
+                        >
+                          <h3 className="font-semibold truncate">{doc.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {doc.notes || doc.url || 'Internal note'}
+                          </p>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{doc.collection}</Badge>
+                          <Button size="icon" variant="ghost" onClick={() => removeDoc(doc.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold truncate">{doc.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {doc.notes || doc.url || 'Internal note'}
-                        </p>
-                        {loomId && openId === doc.id && (
-                          <div className="mt-3 space-y-2">
-                            <div className="aspect-video overflow-hidden rounded-xl bg-slate-900">
-                              <iframe
-                                title={doc.title}
-                                src={`https://www.loom.com/embed/${loomId}`}
-                                allowFullScreen
-                                className="h-full w-full border-0"
-                              />
-                            </div>
-                            <a
-                              href={`https://www.loom.com/share/${loomId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-sm text-blue-600"
-                            >
-                              <Video className="h-3.5 w-3.5" />
-                              Open Loom
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
+                      {playing && (
+                        <div className="mt-3 space-y-2">
+                          <div className="aspect-video overflow-hidden rounded-xl bg-slate-900">
+                            <iframe
+                              title={doc.title}
+                              src={`https://www.loom.com/embed/${loomId}?autoplay=1`}
+                              allowFullScreen
+                              className="h-full w-full border-0"
+                            />
                           </div>
-                        )}
-                        {loomId && openId !== doc.id && (
-                          <button
-                            type="button"
-                            className="mt-2 text-sm text-blue-600"
-                            onClick={() => setOpenId(doc.id)}
+                          <a
+                            href={`https://www.loom.com/share/${loomId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-blue-600"
                           >
-                            Play in page
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{doc.collection}</Badge>
-                        <Button size="icon" variant="ghost" onClick={() => removeDoc(doc.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                            <Video className="h-3.5 w-3.5" />
+                            Open Loom
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )
                 })

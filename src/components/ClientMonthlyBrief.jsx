@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, Loader2, Save } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -32,6 +32,8 @@ export default function ClientMonthlyBrief({ client }) {
   const [saving, setSaving] = useState(false)
   const [setupNeeded, setSetupNeeded] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const briefRef = useRef(brief)
+  briefRef.current = brief
 
   const loadBrief = useCallback(async () => {
     if (!client?.id) return
@@ -65,18 +67,18 @@ export default function ClientMonthlyBrief({ client }) {
     loadBrief()
   }, [loadBrief])
 
-  const saveBrief = async () => {
+  const saveBrief = async (silent = false) => {
     setSaving(true)
     const payload = {
       client_id: client.id,
       month_start: month,
-      campaign_name: brief.campaign_name || null,
-      jira_key: brief.jira_key || null,
-      key_due_dates: brief.key_due_dates || null,
-      goals: brief.goals || null,
-      scope: brief.scope || null,
-      channels: brief.channels || [],
-      next_steps: brief.next_steps || null,
+      campaign_name: briefRef.current.campaign_name || null,
+      jira_key: briefRef.current.jira_key || null,
+      key_due_dates: briefRef.current.key_due_dates || null,
+      goals: briefRef.current.goals || null,
+      scope: briefRef.current.scope || null,
+      channels: briefRef.current.channels || [],
+      next_steps: briefRef.current.next_steps || null,
       created_by: user?.id || null,
       updated_at: new Date().toISOString(),
     }
@@ -88,9 +90,17 @@ export default function ClientMonthlyBrief({ client }) {
       toast({ title: 'Could not save brief', description: error.message, variant: 'destructive' })
       return
     }
-    toast({ title: 'Monthly brief saved' })
+    if (!silent) toast({ title: 'Monthly brief saved' })
     setDirty(false)
   }
+
+  useEffect(() => {
+    if (!dirty || setupNeeded) return undefined
+    const timer = window.setTimeout(() => {
+      saveBrief(true)
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [dirty, brief, setupNeeded])
 
   const copyLastMonth = async () => {
     const prev = new Date(`${month}T12:00:00`)
@@ -154,7 +164,7 @@ export default function ClientMonthlyBrief({ client }) {
               <Copy className="h-4 w-4 mr-2" />
               Copy last month
             </Button>
-            <Button onClick={saveBrief} disabled={saving}>
+            <Button onClick={() => saveBrief()} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {dirty ? 'Save brief' : 'Saved'}
             </Button>
