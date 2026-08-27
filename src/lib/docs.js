@@ -110,6 +110,14 @@ export const STARTER_LOOMS = [
     collection: 'videos',
     kind: 'loom',
   },
+  {
+    id: 'starter-facebook-ads-aa',
+    title: 'Connecting Facebook Ads to Agency Analytics Dashboard',
+    url: 'https://www.loom.com/share/6b1b4560feb84abfbb5a7509f98bd5bf',
+    notes: 'Connect Facebook Ads to Agency Analytics.',
+    collection: 'videos',
+    kind: 'loom',
+  },
 ]
 
 export function extractDumpUrls(value = '') {
