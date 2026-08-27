@@ -182,16 +182,26 @@ export default function InternalDocs() {
                           {doc.notes || doc.url || 'Internal note'}
                         </p>
                         {loomId && (
-                          <a
-                            href={`https://www.loom.com/share/${loomId}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-sm text-blue-600 mt-1"
-                          >
-                            <Video className="h-3.5 w-3.5" />
-                            Open Loom
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
+                          <div className="mt-3 space-y-2">
+                            <div className="aspect-video overflow-hidden rounded-xl bg-slate-900">
+                              <iframe
+                                title={doc.title}
+                                src={`https://www.loom.com/embed/${loomId}`}
+                                allowFullScreen
+                                className="h-full w-full border-0"
+                              />
+                            </div>
+                            <a
+                              href={`https://www.loom.com/share/${loomId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-blue-600"
+                            >
+                              <Video className="h-3.5 w-3.5" />
+                              Open Loom
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2">

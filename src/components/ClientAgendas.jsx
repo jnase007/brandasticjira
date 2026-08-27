@@ -132,6 +132,23 @@ export default function ClientAgendas({ client }) {
     loadAgenda()
   }
 
+  const startThisWeek = async () => {
+    setSaving(true)
+    const created = await ensureAgenda()
+    if (!created) {
+      setSaving(false)
+      return
+    }
+    if (!topics.length) {
+      await supabase.from('client_agenda_topics').insert([
+        { agenda_id: created.id, item: 'Marketing Updates', presenter: '', notes: '', sort_order: 0 },
+        { agenda_id: created.id, item: 'Digital', presenter: '', notes: '', sort_order: 1 },
+      ])
+    }
+    setSaving(false)
+    loadAgenda()
+  }
+
   const addTopic = async () => {
     if (!topicForm.item.trim()) {
       toast({ title: 'Item is required', variant: 'destructive' })
@@ -223,8 +240,11 @@ export default function ClientAgendas({ client }) {
           ) : topics.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               <p className="font-medium">Empty week</p>
-              <p className="text-sm mb-4">Copy last week or add Marketing / Digital.</p>
-              <Button onClick={() => setAddOpen(true)} variant="outline">Add first topic</Button>
+              <p className="text-sm mb-4">Start with Marketing + Digital, or copy last week.</p>
+              <div className="flex justify-center gap-2">
+                <Button onClick={startThisWeek} disabled={saving}>Start this week</Button>
+                <Button onClick={() => setAddOpen(true)} variant="outline">Add a topic</Button>
+              </div>
             </div>
           ) : (
             topics.map((topic) => (
