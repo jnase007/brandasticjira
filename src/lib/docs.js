@@ -102,6 +102,14 @@ export const STARTER_LOOMS = [
     collection: 'videos',
     kind: 'loom',
   },
+  {
+    id: 'starter-gmail-signature',
+    title: 'How to Update Your Email Signature in Gmail',
+    url: 'https://www.loom.com/share/b0d3c72654c44c898ddb18266916906d',
+    notes: 'Update the Gmail signature.',
+    collection: 'videos',
+    kind: 'loom',
+  },
 ]
 
 export function extractDumpUrls(value = '') {
