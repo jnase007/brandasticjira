@@ -76,3 +76,40 @@ export function stampKind(text = '') {
 }
 
 export const SETUP_SQL = 'Run supabase/agendas-internal-docs.sql in the Supabase SQL editor, then refresh.'
+
+export const STARTER_LOOMS = [
+  {
+    id: 'starter-social-brief',
+    title: 'Submitting a Brief for Social Pitch',
+    url: 'https://www.loom.com/share/d162af36c08741c593efd6e20964a049',
+    notes: 'How to submit a social pitch brief.',
+    collection: 'videos',
+    kind: 'loom',
+  },
+  {
+    id: 'starter-heyreach',
+    title: 'Setting Up HeyReach for Outreach Plan from Sales Navigator',
+    url: 'https://www.loom.com/share/b88dc57efb8a4a1abfcfeff28c586f64',
+    notes: 'HeyReach setup from a Sales Navigator outreach plan.',
+    collection: 'videos',
+    kind: 'loom',
+  },
+  {
+    id: 'starter-healthcare-images',
+    title: 'Troubleshooting Image Update Issues for Healthcare Blog',
+    url: 'https://www.loom.com/share/eef43ccf167a4c03ace7e940615f9bec',
+    notes: 'Fix image updates on a healthcare blog.',
+    collection: 'videos',
+    kind: 'loom',
+  },
+]
+
+export function extractDumpUrls(value = '') {
+  const matches = String(value).match(/https?:\/\/[^\s]+/gi) || []
+  return [...new Set(matches.map((url) => url.replace(/[),.;]+$/, '')))]
+}
+
+export function knownLoom(url = '') {
+  const id = parseLoomId(url)
+  return STARTER_LOOMS.find((doc) => parseLoomId(doc.url) === id) || null
+}

@@ -9,7 +9,15 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { Badge } from '../components/ui/badge'
 import { useToast } from '../hooks/useToast'
-import { DOC_COLLECTIONS, SETUP_SQL, detectDocKind, parseLoomId } from '../lib/docs'
+import {
+  DOC_COLLECTIONS,
+  SETUP_SQL,
+  STARTER_LOOMS,
+  detectDocKind,
+  extractDumpUrls,
+  knownLoom,
+  parseLoomId,
+} from '../lib/docs'
 
 export default function InternalDocs() {
   const { user } = useAuth()
@@ -44,15 +52,17 @@ export default function InternalDocs() {
     fetchDocs()
   }, [fetchDocs])
 
+  const usingStarters = !setupNeeded && docs.length === 0
+  const sourceDocs = docs.length ? docs : STARTER_LOOMS
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return docs.filter((doc) => {
+    return sourceDocs.filter((doc) => {
       const inCollection = collection === 'all' || doc.collection === collection
       if (!inCollection) return false
       if (!q) return true
       return [doc.title, doc.notes, doc.url, doc.collection].join(' ').toLowerCase().includes(q)
     })
-  }, [docs, collection, query])
+  }, [sourceDocs, collection, query])
 
   const addDoc = async () => {
     const value = dump.trim()
@@ -60,20 +70,29 @@ export default function InternalDocs() {
       toast({ title: 'Paste a Loom URL or title first', variant: 'destructive' })
       return
     }
-    const kind = detectDocKind(value)
-    const title = kind === 'loom'
-      ? (notes.trim() || 'Loom tutorial')
-      : (/^https?:\/\//i.test(value) ? (notes.trim() || 'Internal link') : value)
-    const url = kind === 'loom' || /^https?:\/\//i.test(value) ? value : null
+    const urls = extractDumpUrls(value)
+    const rows = urls.length
+      ? urls.map((url) => {
+          const known = knownLoom(url)
+          return {
+            title: known?.title || notes.trim() || 'Loom tutorial',
+            url,
+            notes: notes.trim() || known?.notes || null,
+            collection: collection === 'all' ? 'videos' : collection,
+            kind: detectDocKind(url),
+            created_by: user?.id || null,
+          }
+        })
+      : [{
+          title: notes.trim() || value,
+          url: null,
+          notes: notes.trim() || null,
+          collection: collection === 'all' ? 'videos' : collection,
+          kind: 'note',
+          created_by: user?.id || null,
+        }]
     setSaving(true)
-    const { error } = await supabase.from('internal_docs').insert({
-      title,
-      url,
-      notes: notes.trim() || null,
-      collection: collection === 'all' ? 'videos' : collection,
-      kind,
-      created_by: user?.id || null,
-    })
+    const { error } = await supabase.from('internal_docs').insert(rows)
     setSaving(false)
     if (error) {
       toast({ title: 'Could not save', description: error.message, variant: 'destructive' })
@@ -81,7 +100,28 @@ export default function InternalDocs() {
     }
     setDump('')
     setNotes('')
-    toast({ title: 'Added to Internal Docs' })
+    toast({ title: rows.length > 1 ? `Added ${rows.length} videos` : 'Added to Internal Docs' })
+    fetchDocs()
+  }
+
+  const keepStarters = async () => {
+    setSaving(true)
+    const { error } = await supabase.from('internal_docs').insert(
+      STARTER_LOOMS.map((doc) => ({
+        title: doc.title,
+        url: doc.url,
+        notes: doc.notes,
+        collection: 'videos',
+        kind: 'loom',
+        created_by: user?.id || null,
+      }))
+    )
+    setSaving(false)
+    if (error) {
+      toast({ title: 'Could not save', description: error.message, variant: 'destructive' })
+      return
+    }
+    toast({ title: 'Kept the first 3 Looms' })
     fetchDocs()
   }
 
@@ -153,18 +193,19 @@ export default function InternalDocs() {
             <CardContent className="p-4 space-y-3">
               <div>
                 <p className="font-semibold">Dump it here.</p>
-                <p className="text-sm text-muted-foreground">Loom URL or a short note. Tag it. Done.</p>
+                <p className="text-sm text-muted-foreground">Paste one Loom or a whole list. Enter saves.</p>
               </div>
-              <Input
+              <Textarea
                 value={dump}
                 onChange={(e) => setDump(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !dump.includes('\n')) {
                     e.preventDefault()
                     addDoc()
                   }
                 }}
                 placeholder="https://www.loom.com/share/…"
+                rows={3}
               />
               <Textarea
                 value={notes}
@@ -181,6 +222,14 @@ export default function InternalDocs() {
             </CardContent>
           </Card>
 
+          {usingStarters && !setupNeeded && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <p className="text-sm">Showing Justin’s first 3 Looms until SQL saves. Keep them when the table is live.</p>
+                <Button onClick={keepStarters} disabled={saving} variant="outline">Keep these</Button>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardContent className="p-0">
               {loading ? (
@@ -220,9 +269,11 @@ export default function InternalDocs() {
                         </button>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">{doc.collection}</Badge>
-                          <Button size="icon" variant="ghost" onClick={() => removeDoc(doc.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!String(doc.id).startsWith('starter-') && (
+                            <Button size="icon" variant="ghost" onClick={() => removeDoc(doc.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {playing && (
