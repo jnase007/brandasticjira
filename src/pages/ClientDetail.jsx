@@ -45,6 +45,8 @@ import AnimatedCounter from '../components/AnimatedCounter'
 import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
 import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplates'
 import ClientDialog from '../components/ClientDialog'
+import ClientAgendas from '../components/ClientAgendas'
+import ClientMonthlyBrief from '../components/ClientMonthlyBrief'
 import { getClientTypeConfig, getClientTypeBadgeClasses } from '../lib/clientTypes'
 
 // Pipeline stages with colors
@@ -2044,6 +2046,14 @@ export default function ClientDetail() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="agendas" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
+              <ClipboardList className="h-4 w-4" />
+              <span>Agendas</span>
+            </TabsTrigger>
+            <TabsTrigger value="brief" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
+              <FileText className="h-4 w-4" />
+              <span className="whitespace-nowrap">Monthly brief</span>
+            </TabsTrigger>
             <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <MessageSquare className="h-4 w-4" />
               <span>Messages</span>
@@ -2083,6 +2093,14 @@ export default function ClientDetail() {
               )}
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="agendas">
+            <ClientAgendas client={client} />
+          </TabsContent>
+
+          <TabsContent value="brief">
+            <ClientMonthlyBrief client={client} />
+          </TabsContent>
 
           {/* Messages Tab */}
           <TabsContent value="notes">

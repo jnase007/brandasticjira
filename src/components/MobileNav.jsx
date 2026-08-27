@@ -20,6 +20,7 @@ const navItems = [
   { path: '/how-it-works', icon: BookOpen, label: 'How It Works' },
   { path: '/time', icon: Clock, label: 'Time Tracking' },
   { path: '/clients', icon: Building2, label: 'Clients' },
+  { path: '/docs', icon: BookOpen, label: 'Internal Docs' },
   { path: '/taskboard', icon: ListTodo, label: 'Task Board' },
   { path: '/reports', icon: BarChart3, label: 'Reports' },
   { path: '/team', icon: Users2, label: 'Team Hub' },
