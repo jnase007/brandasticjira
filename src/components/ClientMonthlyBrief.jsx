@@ -8,7 +8,7 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Label } from './ui/label'
 import { useToast } from '../hooks/useToast'
-import { BRIEF_CHANNELS, formatMonthLabel, monthStart } from '../lib/docs'
+import { BRIEF_CHANNELS, SETUP_SQL, formatMonthLabel, monthStart } from '../lib/docs'
 
 function emptyBrief(month) {
   return {
@@ -30,6 +30,8 @@ export default function ClientMonthlyBrief({ client }) {
   const [brief, setBrief] = useState(emptyBrief(monthStart()))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [setupNeeded, setSetupNeeded] = useState(false)
+  const [dirty, setDirty] = useState(false)
 
   const loadBrief = useCallback(async () => {
     if (!client?.id) return
@@ -41,15 +43,12 @@ export default function ClientMonthlyBrief({ client }) {
       .eq('month_start', month)
       .maybeSingle()
     if (error) {
-      toast({
-        title: 'Monthly briefs not ready',
-        description: 'Run supabase/agendas-internal-docs.sql in Supabase, then refresh.',
-        variant: 'destructive',
-      })
+      setSetupNeeded(true)
       setBrief(emptyBrief(month))
       setLoading(false)
       return
     }
+    setSetupNeeded(false)
     if (!data) {
       setBrief(emptyBrief(month))
     } else {
@@ -58,6 +57,7 @@ export default function ClientMonthlyBrief({ client }) {
         channels: Array.isArray(data.channels) && data.channels.length ? data.channels : BRIEF_CHANNELS.map((row) => ({ ...row })),
       })
     }
+    setDirty(false)
     setLoading(false)
   }, [client?.id, month, toast])
 
@@ -89,7 +89,7 @@ export default function ClientMonthlyBrief({ client }) {
       return
     }
     toast({ title: 'Monthly brief saved' })
-    loadBrief()
+    setDirty(false)
   }
 
   const copyLastMonth = async () => {
@@ -112,14 +112,32 @@ export default function ClientMonthlyBrief({ client }) {
       month_start: month,
       channels: Array.isArray(data.channels) && data.channels.length ? data.channels : BRIEF_CHANNELS.map((row) => ({ ...row })),
     })
+    setDirty(true)
     toast({ title: `Copied ${formatMonthLabel(prevMonth)}` })
   }
 
   const updateChannel = (index, patch) => {
+    setDirty(true)
     setBrief((prev) => ({
       ...prev,
       channels: prev.channels.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     }))
+  }
+
+  const updateField = (patch) => {
+    setDirty(true)
+    setBrief((prev) => ({ ...prev, ...patch }))
+  }
+
+  if (setupNeeded) {
+    return (
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="p-5">
+          <h3 className="font-semibold">Monthly briefs need one SQL run</h3>
+          <p className="text-sm text-muted-foreground mt-1">{SETUP_SQL}</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -138,7 +156,7 @@ export default function ClientMonthlyBrief({ client }) {
             </Button>
             <Button onClick={saveBrief} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Save brief
+              {dirty ? 'Save brief' : 'Saved'}
             </Button>
           </div>
         </CardContent>
@@ -157,25 +175,25 @@ export default function ClientMonthlyBrief({ client }) {
             <div className="grid md:grid-cols-3 gap-3">
               <div>
                 <Label>Campaign / project</Label>
-                <Input value={brief.campaign_name || ''} onChange={(e) => setBrief((b) => ({ ...b, campaign_name: e.target.value }))} />
+                <Input value={brief.campaign_name || ''} onChange={(e) => updateField({ campaign_name: e.target.value })} />
               </div>
               <div>
                 <Label>Jira key</Label>
-                <Input value={brief.jira_key || ''} onChange={(e) => setBrief((b) => ({ ...b, jira_key: e.target.value }))} />
+                <Input value={brief.jira_key || ''} onChange={(e) => updateField({ jira_key: e.target.value })} />
               </div>
               <div>
                 <Label>Key due dates</Label>
-                <Input value={brief.key_due_dates || ''} onChange={(e) => setBrief((b) => ({ ...b, key_due_dates: e.target.value }))} />
+                <Input value={brief.key_due_dates || ''} onChange={(e) => updateField({ key_due_dates: e.target.value })} />
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               <div className="rounded-xl bg-emerald-50 p-3">
                 <Label>Goals + objectives</Label>
-                <Textarea rows={3} value={brief.goals || ''} onChange={(e) => setBrief((b) => ({ ...b, goals: e.target.value }))} />
+                <Textarea rows={3} value={brief.goals || ''} onChange={(e) => updateField({ goals: e.target.value })} />
               </div>
               <div className="rounded-xl bg-blue-50 p-3">
                 <Label>Scope + deliverables</Label>
-                <Textarea rows={3} value={brief.scope || ''} onChange={(e) => setBrief((b) => ({ ...b, scope: e.target.value }))} />
+                <Textarea rows={3} value={brief.scope || ''} onChange={(e) => updateField({ scope: e.target.value })} />
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -204,7 +222,7 @@ export default function ClientMonthlyBrief({ client }) {
             </div>
             <div>
               <Label>Next steps</Label>
-              <Textarea rows={3} value={brief.next_steps || ''} onChange={(e) => setBrief((b) => ({ ...b, next_steps: e.target.value }))} />
+              <Textarea rows={3} value={brief.next_steps || ''} onChange={(e) => updateField({ next_steps: e.target.value })} />
             </div>
             <p className="text-xs text-muted-foreground">
               Client Project Brief (intake + signature) stays a one-time template. Do not mix it into this monthly table.

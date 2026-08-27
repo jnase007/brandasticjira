@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Copy, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Copy, Loader2, Plus, Presentation, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { cn } from '../lib/utils'
@@ -16,18 +16,58 @@ import {
   DialogTitle,
 } from './ui/dialog'
 import { useToast } from '../hooks/useToast'
-import { defaultAgendaTitle, formatWeekLabel, toISODate, weekOptions, wednesdayOnOrBefore } from '../lib/docs'
+import {
+  SETUP_SQL,
+  defaultAgendaTitle,
+  formatWeekLabel,
+  stampKind,
+  toISODate,
+  weekOptions,
+  wednesdayOnOrBefore,
+} from '../lib/docs'
+
+function StampNotes({ text }) {
+  const lines = String(text || '').split('\n').filter((line) => line.trim())
+  if (!lines.length) return <p className="text-muted-foreground">No notes yet.</p>
+  return (
+    <ul className="space-y-2">
+      {lines.map((line, i) => {
+        const kind = stampKind(line)
+        return (
+          <li key={`${i}-${line}`} className="leading-relaxed">
+            {line}
+            {kind && (
+              <span
+                className={cn(
+                  'ml-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold',
+                  kind === 'due' && 'bg-amber-100 text-amber-800',
+                  kind === 'need' && 'bg-blue-100 text-blue-800',
+                  kind === 'sent' && 'bg-emerald-100 text-emerald-800'
+                )}
+              >
+                {kind}
+              </span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
 
 export default function ClientAgendas({ client }) {
   const { user } = useAuth()
   const { toast } = useToast()
   const weeks = weekOptions(8)
-  const [meetingDate, setMeetingDate] = useState(toISODate(wednesdayOnOrBefore()))
+  const thisWeek = toISODate(wednesdayOnOrBefore())
+  const [meetingDate, setMeetingDate] = useState(thisWeek)
   const [agenda, setAgenda] = useState(null)
   const [topics, setTopics] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [setupNeeded, setSetupNeeded] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [presentOpen, setPresentOpen] = useState(false)
   const [topicForm, setTopicForm] = useState({ item: '', presenter: '', notes: '' })
 
   const loadAgenda = useCallback(async () => {
@@ -40,16 +80,13 @@ export default function ClientAgendas({ client }) {
       .eq('meeting_date', meetingDate)
       .maybeSingle()
     if (error) {
-      toast({
-        title: 'Agendas not ready',
-        description: 'Run supabase/agendas-internal-docs.sql in Supabase, then refresh.',
-        variant: 'destructive',
-      })
+      setSetupNeeded(true)
       setAgenda(null)
       setTopics([])
       setLoading(false)
       return
     }
+    setSetupNeeded(false)
     setAgenda(data)
     if (!data) {
       setTopics([])
@@ -63,7 +100,7 @@ export default function ClientAgendas({ client }) {
       .order('sort_order')
     setTopics(topicRows || [])
     setLoading(false)
-  }, [client?.id, meetingDate, toast])
+  }, [client?.id, meetingDate])
 
   useEffect(() => {
     loadAgenda()
@@ -186,18 +223,33 @@ export default function ClientAgendas({ client }) {
     setTopics((prev) => prev.filter((topic) => topic.id !== id))
   }
 
+  if (setupNeeded) {
+    return (
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="p-5">
+          <h3 className="font-semibold">Agendas need one SQL run</h3>
+          <p className="text-sm text-muted-foreground mt-1">{SETUP_SQL}</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <Card className="border-orange-200 bg-orange-50/40">
         <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-lg">This week’s client review</h3>
-            <p className="text-sm text-muted-foreground">Open it, add a topic, or copy last week. No Confluence tree.</p>
+            <p className="text-sm text-muted-foreground">Open it, present it, or copy last week. No Confluence tree.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={copyLastWeek} disabled={saving}>
               <Copy className="h-4 w-4 mr-2" />
               Copy last week
+            </Button>
+            <Button variant="outline" onClick={() => setPresentOpen(true)} disabled={!topics.length}>
+              <Presentation className="h-4 w-4 mr-2" />
+              Present
             </Button>
             <Button onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -219,7 +271,7 @@ export default function ClientAgendas({ client }) {
             )}
           >
             <b className="block text-sm">{formatWeekLabel(iso)}</b>
-            <span className="text-[11px] text-muted-foreground">{iso === toISODate(wednesdayOnOrBefore()) ? 'this week' : 'week'}</span>
+            <span className="text-[11px] text-muted-foreground">{iso === thisWeek ? 'this week' : 'week'}</span>
           </button>
         ))}
       </div>
@@ -272,6 +324,7 @@ export default function ClientAgendas({ client }) {
                     value={topic.notes || ''}
                     onChange={(e) => setTopics((prev) => prev.map((row) => (row.id === topic.id ? { ...row, notes: e.target.value } : row)))}
                     onBlur={(e) => saveTopic(topic, { notes: e.target.value })}
+                    placeholder="One line the client can scan. Use due / sent / need."
                   />
                 </div>
                 <Button size="icon" variant="ghost" className="mt-6" onClick={() => deleteTopic(topic.id)}>
@@ -299,7 +352,15 @@ export default function ClientAgendas({ client }) {
             </div>
             <div>
               <Label>Notes</Label>
-              <Textarea rows={4} value={topicForm.notes} onChange={(e) => setTopicForm((f) => ({ ...f, notes: e.target.value }))} placeholder="One line the client can scan." />
+              <Textarea
+                rows={4}
+                value={topicForm.notes}
+                onChange={(e) => setTopicForm((f) => ({ ...f, notes: e.target.value }))}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') addTopic()
+                }}
+                placeholder="One line the client can scan."
+              />
             </div>
           </div>
           <DialogFooter>
@@ -309,6 +370,23 @@ export default function ClientAgendas({ client }) {
               Add to agenda
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={presentOpen} onOpenChange={setPresentOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{agenda?.title || defaultAgendaTitle(client.name, meetingDate)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {topics.map((topic) => (
+              <section key={topic.id} className="rounded-2xl border p-5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-orange-600">{topic.presenter || 'Presenter TBD'}</p>
+                <h3 className="text-2xl font-bold mt-1 mb-3">{topic.item}</h3>
+                <StampNotes text={topic.notes} />
+              </section>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

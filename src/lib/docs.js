@@ -64,5 +64,15 @@ export function detectDocKind(url = '') {
 }
 
 export function defaultAgendaTitle(clientName, isoDate) {
-  return `${isoDate.replace(/-/g, '-')} ${clientName || 'Client'} x Brandastic Meeting Agenda`
+  const [year, month, day] = String(isoDate).split('-')
+  return `${year}-${Number(month)}-${Number(day)} ${clientName || 'Client'} x Brandastic Meeting Agenda`
 }
+
+export function stampKind(text = '') {
+  if (/\bdue\b/i.test(text)) return 'due'
+  if (/\b(need|asking|eow)\b/i.test(text)) return 'need'
+  if (/\b(sent|updated|relaunched)\b/i.test(text)) return 'sent'
+  return null
+}
+
+export const SETUP_SQL = 'Run supabase/agendas-internal-docs.sql in the Supabase SQL editor, then refresh.'

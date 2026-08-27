@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { Badge } from '../components/ui/badge'
 import { useToast } from '../hooks/useToast'
-import { DOC_COLLECTIONS, detectDocKind, parseLoomId } from '../lib/docs'
+import { DOC_COLLECTIONS, SETUP_SQL, detectDocKind, parseLoomId } from '../lib/docs'
 
 export default function InternalDocs() {
   const { user } = useAuth()
@@ -20,6 +20,9 @@ export default function InternalDocs() {
   const [collection, setCollection] = useState('videos')
   const [dump, setDump] = useState('')
   const [notes, setNotes] = useState('')
+  const [setupNeeded, setSetupNeeded] = useState(false)
+  const [openId, setOpenId] = useState(null)
+  const [query, setQuery] = useState('')
 
   const fetchDocs = useCallback(async () => {
     setLoading(true)
@@ -28,13 +31,10 @@ export default function InternalDocs() {
       .select('*')
       .order('created_at', { ascending: false })
     if (error) {
-      toast({
-        title: 'Internal Docs not ready',
-        description: 'Run supabase/agendas-internal-docs.sql in Supabase, then refresh.',
-        variant: 'destructive',
-      })
+      setSetupNeeded(true)
       setDocs([])
     } else {
+      setSetupNeeded(false)
       setDocs(data || [])
     }
     setLoading(false)
@@ -44,10 +44,15 @@ export default function InternalDocs() {
     fetchDocs()
   }, [fetchDocs])
 
-  const visible = useMemo(
-    () => docs.filter((doc) => collection === 'all' || doc.collection === collection),
-    [docs, collection]
-  )
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return docs.filter((doc) => {
+      const inCollection = collection === 'all' || doc.collection === collection
+      if (!inCollection) return false
+      if (!q) return true
+      return [doc.title, doc.notes, doc.url, doc.collection].join(' ').toLowerCase().includes(q)
+    })
+  }, [docs, collection, query])
 
   const addDoc = async () => {
     const value = dump.trim()
@@ -56,8 +61,10 @@ export default function InternalDocs() {
       return
     }
     const kind = detectDocKind(value)
-    const title = kind === 'loom' ? (notes.trim() || 'Loom tutorial') : value
-    const url = kind === 'loom' ? value : (/^https?:\/\//i.test(value) ? value : null)
+    const title = kind === 'loom'
+      ? (notes.trim() || 'Loom tutorial')
+      : (/^https?:\/\//i.test(value) ? (notes.trim() || 'Internal link') : value)
+    const url = kind === 'loom' || /^https?:\/\//i.test(value) ? value : null
     setSaving(true)
     const { error } = await supabase.from('internal_docs').insert({
       title,
@@ -92,9 +99,17 @@ export default function InternalDocs() {
       <div className="mb-6">
         <h1 className="text-3xl font-display font-bold">Internal Docs</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Company wiki. Paste a Loom or write a short how-to. Not on the client page.
+          Company wiki. Paste a Loom, hit Enter. Not on the client page.
         </p>
       </div>
+      {setupNeeded && (
+        <Card className="mb-4 border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="font-semibold">Internal Docs need one SQL run</p>
+            <p className="text-sm text-muted-foreground mt-1">{SETUP_SQL}</p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
         <Card>
@@ -129,6 +144,11 @@ export default function InternalDocs() {
         </Card>
 
         <div className="space-y-4">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search videos and how-tos…"
+          />
           <Card className="border-orange-200 bg-orange-50/40">
             <CardContent className="p-4 space-y-3">
               <div>
@@ -138,6 +158,12 @@ export default function InternalDocs() {
               <Input
                 value={dump}
                 onChange={(e) => setDump(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    addDoc()
+                  }
+                }}
                 placeholder="https://www.loom.com/share/…"
               />
               <Textarea
@@ -181,7 +207,7 @@ export default function InternalDocs() {
                         <p className="text-sm text-muted-foreground">
                           {doc.notes || doc.url || 'Internal note'}
                         </p>
-                        {loomId && (
+                        {loomId && openId === doc.id && (
                           <div className="mt-3 space-y-2">
                             <div className="aspect-video overflow-hidden rounded-xl bg-slate-900">
                               <iframe
@@ -202,6 +228,15 @@ export default function InternalDocs() {
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           </div>
+                        )}
+                        {loomId && openId !== doc.id && (
+                          <button
+                            type="button"
+                            className="mt-2 text-sm text-blue-600"
+                            onClick={() => setOpenId(doc.id)}
+                          >
+                            Play in page
+                          </button>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
