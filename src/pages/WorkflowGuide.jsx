@@ -40,6 +40,8 @@ import {
   Smartphone,
   Building2,
   User,
+  BookOpen,
+  Presentation,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -111,6 +113,16 @@ export default function WorkflowGuide() {
                 <p className="text-muted-foreground">
                   Click <strong>Start Timer</strong>, select a client and task, then start/stop to log time.
                   The timer follows you across all pages!
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+              <div>
+                <p className="font-medium">5. Run the client meeting, then dump Looms</p>
+                <p className="text-muted-foreground">
+                  Weekly agendas and monthly briefs live on the <strong>client page</strong>.
+                  Company Looms live in sidebar <strong>Internal Docs</strong> (<code>/docs</code>).
                 </p>
               </div>
             </div>
@@ -1077,6 +1089,72 @@ export default function WorkflowGuide() {
         </Card>
       </motion.div>
 
+      {/* Agendas, Monthly brief, Internal Docs */}
+      <motion.div initial="hidden" animate="visible" variants={SECTION}>
+        <Card className="border-2 border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-brand-orange" />
+              <span>Agendas, Monthly Briefs, and Internal Docs</span>
+              <Badge className="ml-2 bg-brand-orange text-white">New</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+            <p className="text-muted-foreground">
+              These replaced Confluence for weekly meetings, monthly planning, and company how-tos.
+              Do not mix them: weekly agenda is the meeting, monthly brief is internal planning, Internal Docs is the company Loom dump.
+            </p>
+
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Presentation className="h-5 w-5 text-brand-orange" />
+                <h4 className="font-semibold">Weekly Agendas</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Open a client, then the <strong>Agendas</strong> tab. It lands on this week. No Confluence tree.
+              </p>
+              <ol className="list-decimal pl-5 text-muted-foreground space-y-1">
+                <li>Pick the week chip, or stay on <strong>this week</strong>.</li>
+                <li>Empty week: <strong>Copy last week</strong> or <strong>Start this week</strong> (seeds Marketing + Digital).</li>
+                <li><strong>Prep</strong> to edit Item / Presenter / Notes. Notes can include <strong>due</strong>, <strong>sent</strong>, or <strong>need</strong>.</li>
+                <li><strong>Present</strong> or click a topic for fullscreen slides. Keys: ← → or J / K, Esc to leave.</li>
+              </ol>
+            </div>
+
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="h-5 w-5 text-blue-500" />
+                <h4 className="font-semibold">Monthly Brief</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Same client page, <strong>Monthly brief</strong> tab. Internal planning for design. Not the weekly meeting.
+                The Client Project Brief (intake + signature) stays a one-time template. Do not mix it here.
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li>Campaign, Jira key, due dates, goals, scope, channel table, next steps.</li>
+                <li>Autosaves. Use <strong>Copy last month</strong> when starting a new month.</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <BookOpen className="h-5 w-5 text-purple-500" />
+                <h4 className="font-semibold">Internal Docs</h4>
+              </div>
+              <p className="text-muted-foreground mb-3">
+                Sidebar <strong>Internal Docs</strong> or go to <code>/docs</code> (<code>/videos</code> redirects there).
+                Company wiki only. Not on the client page. Not the old SEO wiki.
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li>Paste one Loom or a list, hit Enter, done. Optional one-line note.</li>
+                <li>Click <strong>PLAY</strong> to watch in place.</li>
+                <li>Starter videos already there: Social Pitch brief, HeyReach, Healthcare images, Gmail signature, Facebook Ads → Agency Analytics.</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Navigation Buttons */}
       <motion.div initial="hidden" animate="visible" variants={SECTION} className="flex flex-wrap gap-3">
         <Button asChild>
@@ -1092,6 +1170,9 @@ export default function WorkflowGuide() {
         </Button>
         <Button variant="outline" asChild>
           <Link to="/team">Go to Team Hub</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/docs">Go to Internal Docs</Link>
         </Button>
       </motion.div>
     </div>
