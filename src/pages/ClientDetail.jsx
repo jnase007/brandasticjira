@@ -14,6 +14,7 @@ import {
   PlayCircle, UserCheck, ThumbsUp, Receipt, CheckCircle2, ArrowUpDown, Search, ClipboardList
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession, getOrCreateGeneralBoardForClient } from '../lib/supabase'
+import { TIME_CHANNELS, normalizeTimeChannel, parseChannelHours } from '../lib/timeChannels'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, isUuid } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -1495,6 +1496,22 @@ export default function ClientDetail() {
     .reduce((sum, e) => sum + (e.minutes || 0), 0)
   const currentMonthHours = Math.round(currentMonthMinutes / 60)
   const budgetUsed = monthlyBudget > 0 ? Math.round((currentMonthHours / monthlyBudget) * 100) : 0
+  const currentMonthEntries = timeEntries.filter(e => {
+    const entryDate = new Date(e.date)
+    const now = new Date()
+    return entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear()
+  })
+  const channelBudgets = parseChannelHours(client.channel_hours, monthlyBudget)
+  const channelUsage = TIME_CHANNELS.map((channel) => {
+    const usedMinutes = currentMonthEntries
+      .filter((entry) => normalizeTimeChannel(entry.channel) === channel.id)
+      .reduce((sum, entry) => sum + (entry.minutes || 0), 0)
+    const usedHours = Math.round(usedMinutes / 60)
+    const budget = Number(channelBudgets[channel.id] || 0)
+    const usedPct = budget > 0 ? Math.round((usedHours / budget) * 100) : 0
+    return { ...channel, usedHours, budget, usedPct }
+  }).filter((row) => row.budget > 0 || row.usedHours > 0)
+  const hotChannels = channelUsage.filter((row) => row.budget > 0 && row.usedPct >= 80)
 
   // 7-status workflow - normalize legacy statuses
   const normalizeStatus = (status) => {
@@ -1586,6 +1603,30 @@ export default function ClientDetail() {
           <Badge variant={budgetUsed >= 100 ? "destructive" : "outline"} className="ml-auto">
             {budgetUsed}%
           </Badge>
+        </motion.div>
+      )}
+
+      {hotChannels.length > 0 && (
+        <motion.div variants={itemVariants} className="mb-4 space-y-2">
+          {hotChannels.map((row) => (
+            <div
+              key={row.id}
+              className={cn(
+                "p-3 rounded-lg flex items-center gap-3",
+                row.usedPct >= 100
+                  ? "bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400"
+                  : "bg-yellow-500/10 border border-yellow-500/30 text-yellow-700 dark:text-yellow-400"
+              )}
+            >
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="flex-1 font-medium">
+                {row.usedPct >= 100
+                  ? `${row.label} exceeded: ${row.usedHours}h of ${row.budget}h (${row.usedPct}%)`
+                  : `${row.label} approaching limit: ${row.usedHours}h of ${row.budget}h (${row.usedPct}%)`}
+              </p>
+              <Badge variant={row.usedPct >= 100 ? "destructive" : "outline"}>{row.usedPct}%</Badge>
+            </div>
+          ))}
         </motion.div>
       )}
 
@@ -1926,6 +1967,24 @@ export default function ClientDetail() {
               </div>
               <Progress value={Math.min(budgetUsed, 100)} className="mt-3 h-2" />
               <p className="text-xs text-muted-foreground mt-1">{budgetUsed}% of budget used</p>
+              {channelUsage.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {channelUsage.map((row) => (
+                    <div key={row.id}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span>{row.label}</span>
+                        <span className="text-muted-foreground">
+                          {row.usedHours}h{row.budget > 0 ? ` / ${row.budget}h` : ''}
+                        </span>
+                      </div>
+                      <Progress
+                        value={row.budget > 0 ? Math.min(row.usedPct, 100) : 0}
+                        className={cn("mt-1 h-1.5", row.usedPct >= 100 && "[&>div]:bg-red-500")}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>

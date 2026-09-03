@@ -9,7 +9,34 @@
 # SPA routing - let React handle all routes
 # (Removed legacy redirect functions that were causing redirect loops)
 
-# Redirect all routes to index.html for SPA routing
+# Keep static files out of the SPA rewrite
+[[redirects]]
+  from = "https://www.brandastic.co/*"
+  to = "https://brandastic.co/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/sitemap.xml"
+  status = 200
+
+[[redirects]]
+  from = "/robots.txt"
+  to = "/robots.txt"
+  status = 200
+
+[[redirects]]
+  from = "/sw.js"
+  to = "/sw.js"
+  status = 200
+
+[[redirects]]
+  from = "/version.json"
+  to = "/version.json"
+  status = 200
+
+# Redirect all other routes to index.html for SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"

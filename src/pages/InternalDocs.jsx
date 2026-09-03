@@ -121,7 +121,7 @@ export default function InternalDocs() {
       toast({ title: 'Could not save', description: error.message, variant: 'destructive' })
       return
     }
-    toast({ title: 'Kept the first 3 Looms' })
+    toast({ title: 'Kept the 5 starter Looms' })
     fetchDocs()
   }
 
@@ -225,7 +225,7 @@ export default function InternalDocs() {
           {usingStarters && !setupNeeded && (
             <Card className="border-blue-200 bg-blue-50">
               <CardContent className="p-4 flex items-center justify-between gap-3">
-                <p className="text-sm">Showing Justin’s first 3 Looms until SQL saves. Keep them when the table is live.</p>
+                <p className="text-sm">Showing Justin’s 5 starter Looms. Keep them to save into Internal Docs.</p>
                 <Button onClick={keepStarters} disabled={saving} variant="outline">Keep these</Button>
               </CardContent>
             </Card>

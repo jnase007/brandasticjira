@@ -58,6 +58,7 @@ export function AuthProvider({ children }) {
       return null
     } catch (err) {
       console.error('[Auth] Error fetching profile:', err)
+      // Fail open on timeout/network so nav does not bounce the existing session.
       return null
     }
   }
@@ -80,10 +81,18 @@ export function AuthProvider({ children }) {
         .eq('id', user.id)
         .maybeSingle()
       
-      const { data: existing, error: checkError } = await Promise.race([checkPromise, checkTimeout])
+      let existing = null
+      let checkError = null
+      try {
+        ;({ data: existing, error: checkError } = await Promise.race([checkPromise, checkTimeout]))
+      } catch (timeoutErr) {
+        console.warn('[Auth] Profile check timed out - keeping current session', timeoutErr?.message || timeoutErr)
+        return null
+      }
       
       if (checkError) {
         console.error('[Auth] Error checking profile:', checkError)
+        return null
       }
 
       if (existing) {

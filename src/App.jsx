@@ -1088,6 +1088,10 @@ function App() {
                 element={<ClientDashboard />}
               />
               <Route
+                path="/login"
+                element={<Navigate to="/dashboard" replace />}
+              />
+              <Route
                 path="/client-login"
                 element={<ClientLogin />}
               />

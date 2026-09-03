@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
 import { cn, formatDate, formatDuration, getInitials } from '../lib/utils'
 import { CLIENT_TYPE_LABELS } from '../lib/clientTypes'
+import { DEFAULT_TIME_CHANNEL, TIME_CHANNELS, normalizeTimeChannel } from '../lib/timeChannels'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -132,6 +133,7 @@ export default function TimeTracking() {
     description: '',
     minutes: 0,
     billable: true,
+    channel: DEFAULT_TIME_CHANNEL,
   })
   const [savingEntry, setSavingEntry] = useState(false)
   const [deletingEntry, setDeletingEntry] = useState(false)
@@ -147,6 +149,7 @@ export default function TimeTracking() {
     minutes: '',
     date: new Date().toISOString().split('T')[0],
     billable: true,
+    channel: DEFAULT_TIME_CHANNEL,
   })
   const [availableTickets, setAvailableTickets] = useState([])
   const [loadingTickets, setLoadingTickets] = useState(false)
@@ -383,7 +386,7 @@ export default function TimeTracking() {
       startTime.setHours(9, 0, 0, 0)
       const endTime = new Date(startTime.getTime() + totalMinutes * 60000)
 
-      await supabase.from('time_entries').insert({
+      const payload = {
         user_id: user.id,
         client_id: timeEntry.client_id,
         ticket_id: timeEntry.ticket_id && timeEntry.ticket_id !== 'no-task' ? timeEntry.ticket_id : null,
@@ -395,7 +398,14 @@ export default function TimeTracking() {
         end_time: endTime.toISOString(),
         duration_minutes: totalMinutes,
         is_running: false,
-      })
+        channel: normalizeTimeChannel(timeEntry.channel),
+      }
+      let { error } = await supabase.from('time_entries').insert(payload)
+      if (error && error.message?.includes('column')) {
+        delete payload.channel
+        ;({ error } = await supabase.from('time_entries').insert(payload))
+      }
+      if (error) throw error
 
       const taskName = availableTickets.find(t => t.id === timeEntry.ticket_id)?.title
       toast({ 
@@ -416,6 +426,7 @@ export default function TimeTracking() {
         minutes: '',
         date: new Date().toISOString().split('T')[0],
         billable: true,
+        channel: DEFAULT_TIME_CHANNEL,
       })
       setAvailableTickets([])
       fetchData(true)
@@ -431,6 +442,7 @@ export default function TimeTracking() {
       description: entry.description || '',
       minutes: entry.minutes || 0,
       billable: entry.billable ?? true,
+      channel: normalizeTimeChannel(entry.channel),
     })
     setEditTimeDialogOpen(true)
   }
@@ -441,15 +453,17 @@ export default function TimeTracking() {
     
     setSavingEntry(true)
     try {
-      const { error } = await supabase
-        .from('time_entries')
-        .update({
-          description: editEntryData.description,
-          minutes: editEntryData.minutes,
-          billable: editEntryData.billable,
-        })
-        .eq('id', editingEntry.id)
-      
+      const updates = {
+        description: editEntryData.description,
+        minutes: editEntryData.minutes,
+        billable: editEntryData.billable,
+        channel: normalizeTimeChannel(editEntryData.channel),
+      }
+      let { error } = await supabase.from('time_entries').update(updates).eq('id', editingEntry.id)
+      if (error && error.message?.includes('column')) {
+        delete updates.channel
+        ;({ error } = await supabase.from('time_entries').update(updates).eq('id', editingEntry.id))
+      }
       if (error) throw error
       
       toast({ title: '✅ Time entry updated', variant: 'success' })
@@ -1307,6 +1321,27 @@ export default function TimeTracking() {
             {/* Task Selection (Optional) */}
             {timeEntry.client_id && (
               <div>
+                <Label>Channel</Label>
+                <Select
+                  value={timeEntry.channel}
+                  onValueChange={(v) => setTimeEntry(e => ({ ...e, channel: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select channel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_CHANNELS.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        {channel.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {timeEntry.client_id && (
+              <div>
                 <Label>Task (optional)</Label>
                 <Select
                   value={timeEntry.ticket_id}
@@ -1563,6 +1598,25 @@ export default function TimeTracking() {
                     {editingEntry.ticket.title}
                   </Badge>
                 )}
+              </div>
+
+              <div>
+                <Label>Channel</Label>
+                <Select
+                  value={editEntryData.channel}
+                  onValueChange={(v) => setEditEntryData(prev => ({ ...prev, channel: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select channel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_CHANNELS.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        {channel.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

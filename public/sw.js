@@ -49,19 +49,32 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api')) return;
+
+  const accept = event.request.headers.get('accept') || '';
+  const isNavigate = event.request.mode === 'navigate' || accept.includes('text/html');
   
-  // For JS/CSS/HTML - ALWAYS go to network (these are fingerprinted by Vite)
-  // This prevents stale chunk errors after deployments
+  // Never cache HTML/app shells or hashed assets. Stale HTML + new hashes = blank page.
   if (
+    isNavigate ||
     url.pathname.endsWith('.js') ||
     url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.html') ||
     url.pathname === '/' ||
-    url.pathname.startsWith('/assets/')
+    url.pathname.startsWith('/assets/') ||
+    url.pathname === '/version.json' ||
+    url.pathname === '/sw.js'
   ) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        // Only fallback to cache if network fails (offline)
+      fetch(event.request, { cache: 'no-store' }).then((response) => {
+        const contentType = response.headers.get('content-type') || '';
+        if (isNavigate && contentType.includes('text/html')) {
+          return response;
+        }
+        return response;
+      }).catch(() => {
+        if (isNavigate) {
+          return new Response('', { status: 503, statusText: 'Offline' });
+        }
         return caches.match(event.request);
       })
     );

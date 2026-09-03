@@ -9,6 +9,7 @@ import { supabase, createManualTimeEntry } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
 import { cn } from '../lib/utils'
+import { DEFAULT_TIME_CHANNEL, TIME_CHANNELS, normalizeTimeChannel } from '../lib/timeChannels'
 import { useToast } from '../hooks/useToast'
 import {
   Dialog,
@@ -194,6 +195,7 @@ export default function FloatingTimer({
   const [showPicker, setShowPicker] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isBillable, setIsBillable] = useState(true)
+  const [selectedChannel, setSelectedChannel] = useState(DEFAULT_TIME_CHANNEL)
   
   // Step-based selection: 'client' or 'task'
   const [selectionStep, setSelectionStep] = useState('client')
@@ -221,13 +223,20 @@ export default function FloatingTimer({
     const loadData = async () => {
       setIsLoading(true)
       try {
-        // Load clients
-        const { data: clientsData, error: clientsError } = await supabase
+        // Load clients (fail open if channel_hours column is not live yet)
+        let clientsQuery = supabase
           .from('clients')
-          .select('id, name, color, monthly_hours')
+          .select('id, name, color, monthly_hours, channel_hours')
           .eq('is_active', true)
           .order('name')
-        
+        let { data: clientsData, error: clientsError } = await clientsQuery
+        if (clientsError && String(clientsError.message || '').includes('column')) {
+          ;({ data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('id, name, color, monthly_hours')
+            .eq('is_active', true)
+            .order('name'))
+        }
         if (clientsError) console.error('Error loading clients:', clientsError)
         else setClients(clientsData || [])
         
@@ -593,12 +602,13 @@ export default function FloatingTimer({
     const saved = localStorage.getItem('activeTimer')
     if (saved) {
       try {
-      const { startTime, description, clientId, ticketId, isBillable } = JSON.parse(saved)
+      const { startTime, description, clientId, ticketId, isBillable, channel } = JSON.parse(saved)
       const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
       setStartTime(startTime)
       setSeconds(elapsed)
       setDescription(description || '')
       setIsBillable(isBillable !== false)
+      setSelectedChannel(normalizeTimeChannel(channel))
       setIsRunning(true)
       
       // Find and set client
@@ -643,7 +653,8 @@ export default function FloatingTimer({
       description,
       clientId: selectedClient?.id,
       ticketId: selectedTicket?.id,
-      isBillable
+      isBillable,
+      channel: selectedChannel,
     }))
     
     toast({
@@ -660,6 +671,7 @@ export default function FloatingTimer({
         client: selectedClient,
         ticket: selectedTicket,
         isBillable,
+        channel: selectedChannel,
       })
       setConflictOpen(true)
       return
@@ -701,7 +713,8 @@ export default function FloatingTimer({
       
       const timeEntry = {
         user_id: user.id,
-        // Note: client_id not stored on time_entries - client is inferred from ticket->board->client
+        client_id: selectedClient.id,
+        channel: normalizeTimeChannel(selectedChannel),
         description: description || selectedClient.name || 'No description',
         notes: description || '',
         minutes: totalMinutes,
@@ -815,6 +828,7 @@ export default function FloatingTimer({
                     setSelectedClient(pendingStart.client || null)
                     setSelectedTicket(pendingStart.ticket || null)
                     setIsBillable(pendingStart.isBillable !== false)
+                    setSelectedChannel(normalizeTimeChannel(pendingStart.channel))
                   }
                   startTimer()
                 }}
@@ -1281,8 +1295,31 @@ export default function FloatingTimer({
                 </motion.div>
               )}
 
-              {/* Billable Toggle */}
+              {/* Channel + Billable */}
               {selectedClient && (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">Channel</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {TIME_CHANNELS.map((channel) => (
+                        <button
+                          key={channel.id}
+                          type="button"
+                          disabled={isRunning}
+                          onClick={() => setSelectedChannel(channel.id)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                            selectedChannel === channel.id
+                              ? "bg-brand-orange text-white border-brand-orange"
+                              : "bg-muted/40 text-muted-foreground border-transparent hover:border-brand-orange/40",
+                            isRunning && "opacity-60 cursor-not-allowed"
+                          )}
+                        >
+                          {channel.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 <div className="flex items-center justify-between px-1">
                   <span className="text-sm text-muted-foreground">Billable</span>
                   <button
@@ -1299,6 +1336,7 @@ export default function FloatingTimer({
                       className="absolute top-1 w-4 h-4 bg-white rounded-full shadow"
                     />
                   </button>
+                </div>
                 </div>
               )}
 

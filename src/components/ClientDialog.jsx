@@ -34,6 +34,13 @@ import {
 } from './ui/select'
 import { useToast } from '../hooks/useToast'
 import Confetti from './Confetti'
+import {
+  TIME_CHANNELS,
+  emptyChannelHours,
+  parseChannelHours,
+  channelHoursTotal,
+  isMissingColumnError,
+} from '../lib/timeChannels'
 
 const COLORS = [
   { value: '#FF6B6B', name: 'Coral' },
@@ -119,6 +126,7 @@ export default function ClientDialog({
     contact_email: '',
     contact_phone: '',
     monthly_hours: 30,
+    channel_hours: emptyChannelHours(),
     color: '#F7931E',
     account_services: '',
     is_active: true,
@@ -164,6 +172,7 @@ export default function ClientDialog({
           contact_email: client.contact_email || '',
           contact_phone: client.contact_phone || '',
           monthly_hours: client.monthly_hours || 30,
+          channel_hours: parseChannelHours(client.channel_hours, client.monthly_hours || 30),
           color: client.color || '#F7931E',
           account_services: Array.isArray(client.account_services) 
             ? client.account_services.join(', ') 
@@ -196,6 +205,7 @@ export default function ClientDialog({
           contact_email: '',
           contact_phone: '',
           monthly_hours: 30,
+          channel_hours: emptyChannelHours(),
           color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
           account_services: '',
           is_active: true,
@@ -427,6 +437,7 @@ export default function ClientDialog({
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
         monthly_hours: parseFloat(formData.monthly_hours) || 30,
+        channel_hours: formData.channel_hours || emptyChannelHours(),
         color: formData.color,
         account_services: formData.account_services 
           ? formData.account_services.split(',').map(s => s.trim()).filter(Boolean)
@@ -464,21 +475,23 @@ export default function ClientDialog({
 
       let result
 
+      const saveClient = async (payload) => {
+        if (client) {
+          return supabase.from('clients').update(payload).eq('id', client.id).select().single()
+        }
+        return supabase.from('clients').insert(payload).select().single()
+      }
+
       if (client) {
         console.log('[ClientDialog] Updating existing client:', client.id)
-        result = await supabase
-          .from('clients')
-          .update(dataToSave)
-          .eq('id', client.id)
-          .select()
-          .single()
       } else {
         console.log('[ClientDialog] Creating new client...')
-        result = await supabase
-          .from('clients')
-          .insert(dataToSave)
-          .select()
-          .single()
+      }
+      result = await saveClient(dataToSave)
+      if (result.error && isMissingColumnError(result.error) && 'channel_hours' in dataToSave) {
+        const fallback = { ...dataToSave }
+        delete fallback.channel_hours
+        result = await saveClient(fallback)
       }
 
       console.log('[ClientDialog] Supabase result:', result)
@@ -643,6 +656,7 @@ export default function ClientDialog({
                         contact_email: '',
                         contact_phone: '',
                         monthly_hours: 30,
+                        channel_hours: emptyChannelHours(),
                         color: COLORS[Math.floor(Math.random() * COLORS.length)].value,
                         account_services: '',
                         is_active: true,
@@ -1113,6 +1127,37 @@ export default function ClientDialog({
                                   {opt.value}h
                                 </button>
                               ))}
+                            </div>
+
+                            <div className="mt-4">
+                              <Label className="text-sm font-medium mb-2 block">Channel splits</Label>
+                              <p className="text-xs text-muted-foreground mb-2">
+                                Optional. Used for 80/100 alerts per channel. Total {channelHoursTotal(formData.channel_hours)}h.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {TIME_CHANNELS.map((channel) => (
+                                  <div key={channel.id} className="flex items-center gap-2">
+                                    <span className="w-20 text-xs text-muted-foreground">{channel.label}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.5"
+                                      value={formData.channel_hours?.[channel.id] || ''}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value) || 0
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          channel_hours: {
+                                            ...(prev.channel_hours || emptyChannelHours()),
+                                            [channel.id]: value,
+                                          },
+                                        }))
+                                      }}
+                                      className="flex-1 rounded-md border px-2 py-1 text-sm bg-transparent"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}

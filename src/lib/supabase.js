@@ -663,6 +663,8 @@ export async function createManualTimeEntry(entryData) {
     date: entryData.date ?? startDate.toISOString().split('T')[0],
     billable: entryData.billable ?? true,
   }
+  if (entryData.client_id) payload.client_id = entryData.client_id
+  if (entryData.channel) payload.channel = entryData.channel
 
   let { data, error } = await supabase
     .from('time_entries')
@@ -670,20 +672,32 @@ export async function createManualTimeEntry(entryData) {
     .select()
     .single()
 
-  // Fallback for older schemas
+  // Fallback for older schemas (no client_id / channel / extra columns)
   if (error && error.message?.includes('column')) {
+    const fallback = {
+      user_id: entryData.user_id,
+      ticket_id: entryData.ticket_id ?? null,
+      description: entryData.description ?? null,
+      minutes: durationMinutes,
+      date: startDate.toISOString().split('T')[0],
+      is_running: false,
+    }
+    if (entryData.client_id) fallback.client_id = entryData.client_id
+    if (entryData.channel) fallback.channel = entryData.channel
     ;({ data, error } = await supabase
       .from('time_entries')
-      .insert({
-        user_id: entryData.user_id,
-        ticket_id: entryData.ticket_id ?? null,
-        description: entryData.description ?? null,
-        minutes: durationMinutes,
-        date: startDate.toISOString().split('T')[0],
-        is_running: false,
-      })
+      .insert(fallback)
       .select()
       .single())
+    if (error && error.message?.includes('column')) {
+      delete fallback.client_id
+      delete fallback.channel
+      ;({ data, error } = await supabase
+        .from('time_entries')
+        .insert(fallback)
+        .select()
+        .single())
+    }
   }
 
   return { data, error }
