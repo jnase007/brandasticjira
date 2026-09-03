@@ -1,6 +1,12 @@
 {
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.brandastic.co" }],
+      "destination": "https://brandastic.co/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "www.brandastic.co" }],
       "destination": "https://brandastic.co/:path*",
