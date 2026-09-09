@@ -6,7 +6,7 @@ import {
   Building2, Users, Plus, Search, Bell, MessageSquare, Calendar,
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
-  ChevronLeft, ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
+  ChevronLeft, ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap,
   Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play, Target,
   DollarSign, Briefcase, ArrowRightCircle, Phone, GripVertical, LayoutGrid, Table2
 } from 'lucide-react'
@@ -1297,9 +1297,6 @@ export default function ClientManagement() {
                                 {formatHoursValue(hoursStats.remaining)}h
                               </p>
                             </div>
-                          </div>
-                          <div className="mt-3 text-xs text-brand-orange font-medium flex items-center gap-1">
-                            Open client <ArrowRight className="h-3 w-3" />
                           </div>
                         </div>
                       </Link>
