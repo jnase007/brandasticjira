@@ -6,13 +6,13 @@ import {
   Building2, Users, Plus, Search, Bell, MessageSquare, Calendar,
   Send, Mail, Copy, CheckCircle, Clock, AlertTriangle, ExternalLink,
   ThumbsUp, Image, FileText, Trash2, Edit2, Eye, Star, Loader2,
-  ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
+  ChevronLeft, ChevronRight, Filter, RefreshCw, Award, Sparkles, Zap, ArrowRight,
   Trophy, TrendingUp, PartyPopper, Upload, X, Pause, Play, Target,
-  DollarSign, Briefcase, ArrowRightCircle, Phone, GripVertical
+  DollarSign, Briefcase, ArrowRightCircle, Phone, GripVertical, LayoutGrid, Table2
 } from 'lucide-react'
-import { supabase, seedSampleClients, ensureValidSession } from '../lib/supabase'
+import { supabase, seedSampleClients, ensureValidSession, getClientHoursSummary } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { cn, formatDate, formatRelativeDate, getInitials } from '../lib/utils'
+import { cn, formatDate, formatRelativeDate, getInitials, getHoursProgress } from '../lib/utils'
 import { 
   CLIENT_TYPES, 
   CLIENT_TYPE_OPTIONS, 
@@ -78,6 +78,98 @@ const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'Urgent', color: 'text-red-500' },
 ]
 
+
+const DIRECTORY_PAGE_SIZE = 15
+const DIRECTORY_VIEW_KEY = 'brandastic.clientsDirectoryView'
+
+function formatHoursValue(value) {
+  const n = Number(value) || 0
+  const rounded = Math.round(n * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
+function getClientMonthlyRevenue(client) {
+  return (Number(client?.monthly_hours) || 0) * 175
+}
+
+function getClientHoursStats(client, hoursUsedByClient) {
+  const hours = Number(client?.monthly_hours) || 0
+  const used = Number(hoursUsedByClient?.[client?.id] || 0)
+  const progress = getHoursProgress(hours, used * 60)
+  const actual = progress.actualHours ?? used
+  const remaining = hours > 0 ? Math.round((hours - actual) * 10) / 10 : 0
+  return {
+    hours,
+    used: actual,
+    remaining,
+    percentage: progress.percentage || 0,
+    hoursStatus: progress.status || 'unknown',
+  }
+}
+
+function getDirectoryStatus(client, hoursStats) {
+  if (client?.is_active === false) {
+    return { label: 'Inactive', tone: 'inactive' }
+  }
+  if (client?.client_status === 'prospect') {
+    return { label: 'Prospect', tone: 'prospect' }
+  }
+  if (hoursStats?.hoursStatus === 'warning' || hoursStats?.hoursStatus === 'over') {
+    return { label: 'Attention', tone: 'attention' }
+  }
+  return { label: 'On track', tone: 'on_track' }
+}
+
+function directoryStatusClasses(tone) {
+  if (tone === 'attention') return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+  if (tone === 'inactive') return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+  if (tone === 'prospect') return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+  return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+}
+
+function ClientMark({ client, size = 'md' }) {
+  const dim = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-sm'
+  if (client?.logo_url) {
+    return (
+      <img
+        src={client.logo_url}
+        alt=""
+        className={cn(dim, 'rounded-lg object-contain bg-white border border-slate-200 dark:border-white/10')}
+      />
+    )
+  }
+  return (
+    <div
+      className={cn(dim, 'rounded-lg flex items-center justify-center text-white font-semibold')}
+      style={{ backgroundColor: client?.color || '#F7931E' }}
+    >
+      {(client?.name || '?')[0]}
+    </div>
+  )
+}
+
+function ServiceChips({ services, limit = 2 }) {
+  const list = Array.isArray(services) ? services.filter(Boolean) : []
+  if (list.length === 0) {
+    return <span className="text-slate-400 dark:text-white/40">—</span>
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {list.slice(0, limit).map((service) => (
+        <span
+          key={service}
+          className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70"
+        >
+          {service}
+        </span>
+      ))}
+      {list.length > limit && (
+        <span className="text-[11px] text-slate-400 dark:text-white/40">+{list.length - limit}</span>
+      )}
+    </div>
+  )
+}
+
 // Empty state component for when there are no clients
 function EmptyClientsState({ onImport, loading }) {
   return (
@@ -128,6 +220,15 @@ export default function ClientManagement() {
   const [activeTab, setActiveTab] = useState('clients')
   const [statusFilter, setStatusFilter] = useState('active') // 'active', 'inactive', 'all'
   const [clientTypeFilter, setClientTypeFilter] = useState('all') // 'all', 'retainer', 'project', 'personal_saas'
+  const [directoryView, setDirectoryView] = useState(() => {
+    try {
+      return localStorage.getItem(DIRECTORY_VIEW_KEY) === 'cards' ? 'cards' : 'table'
+    } catch {
+      return 'table'
+    }
+  })
+  const [directoryPage, setDirectoryPage] = useState(1)
+  const [hoursUsedByClient, setHoursUsedByClient] = useState({})
   
   // Data
   const [clients, setClients] = useState([])
@@ -407,9 +508,16 @@ export default function ClientManagement() {
             .from('client_wins')
             .select('*')
             .order('created_at', { ascending: false }),
+          getClientHoursSummary(),
         ])
 
-        const [ticketsRes, boardsRes, teamAssignmentsRes, winsRes] = await Promise.race([additionalDataPromise, timeout])
+        const [ticketsRes, boardsRes, teamAssignmentsRes, winsRes, hoursSummaryRes] = await Promise.race([additionalDataPromise, timeout])
+        const usedMap = {}
+        for (const row of hoursSummaryRes?.data || []) {
+          if (!row?.client_id) continue
+          usedMap[row.client_id] = Number(row.hours_used) || 0
+        }
+        setHoursUsedByClient(usedMap)
 
         console.log('[ClientManagement] Wins query result:', winsRes)
         
@@ -483,6 +591,10 @@ export default function ClientManagement() {
     fetchData()
     fetchFavorites() // Fetch user's favorite clients from database
   }, [authLoading, user?.id])
+
+  useEffect(() => {
+    setDirectoryPage(1)
+  }, [searchQuery, statusFilter, clientTypeFilter])
 
   // Create request
   const handleCreateRequest = async () => {
@@ -611,6 +723,24 @@ export default function ClientManagement() {
       if (!aPinned && bPinned) return 1
       return a.name.localeCompare(b.name)
     })
+
+  const filteredActiveCount = filteredClients.filter((c) => c.is_active !== false && c.client_status !== 'prospect').length
+  const filteredMonthlyRevenue = filteredClients.reduce((sum, c) => sum + getClientMonthlyRevenue(c), 0)
+  const filteredMonthlyHours = filteredClients.reduce((sum, c) => sum + (Number(c.monthly_hours) || 0), 0)
+  const directoryPageCount = Math.max(1, Math.ceil(filteredClients.length / DIRECTORY_PAGE_SIZE))
+  const safeDirectoryPage = Math.min(directoryPage, directoryPageCount)
+  const directoryStart = filteredClients.length === 0 ? 0 : (safeDirectoryPage - 1) * DIRECTORY_PAGE_SIZE
+  const visibleClients = filteredClients.slice(directoryStart, directoryStart + DIRECTORY_PAGE_SIZE)
+  const directoryEnd = directoryStart + visibleClients.length
+
+  const rememberDirectoryView = (view) => {
+    setDirectoryView(view)
+    try {
+      localStorage.setItem(DIRECTORY_VIEW_KEY, view)
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   const pendingRequests = requests.filter(r => r.status === 'pending')
 
@@ -751,135 +881,25 @@ export default function ClientManagement() {
       className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto"
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="mb-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <motion.div variants={itemVariants} className="mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-brand-orange to-brand-coral">
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-display font-bold text-slate-900 dark:text-white">Client Management</h1>
-            </div>
-            <p className="text-sm sm:text-lg text-slate-500 dark:text-white/50">
-              Manage client relationships, requests, and portfolios
+            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white">Clients</h1>
+            <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
+              Compare retainers, hours, and status across the book
             </p>
           </div>
-          
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData(true)}
-              disabled={refreshing}
-              className="flex-1 sm:flex-none"
-            >
-              <RefreshCw className={cn("h-4 w-4 sm:mr-2", refreshing && "animate-spin")} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button 
-              size="sm" 
-              className="bg-gradient-to-r from-brand-orange to-brand-coral flex-1 sm:flex-none"
-              onClick={() => setClientDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Add Client</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+            Refresh
+          </Button>
         </div>
-      </motion.div>
-
-      {/* Stats */}
-      <motion.div variants={containerVariants} className="grid gap-4 grid-cols-2 md:grid-cols-5 mb-8">
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-500/10">
-                  <Building2 className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-white/50">Active Clients</p>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {activeClients.length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card className={cn("bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm", prospectClients.length > 0 && "border-purple-500/30 bg-purple-500/5")}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-purple-500/10">
-                  <Target className="h-5 w-5 text-purple-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-white/50">Prospects</p>
-                  <p className="text-2xl font-bold text-purple-500">
-                    {prospectClients.length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-green-500/10">
-                  <DollarSign className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-white/50">Pipeline Value</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ${prospectClients.reduce((sum, c) => sum + (Number(c.estimated_budget) || 0), 0).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-yellow-500/10">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-white/50">Client Wins 🎉</p>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {clientWins.length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card className={cn("bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm", pendingRequests.length > 0 && "border-brand-orange/30 bg-brand-orange/5")}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-orange-500/10">
-                  <Bell className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-white/50">Pending Requests</p>
-                  <p className="text-2xl font-bold text-orange-500">
-                    {pendingRequests.length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
       </motion.div>
 
       {/* No Clients Banner - Shows prominently at top */}
@@ -980,14 +1000,18 @@ export default function ClientManagement() {
         {/* Clients Tab */}
         <TabsContent value="clients">
           <Card className="bg-white dark:bg-[#0d1d35] border-slate-200 dark:border-white/10 shadow-sm">
-            <CardHeader className="min-w-0 overflow-hidden">
-              <div className="flex flex-col gap-4 min-w-0 md:flex-row md:items-center md:justify-between">
-                <div className="min-w-0">
-                  <CardTitle className="text-slate-900 dark:text-white">Client Directory</CardTitle>
-                  <CardDescription className="text-slate-500 dark:text-white/50">All clients with portal access</CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center min-w-0 md:gap-3 md:flex-nowrap">
-                  <div className="relative w-full min-w-0 md:w-64 shrink-0">
+            <CardHeader className="min-w-0 overflow-hidden pb-4">
+              <div className="flex flex-col gap-4 min-w-0">
+                <div className="flex flex-wrap gap-2 items-center min-w-0">
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-brand-orange to-brand-coral w-full sm:w-auto order-last sm:order-none"
+                    onClick={() => setClientDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Client
+                  </Button>
+                  <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[220px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-white/50" />
                     <Input
                       placeholder="Search clients... (⌘K)"
@@ -996,10 +1020,9 @@ export default function ClientManagement() {
                       className="pl-9"
                     />
                   </div>
-                  
-                  {/* Status Filter */}
+
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full min-w-[8rem] md:w-40">
+                    <SelectTrigger className="w-full min-w-[8rem] sm:w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1029,10 +1052,9 @@ export default function ClientManagement() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  
-                  {/* Client Type Filter */}
+
                   <Select value={clientTypeFilter} onValueChange={setClientTypeFilter}>
-                    <SelectTrigger className="w-full min-w-[8rem] md:w-40">
+                    <SelectTrigger className="w-full min-w-[8rem] sm:w-40">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1056,6 +1078,35 @@ export default function ClientManagement() {
                       })}
                     </SelectContent>
                   </Select>
+
+                  <div className="inline-flex rounded-lg border border-slate-200 dark:border-white/10 p-0.5 bg-slate-50 dark:bg-white/5">
+                    <button
+                      type="button"
+                      onClick={() => rememberDirectoryView('table')}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
+                        directoryView === 'table'
+                          ? "bg-white dark:bg-[#0d1d35] text-slate-900 dark:text-white shadow-sm"
+                          : "text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white"
+                      )}
+                    >
+                      <Table2 className="h-4 w-4" />
+                      Table
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rememberDirectoryView('cards')}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
+                        directoryView === 'cards'
+                          ? "bg-white dark:bg-[#0d1d35] text-slate-900 dark:text-white shadow-sm"
+                          : "text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white"
+                      )}
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                      Cards
+                    </button>
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -1096,10 +1147,10 @@ export default function ClientManagement() {
                     )}
                   </div>
                   <h3 className="text-lg font-semibold mb-2">
-                    {searchQuery 
+                    {searchQuery
                       ? 'No matching clients found'
-                      : statusFilter === 'inactive' 
-                        ? 'No inactive clients' 
+                      : statusFilter === 'inactive'
+                        ? 'No inactive clients'
                         : statusFilter === 'active'
                           ? 'No active clients'
                           : statusFilter === 'prospect'
@@ -1108,7 +1159,7 @@ export default function ClientManagement() {
                     }
                   </h3>
                   <p className="text-slate-500 dark:text-white/50 text-sm mb-4">
-                    {searchQuery 
+                    {searchQuery
                       ? `No clients match "${searchQuery}" in the ${statusFilter} filter.`
                       : statusFilter === 'inactive'
                         ? 'All your clients are currently active.'
@@ -1120,8 +1171,8 @@ export default function ClientManagement() {
                     }
                   </p>
                   {(statusFilter !== 'all' || searchQuery || clientTypeFilter !== 'all') && (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setStatusFilter('all')
@@ -1135,190 +1186,175 @@ export default function ClientManagement() {
                   )}
                 </div>
               ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredClients.map((client) => {
-                  // Count unique team members assigned to this client
-                  const clientTeamCount = clientUsers.filter(u => u.client_id === client.id).length
-                  // Count tickets/tasks for this client (exclude closed ones for active count)
-                  const clientTicketCount = requests.filter(r => r.client_id === client.id && r.status !== 'closed').length
-                  // Count boards/projects for this client
-                  const clientProjectCount = projects.filter(p => p.client_id === client.id).length
-                  const monthlyRevenue = (client.monthly_hours || 0) * 175
-                  
-                  return (
-                    <Link
-                      key={client.id}
-                      to={`/clients/${client.slug || client.id}`}
-                      className="block"
-                    >
-                    <motion.div
-                      variants={itemVariants}
-                      whileHover={{ y: -2 }}
-                      className={cn(
-                        "p-4 rounded-xl border hover:shadow-lg hover:border-brand-orange/30 transition-all bg-white dark:bg-[#0d1d35] group relative",
-                        isPinned(client.id) && "ring-2 ring-yellow-400/50 border-yellow-400/30",
-                        client.is_active === false && "opacity-75 border-dashed"
-                      )}
-                    >
-                      {/* Action buttons - top right */}
-                      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-                        {/* Pin button */}
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            togglePinClient(client.id)
-                          }}
-                          className={cn(
-                            "p-1.5 rounded-lg transition-all",
-                            isPinned(client.id) 
-                              ? "bg-yellow-500 text-white" 
-                              : "bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 opacity-0 group-hover:opacity-100 hover:bg-yellow-500 hover:text-white"
-                          )}
-                          title={isPinned(client.id) ? "Unpin client" : "Pin client"}
-                        >
-                          <Star className={cn("h-4 w-4", isPinned(client.id) && "fill-current")} />
-                        </button>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 mb-3">
-                        {client.logo_url ? (
-                          <img
-                            src={client.logo_url}
-                            alt={client.name}
-                            className="h-12 w-12 rounded-xl object-contain bg-white border"
-                          />
-                        ) : (
-                          <div
-                            className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                            style={{ backgroundColor: client.color || '#F7931E' }}
-                          >
-                            {client.name[0]}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold truncate">{client.name}</h3>
-                            {/* Client Type Badge */}
-                            {(() => {
-                              const typeConfig = getClientTypeConfig(client.client_type)
-                              const TypeIcon = typeConfig.icon
-                              return (
-                                <Badge 
-                                  variant="outline" 
-                                  className={cn(
-                                    "text-[10px] px-1.5 py-0",
-                                    getClientTypeBadgeClasses(client.client_type)
-                                  )}
-                                >
-                                  <TypeIcon className="h-2.5 w-2.5 mr-0.5" />
-                                  {typeConfig.label}
-                                </Badge>
-                              )
-                            })()}
-                            {client.ticket_prefix && (
-                              <Badge variant="outline" className="text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-[10px] px-1.5 py-0 font-mono">
-                                {client.ticket_prefix}
-                              </Badge>
-                            )}
-                            {client.is_active === false && (
-                              <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-[10px] px-1.5 py-0">
-                                <Pause className="h-2.5 w-2.5 mr-0.5" />
-                                {client.deactivated_at 
-                                  ? `Inactive ${formatDate(client.deactivated_at)}`
-                                  : 'Inactive'
-                                }
-                              </Badge>
-                            )}
-                          </div>
-                          {client.account_services && client.account_services.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {client.account_services.slice(0, 2).map((service, i) => (
-                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50">
-                                  {service}
-                                </span>
-                              ))}
-                              {client.account_services.length > 2 && (
-                                <span className="text-[10px] text-slate-500 dark:text-white/50">
-                                  +{client.account_services.length - 2}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Monthly Stats */}
-                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-slate-500 dark:text-white/50">Monthly</p>
-                            <p className="font-bold text-green-600">${monthlyRevenue.toLocaleString()}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-slate-500 dark:text-white/50">Hours</p>
-                            <p className="font-bold">{client.monthly_hours || 0}h</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50">
-                          <p className="font-semibold">{clientTeamCount}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-white/50">Team</p>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50">
-                          <p className="font-semibold">{clientTicketCount}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-white/50">Tasks</p>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50">
-                          <p className="font-semibold">{clientProjectCount}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-white/50">Boards</p>
-                        </div>
-                      </div>
-                      
-                      {/* Contact & View Link */}
-                      <div className="flex items-center justify-between mt-3">
-                        {client.contact_email ? (
-                          <p className="text-xs text-slate-500 dark:text-white/50 truncate flex-1">
-                            📧 {client.contact_email}
-                          </p>
-                        ) : (
-                          <div />
-                        )}
-                        <span className="text-xs text-brand-orange font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          View Dashboard <ArrowRight className="h-3 w-3" />
-                        </span>
-                      </div>
-                    </motion.div>
-                    </Link>
-                  )
-                })}
+              <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <p className="text-sm text-slate-500 dark:text-white/50">
+                  Showing {directoryStart + 1}–{directoryEnd} of {filteredClients.length} clients
+                </p>
               </div>
+
+              {directoryView === 'table' ? (
+                <div className="overflow-auto max-h-[70vh] rounded-xl border border-slate-200 dark:border-white/10">
+                  <table className="w-full min-w-[760px] text-sm">
+                    <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-[#12243d] border-b border-slate-200 dark:border-white/10">
+                      <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-white/50">
+                        <th className="px-4 py-3 font-semibold">Client</th>
+                        <th className="px-4 py-3 font-semibold">Services</th>
+                        <th className="px-4 py-3 font-semibold text-right">Monthly</th>
+                        <th className="px-4 py-3 font-semibold text-right">Hours</th>
+                        <th className="px-4 py-3 font-semibold text-right">Used</th>
+                        <th className="px-4 py-3 font-semibold text-right">Remaining</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleClients.map((client) => {
+                        const hoursStats = getClientHoursStats(client, hoursUsedByClient)
+                        const status = getDirectoryStatus(client, hoursStats)
+                        const monthlyRevenue = getClientMonthlyRevenue(client)
+                        return (
+                          <tr
+                            key={client.id}
+                            className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50/80 dark:hover:bg-white/5"
+                          >
+                            <td className="px-4 py-3">
+                              <Link to={`/clients/${client.slug || client.id}`} className="flex items-center gap-3 min-w-0">
+                                <ClientMark client={client} size="sm" />
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-900 dark:text-white truncate">{client.name}</p>
+                                  <p className="text-xs text-slate-400 dark:text-white/40">{getClientTypeConfig(client.client_type).label}</p>
+                                </div>
+                              </Link>
+                            </td>
+                            <td className="px-4 py-3">
+                              <ServiceChips services={client.account_services} />
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-slate-900 dark:text-white">
+                              ${monthlyRevenue.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">{formatHoursValue(hoursStats.hours)}h</td>
+                            <td className="px-4 py-3 text-right">{formatHoursValue(hoursStats.used)}h</td>
+                            <td className={cn("px-4 py-3 text-right", hoursStats.remaining < 0 && "text-amber-600")}>
+                              {formatHoursValue(hoursStats.remaining)}h
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", directoryStatusClasses(status.tone))}>
+                                {status.label}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {visibleClients.map((client) => {
+                    const hoursStats = getClientHoursStats(client, hoursUsedByClient)
+                    const status = getDirectoryStatus(client, hoursStats)
+                    const monthlyRevenue = getClientMonthlyRevenue(client)
+                    return (
+                      <Link
+                        key={client.id}
+                        to={`/clients/${client.slug || client.id}`}
+                        className="block"
+                      >
+                        <div
+                          className={cn(
+                            "p-4 rounded-xl border bg-white dark:bg-[#0d1d35] hover:border-brand-orange/30 hover:shadow-sm transition-all h-full",
+                            client.is_active === false && "opacity-75 border-dashed"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <ClientMark client={client} />
+                              <div className="min-w-0">
+                                <h3 className="font-semibold text-slate-900 dark:text-white truncate">{client.name}</h3>
+                                <ServiceChips services={client.account_services} />
+                              </div>
+                            </div>
+                            <span className={cn("shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium", directoryStatusClasses(status.tone))}>
+                              {status.label}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
+                              <p className="text-[11px] text-slate-500 dark:text-white/50">Monthly</p>
+                              <p className="font-semibold text-slate-900 dark:text-white">${monthlyRevenue.toLocaleString()}</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
+                              <p className="text-[11px] text-slate-500 dark:text-white/50">Hours</p>
+                              <p className="font-semibold text-slate-900 dark:text-white">{formatHoursValue(hoursStats.hours)}h</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
+                              <p className="text-[11px] text-slate-500 dark:text-white/50">Used</p>
+                              <p className="font-semibold text-slate-900 dark:text-white">{formatHoursValue(hoursStats.used)}h</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
+                              <p className="text-[11px] text-slate-500 dark:text-white/50">Remaining</p>
+                              <p className={cn("font-semibold", hoursStats.remaining < 0 ? "text-amber-600" : "text-slate-900 dark:text-white")}>
+                                {formatHoursValue(hoursStats.remaining)}h
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-3 text-xs text-brand-orange font-medium flex items-center gap-1">
+                            Open client <ArrowRight className="h-3 w-3" />
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
               )}
-              
-              {/* Summary Footer */}
+
+              {filteredClients.length > DIRECTORY_PAGE_SIZE && (
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-500 dark:text-white/50">
+                    Page {safeDirectoryPage} of {directoryPageCount}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safeDirectoryPage <= 1}
+                      onClick={() => setDirectoryPage((page) => Math.max(1, page - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safeDirectoryPage >= directoryPageCount}
+                      onClick={() => setDirectoryPage((page) => Math.min(directoryPageCount, page + 1))}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              </>
+              )}
+
               <div className="mt-6 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50 border">
                 <div className="flex flex-wrap gap-6 justify-center text-center">
                   <div>
-                    <p className="text-2xl font-bold text-green-600">{activeClients.length}</p>
-                    <p className="text-sm text-slate-500 dark:text-white/50">Active</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-amber-500">{inactiveClients.length}</p>
-                    <p className="text-sm text-slate-500 dark:text-white/50">Paused</p>
+                    <p className="text-2xl font-bold text-green-600">{filteredActiveCount}</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Active clients</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-brand-orange">
-                      ${activeClients.reduce((sum, c) => sum + ((c.monthly_hours || 0) * 175), 0).toLocaleString()}
+                      ${filteredMonthlyRevenue.toLocaleString()}
                     </p>
-                    <p className="text-sm text-slate-500 dark:text-white/50">Monthly Revenue</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Monthly revenue</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold">
-                      {activeClients.reduce((sum, c) => sum + (c.monthly_hours || 0), 0)}h
+                      {formatHoursValue(filteredMonthlyHours)}h
                     </p>
-                    <p className="text-sm text-slate-500 dark:text-white/50">Total Hours/Month</p>
+                    <p className="text-sm text-slate-500 dark:text-white/50">Total monthly hours</p>
                   </div>
                 </div>
               </div>
