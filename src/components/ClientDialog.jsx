@@ -536,7 +536,7 @@ export default function ClientDialog({
         if (rateResult.error) {
           toast({
             title: 'Client saved, but hourly rate did not save',
-            description: rateResult.error.message,
+            description: 'Hard-refresh and try once more. If it still fails, send the new screenshot.',
             variant: 'destructive',
           })
         }

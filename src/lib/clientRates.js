@@ -5,11 +5,6 @@ export function rateFromRow(row) {
   return Number.isFinite(number) ? number : null
 }
 
-function isMissingColumn(error) {
-  const message = error?.message || ''
-  return /does not exist|schema cache|42703/i.test(message) && !/row-level security|permission/i.test(message)
-}
-
 export async function fetchClientRate(supabase, clientId) {
   if (!clientId) return { value: null, error: null }
 
@@ -31,24 +26,28 @@ export async function fetchClientRate(supabase, clientId) {
   return { value: rateFromRow(fromHourly.data), error: fromHourly.error || fromRates.error }
 }
 
-export async function saveClientRate(supabase, clientId, rateValue) {
-  const writeTable = async (table, payload) => {
-    const { data: existing } = await supabase
-      .from(table)
-      .select('id')
-      .eq('client_id', clientId)
-      .maybeSingle()
-    if (existing?.id) {
-      return supabase.from(table).update(payload).eq('id', existing.id)
-    }
-    return supabase.from(table).insert({ client_id: clientId, ...payload })
+async function writeTable(supabase, table, clientId, payload) {
+  const { data: existing } = await supabase
+    .from(table)
+    .select('id')
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (existing?.id) {
+    return supabase.from(table).update(payload).eq('id', existing.id)
   }
+  return supabase.from(table).insert({ client_id: clientId, ...payload })
+}
 
-  const primary = await writeTable('client_rates', { rate: rateValue })
+export async function saveClientRate(supabase, clientId, rateValue) {
+  // Live client_rates.rate exists, but writes can be blocked by RLS.
+  // Never write hourly_rate onto client_rates — that column is not in the schema.
+  const primary = await writeTable(supabase, 'client_rates', clientId, { rate: rateValue })
   if (!primary.error) return primary
-  if (!isMissingColumn(primary.error)) return primary
 
-  const secondary = await writeTable('client_hourly_rates', { rate_per_hour: rateValue })
+  const secondary = await writeTable(supabase, 'client_hourly_rates', clientId, {
+    rate_per_hour: rateValue,
+  })
   if (!secondary.error) return secondary
+
   return primary
 }
