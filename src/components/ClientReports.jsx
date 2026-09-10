@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { TIME_CHANNELS, normalizeTimeChannel, timeChannelLabel } from '../lib/timeChannels'
+import { TIME_CHANNEL_IDS, normalizeTimeChannel, timeChannelLabel } from '../lib/timeChannels'
 import { fetchClientRate } from '../lib/clientRates'
 import { cn } from '../lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
@@ -23,8 +23,11 @@ const SERVICE_COLORS = {
   web: '#22C55E',
   creative: '#A855F7',
   account: '#6366F1',
-  other: '#94A3B8',
+  other: '#64748B',
+  unassigned: '#94A3B8',
 }
+
+const UNASSIGNED = { id: 'unassigned', label: 'Unassigned Service', color: SERVICE_COLORS.unassigned }
 
 function pad(n) {
   return String(n).padStart(2, '0')
@@ -73,6 +76,25 @@ function monthsBetween(start, end) {
   return keys
 }
 
+function isBusinessDay(date) {
+  const day = date.getDay()
+  return day !== 0 && day !== 6
+}
+
+function businessDaysInRange(start, end) {
+  if (!start || !end || start > end) return 0
+  let count = 0
+  const cursor = new Date(start)
+  cursor.setHours(0, 0, 0, 0)
+  const last = new Date(end)
+  last.setHours(0, 0, 0, 0)
+  while (cursor <= last) {
+    if (isBusinessDay(cursor)) count += 1
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return count
+}
+
 function entryDateValue(entry) {
   return String(entry.date || '').slice(0, 10)
 }
@@ -81,10 +103,11 @@ function entryMinutes(entry) {
   return Number(entry.minutes || 0)
 }
 
-function formatHours(minutes) {
-  const hours = (Number(minutes) || 0) / 60
-  if (!hours) return '0h'
-  if (Math.abs(hours - Math.round(hours)) < 0.05) return `${Math.round(hours)}h`
+function formatHours(hoursOrMinutes, { fromMinutes = false } = {}) {
+  const hours = fromMinutes ? (Number(hoursOrMinutes) || 0) / 60 : Number(hoursOrMinutes) || 0
+  const abs = Math.abs(hours)
+  if (!abs) return '0h'
+  if (Math.abs(abs - Math.round(abs)) < 0.05) return `${Math.round(hours)}h`
   return `${hours.toFixed(1).replace(/\.0$/, '')}h`
 }
 
@@ -101,37 +124,66 @@ function Unavailable({ label = 'Data unavailable' }) {
   return <span className="text-muted-foreground font-medium">{label}</span>
 }
 
+function taskService(ticket) {
+  const raw = ticket?.category || ticket?.service || ticket?.channel || ticket?.account_service
+  if (!raw || !String(raw).trim()) return UNASSIGNED
+  const value = String(raw).trim()
+  const id = normalizeTimeChannel(value)
+  if (TIME_CHANNEL_IDS.includes(String(value).toLowerCase()) || id !== 'other' || String(value).toLowerCase() === 'other') {
+    if (TIME_CHANNEL_IDS.includes(id)) {
+      return { id, label: timeChannelLabel(id), color: SERVICE_COLORS[id] || SERVICE_COLORS.other }
+    }
+  }
+  return {
+    id: `custom-${value.toLowerCase()}`,
+    label: value,
+    color: SERVICE_COLORS[id] || SERVICE_COLORS.other,
+  }
+}
+
 function MetricCard({ label, value, note, warn }) {
   return (
     <Card>
       <CardContent className="p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className={cn('text-2xl font-bold mt-1', warn && 'text-brand-orange')}>{value}</p>
+        <p className={cn('text-2xl font-bold mt-1 leading-tight', warn && 'text-brand-orange')}>{value}</p>
         {note && <p className="text-sm text-muted-foreground mt-1">{note}</p>}
       </CardContent>
     </Card>
   )
 }
 
-function PaceChart({ days, planned, actual, allowance }) {
+function PaceChart({ points, planned, actual, forecast, allowance, available }) {
   const width = 560
-  const height = 180
-  const padX = 12
-  const padY = 16
-  const maxY = Math.max(allowance || 0, ...planned, ...actual, 1)
-  const maxX = Math.max(days.length - 1, 1)
+  const height = 188
+  const padX = 16
+  const padY = 22
+  const maxY = Math.max(allowance || 0, available || 0, ...planned, ...actual, ...forecast, 1)
+  const maxX = Math.max(points.length - 1, 1)
   const x = (i) => padX + (i / maxX) * (width - padX * 2)
   const y = (v) => height - padY - (v / maxY) * (height - padY * 2)
   const toPath = (values) => values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(v)}`).join(' ')
-  const allowY = y(allowance || 0)
+  const allowY = y(allowance || available || 0)
+  const lastActual = actual.findLastIndex ? actual.findLastIndex((v) => v != null) : actual.length - 1
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44">
-      {allowance > 0 && (
-        <line x1={padX} y1={allowY} x2={width - padX} y2={allowY} stroke="#F7931E" strokeDasharray="5 5" strokeWidth="1.5" />
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48">
+      {(allowance > 0 || available > 0) && (
+        <>
+          <line x1={padX} y1={allowY} x2={width - padX} y2={allowY} stroke="#F7931E" strokeDasharray="5 5" strokeWidth="1.5" />
+          <text x={width - padX} y={allowY - 6} textAnchor="end" fontSize="11" fill="#F7931E">
+            {formatHours(allowance || available)} {allowance ? 'allowance' : 'available'}
+          </text>
+        </>
       )}
       <path d={toPath(planned)} fill="none" stroke="#94A3B8" strokeWidth="2" />
       <path d={toPath(actual)} fill="none" stroke="#F7931E" strokeWidth="2.5" />
+      {forecast?.length > 1 && (
+        <path d={toPath(forecast)} fill="none" stroke="#64748B" strokeWidth="2" strokeDasharray="6 5" />
+      )}
+      {lastActual >= 0 && (
+        <circle cx={x(Math.max(lastActual, 0))} cy={y(actual[Math.max(lastActual, 0)] || 0)} r="3.5" fill="#F7931E" />
+      )}
     </svg>
   )
 }
@@ -168,19 +220,21 @@ function ServiceDonut({ slices, totalMinutes }) {
         })}
       </svg>
       <div className="absolute text-center">
-        <p className="text-2xl font-bold">{formatHours(total)}</p>
+        <p className="text-2xl font-bold">{formatHours(total, { fromMinutes: true })}</p>
       </div>
     </div>
   )
 }
 
-export default function ClientReports({ client, timeEntries = [] }) {
+export default function ClientReports({ client, timeEntries = [], tickets = [] }) {
   const [view, setView] = useState('month')
   const [period, setPeriod] = useState('')
   const [serviceFilter, setServiceFilter] = useState('all')
   const [memberFilter, setMemberFilter] = useState('all')
   const [billingRate, setBillingRate] = useState(null)
   const [rateChecked, setRateChecked] = useState(false)
+  const [ticketMap, setTicketMap] = useState({})
+  const [showAllWork, setShowAllWork] = useState(false)
 
   const monthlyHours = Number(client?.monthly_hours)
   const hasAllowance = Number.isFinite(monthlyHours) && monthlyHours > 0
@@ -203,6 +257,31 @@ export default function ClientReports({ client, timeEntries = [] }) {
     })()
     return () => { cancelled = true }
   }, [client?.id])
+
+  useEffect(() => {
+    const fromProp = {}
+    for (const ticket of tickets) {
+      if (ticket?.id) fromProp[ticket.id] = ticket
+    }
+    const needed = [...new Set(timeEntries.map((entry) => entry.ticket_id).filter(Boolean))]
+    const missing = needed.filter((id) => !fromProp[id] || (fromProp[id].category == null && fromProp[id].service == null && fromProp[id].channel == null))
+    if (!missing.length) {
+      setTicketMap(fromProp)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('tickets')
+        .select('id, ticket_id, title, category, ticket_type')
+        .in('id', missing)
+      if (cancelled) return
+      const next = { ...fromProp }
+      for (const ticket of data || []) next[ticket.id] = { ...next[ticket.id], ...ticket }
+      setTicketMap(next)
+    })()
+    return () => { cancelled = true }
+  }, [tickets, timeEntries])
 
   const periodOptions = useMemo(() => {
     const endCap = contractEnd && contractEnd < today ? contractEnd : today
@@ -227,13 +306,21 @@ export default function ClientReports({ client, timeEntries = [] }) {
     return [...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
   }, [timeEntries])
 
+  const annotatedEntries = useMemo(() => {
+    return timeEntries.map((entry) => {
+      const ticket = ticketMap[entry.ticket_id] || entry.ticket || null
+      const service = taskService(ticket)
+      return { ...entry, ticket, service }
+    })
+  }, [timeEntries, ticketMap])
+
   const filteredEntries = useMemo(() => {
-    return timeEntries.filter((entry) => {
-      if (serviceFilter !== 'all' && normalizeTimeChannel(entry.channel) !== serviceFilter) return false
+    return annotatedEntries.filter((entry) => {
+      if (serviceFilter !== 'all' && entry.service.id !== serviceFilter) return false
       if (memberFilter !== 'all' && entry.user_id !== memberFilter) return false
       return true
     })
-  }, [timeEntries, serviceFilter, memberFilter])
+  }, [annotatedEntries, serviceFilter, memberFilter])
 
   const selectedMonth = period || monthKeyFromDate(today)
   const selectedYear = Number(selectedMonth.slice(0, 4))
@@ -241,9 +328,7 @@ export default function ClientReports({ client, timeEntries = [] }) {
   const monthStart = new Date(selectedYear, selectedMonthIndex, 1)
   const monthEnd = new Date(selectedYear, selectedMonthIndex, daysInMonth(selectedYear, selectedMonthIndex))
   const isCurrentMonth = monthKeyFromDate(today) === selectedMonth
-  const reportingDate = view === 'term'
-    ? (isCurrentMonth ? today : monthEnd)
-    : (isCurrentMonth ? today : monthEnd)
+  const reportingDate = isCurrentMonth ? today : monthEnd
   const clippedReportingDate = contractEnd && reportingDate > contractEnd ? contractEnd : reportingDate
 
   const monthEntries = useMemo(() => {
@@ -268,58 +353,101 @@ export default function ClientReports({ client, timeEntries = [] }) {
   const viewEntries = view === 'term' ? termEntries : monthEntries
   const usedMinutes = viewEntries.reduce((sum, entry) => sum + entryMinutes(entry), 0)
   const usedHours = usedMinutes / 60
+  const monthUsedMinutes = monthEntries.reduce((sum, entry) => sum + entryMinutes(entry), 0)
+  const monthUsedHours = monthUsedMinutes / 60
 
   const monthCountThroughReporting = useMemo(() => {
     if (!contractStart) return 0
     return monthsBetween(contractStart, clippedReportingDate).length
   }, [client?.project_start_date, clippedReportingDate])
 
-  const rolloverHours = useMemo(() => {
-    if (!hasAllowance || !contractStart) return null
-    const priorMonths = monthsBetween(contractStart, new Date(selectedYear, selectedMonthIndex, 0))
-    let carry = 0
-    for (const key of priorMonths) {
-      const start = `${key}-01`
-      const endDate = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0)
-      const end = toISODate(endDate)
-      const minutes = filteredEntries
-        .filter((entry) => {
-          const date = entryDateValue(entry)
-          return date >= start && date <= end
-        })
-        .reduce((sum, entry) => sum + entryMinutes(entry), 0)
-      carry += Math.max(0, monthlyHours - minutes / 60)
-    }
-    return carry
-  }, [filteredEntries, hasAllowance, monthlyHours, client?.project_start_date, selectedMonth])
+  const fullContractMonths = useMemo(() => {
+    if (!contractStart || !contractEnd) return null
+    return monthsBetween(contractStart, contractEnd).length
+  }, [client?.project_start_date, client?.project_end_date])
 
-  const daysElapsed = isCurrentMonth ? today.getDate() : daysInMonth(selectedYear, selectedMonthIndex)
-  const dayCount = daysInMonth(selectedYear, selectedMonthIndex)
-  const monthUsedMinutes = monthEntries.reduce((sum, entry) => sum + entryMinutes(entry), 0)
-  const plannedHours = hasAllowance ? monthlyHours * (daysElapsed / dayCount) : null
-  const forecastHours = hasAllowance && daysElapsed > 0
-    ? (monthUsedMinutes / 60) * (dayCount / daysElapsed)
-    : null
-  const remainingMonth = hasAllowance ? monthlyHours - monthUsedMinutes / 60 : null
-  const overForecast = forecastHours != null && hasAllowance ? forecastHours - monthlyHours : null
-  const elapsedPct = Math.round((daysElapsed / dayCount) * 100)
-  const usedPct = hasAllowance ? Math.round((monthUsedMinutes / 60 / monthlyHours) * 100) : null
-  const overPace = hasAllowance && usedPct != null && usedPct > elapsedPct + 5
-  const underPace = hasAllowance && usedPct != null && usedPct < elapsedPct - 8
+  const elapsedBiz = businessDaysInRange(monthStart, isCurrentMonth ? today : monthEnd)
+  const totalBiz = businessDaysInRange(monthStart, monthEnd)
+  const plannedHours = hasAllowance && totalBiz > 0 ? monthlyHours * (elapsedBiz / totalBiz) : null
+  const forecastHours = hasAllowance && elapsedBiz > 0
+    ? monthUsedHours * (totalBiz / elapsedBiz)
+    : monthUsedHours
+  const remainingMonth = hasAllowance ? monthlyHours - monthUsedHours : null
+  const usedPct = hasAllowance ? Math.round((monthUsedHours / monthlyHours) * 100) : null
+  const elapsedPct = totalBiz > 0 ? Math.round((elapsedBiz / totalBiz) * 100) : 0
+
+  let monthlyStatus = null
+  if (hasAllowance) {
+    if (monthUsedHours > monthlyHours + 0.05) monthlyStatus = 'Over monthly hours'
+    else if (forecastHours > monthlyHours + 0.05) monthlyStatus = 'At risk of over-servicing'
+    else if (plannedHours != null && monthUsedHours < plannedHours - 1) monthlyStatus = 'Under pace'
+    else monthlyStatus = 'On pace'
+  }
+  const statusWarn = monthlyStatus === 'Over monthly hours' || monthlyStatus === 'At risk of over-servicing'
 
   const cumulativeAvailable = hasAllowance && monthCountThroughReporting
     ? monthlyHours * monthCountThroughReporting
     : null
-  const remainingTerm = cumulativeAvailable != null ? cumulativeAvailable - usedHours : null
+  const cumulativeBalance = cumulativeAvailable != null ? cumulativeAvailable - usedHours : null
+  const fullAllowance = hasAllowance && fullContractMonths ? monthlyHours * fullContractMonths : null
 
-  const paceDays = Array.from({ length: daysElapsed }, (_, i) => i + 1)
-  const plannedSeries = paceDays.map((day) => (hasAllowance ? (monthlyHours * day) / dayCount : 0))
+  const termElapsedDays = contractStart
+    ? Math.max(1, Math.round((clippedReportingDate - contractStart) / 86400000) + 1)
+    : 0
+  const termTotalDays = contractStart && contractEnd
+    ? Math.max(1, Math.round((contractEnd - contractStart) / 86400000) + 1)
+    : null
+  const contractForecastHours = contractStart && termElapsedDays > 0
+    ? usedHours * ((termTotalDays || termElapsedDays) / termElapsedDays)
+    : null
+  const contractOverUnder = fullAllowance != null && contractForecastHours != null
+    ? contractForecastHours - fullAllowance
+    : null
+
+  const paceDays = Array.from({ length: Math.max(daysInMonth(selectedYear, selectedMonthIndex), 1) }, (_, i) => i + 1)
+  const lastElapsedDay = isCurrentMonth ? today.getDate() : daysInMonth(selectedYear, selectedMonthIndex)
+  const plannedSeries = paceDays.map((day) => {
+    if (!hasAllowance || totalBiz <= 0) return 0
+    const through = new Date(selectedYear, selectedMonthIndex, day)
+    const biz = businessDaysInRange(monthStart, through)
+    return monthlyHours * (biz / totalBiz)
+  })
   const actualSeries = paceDays.map((day) => {
-    const iso = `${selectedMonth}-${pad(day)}`
+    const clamped = Math.min(day, lastElapsedDay)
+    const iso = `${selectedMonth}-${pad(clamped)}`
     const minutes = monthEntries
       .filter((entry) => entryDateValue(entry) <= iso)
       .reduce((sum, entry) => sum + entryMinutes(entry), 0)
     return minutes / 60
+  })
+  const monthForecastSeries = paceDays.map((day) => {
+    if (day <= lastElapsedDay) return actualSeries[day - 1]
+    if (!elapsedBiz) return monthUsedHours
+    const through = new Date(selectedYear, selectedMonthIndex, day)
+    const biz = Math.max(businessDaysInRange(monthStart, through), elapsedBiz)
+    return monthUsedHours * (biz / elapsedBiz)
+  })
+
+  const termKeys = contractStart
+    ? monthsBetween(contractStart, contractEnd || clippedReportingDate)
+    : []
+  const termPlanned = termKeys.map((_, index) => (hasAllowance ? monthlyHours * (index + 1) : 0))
+  const termActual = termKeys.map((key) => {
+    if (key > monthKeyFromDate(clippedReportingDate)) return null
+    const endDate = key === monthKeyFromDate(clippedReportingDate)
+      ? toISODate(clippedReportingDate)
+      : toISODate(new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0))
+    const minutes = termEntries
+      .filter((entry) => entryDateValue(entry) <= endDate)
+      .reduce((sum, entry) => sum + entryMinutes(entry), 0)
+    return minutes / 60
+  })
+  const lastTermIndex = termActual.reduce((last, value, index) => (value == null ? last : index), 0)
+  const lastTermHours = termActual[lastTermIndex] || 0
+  const termForecastSeries = termKeys.map((_, index) => {
+    if (index <= lastTermIndex) return lastTermHours
+    if (!monthCountThroughReporting) return lastTermHours
+    return lastTermHours * ((index + 1) / monthCountThroughReporting)
   })
 
   const workRows = useMemo(() => {
@@ -327,12 +455,12 @@ export default function ClientReports({ client, timeEntries = [] }) {
     for (const entry of viewEntries) {
       const ticketId = entry.ticket_id || 'none'
       const memberId = entry.user_id || 'unknown'
-      const service = normalizeTimeChannel(entry.channel)
-      const key = `${ticketId}|${memberId}|${service}`
+      const serviceId = entry.service.id
+      const key = `${ticketId}|${memberId}|${serviceId}`
       const current = groups.get(key) || {
         task: entry.ticket?.title || entry.description || 'Time entry',
         ticketKey: entry.ticket?.ticket_id || '',
-        service,
+        service: entry.service,
         member: (entry.user || entry.profiles)?.full_name || 'Team Member',
         minutes: 0,
       }
@@ -349,24 +477,30 @@ export default function ClientReports({ client, timeEntries = [] }) {
   }, [viewEntries, billingRate])
 
   const serviceSlices = useMemo(() => {
-    return TIME_CHANNELS.map((channel) => {
-      const minutes = viewEntries
-        .filter((entry) => normalizeTimeChannel(entry.channel) === channel.id)
-        .reduce((sum, entry) => sum + entryMinutes(entry), 0)
-      return {
-        id: channel.id,
-        label: channel.label,
-        minutes,
-        color: SERVICE_COLORS[channel.id] || '#94A3B8',
-      }
-    }).filter((slice) => slice.minutes > 0)
+    const groups = new Map()
+    for (const entry of viewEntries) {
+      const service = entry.service || UNASSIGNED
+      const current = groups.get(service.id) || { ...service, minutes: 0 }
+      current.minutes += entryMinutes(entry)
+      groups.set(service.id, current)
+    }
+    return [...groups.values()].filter((slice) => slice.minutes > 0).sort((a, b) => b.minutes - a.minutes)
   }, [viewEntries])
+
+  const serviceOptions = useMemo(() => {
+    const seen = new Map()
+    for (const entry of annotatedEntries) {
+      if (!seen.has(entry.service.id)) seen.set(entry.service.id, entry.service.label)
+    }
+    return [...seen.entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))
+  }, [annotatedEntries])
 
   const resetFilters = () => {
     setServiceFilter('all')
     setMemberFilter('all')
     setPeriod(periodOptions[0] || '')
     setView('month')
+    setShowAllWork(false)
   }
 
   const exportCsv = () => {
@@ -374,9 +508,9 @@ export default function ClientReports({ client, timeEntries = [] }) {
       ['Task / Work Item', 'Service', 'Team Member', 'Hours', '% of Total', 'Work Value'],
       ...workRows.map((row) => [
         row.task,
-        timeChannelLabel(row.service),
+        row.service.label,
         row.member,
-        formatHours(row.minutes),
+        formatHours(row.minutes, { fromMinutes: true }),
         `${row.pct}%`,
         row.value == null ? 'Data unavailable' : money(row.value),
       ]),
@@ -395,8 +529,38 @@ export default function ClientReports({ client, timeEntries = [] }) {
   const trackedValue = billingRate != null ? usedHours * billingRate : null
   const retainerRevenue = Number(client?.monthly_retainer_revenue)
   const monthlyRetainer = Number.isFinite(retainerRevenue) && retainerRevenue > 0 ? retainerRevenue : null
-  const coverage = monthlyRetainer != null && trackedValue != null ? monthlyRetainer - trackedValue : null
-  const effectiveRate = usedHours > 0 && monthlyRetainer != null ? monthlyRetainer / usedHours : null
+  const accruedRevenue = monthlyRetainer != null && monthCountThroughReporting
+    ? monthlyRetainer * (view === 'term' ? monthCountThroughReporting : 1)
+    : null
+  const coverage = accruedRevenue != null && trackedValue != null ? accruedRevenue - trackedValue : null
+  const effectiveRate = usedHours > 0 && accruedRevenue != null ? accruedRevenue / usedHours : null
+  const coverageNote = coverage == null
+    ? null
+    : coverage < 0
+      ? 'Over-servicing'
+      : remainingMonth > 0.05 || (view === 'term' && cumulativeBalance > 0.05)
+        ? 'Unused client capacity'
+        : 'Coverage'
+
+  const paceStatus = view === 'month'
+    ? (plannedHours == null
+        ? 'Needs monthly hours'
+        : monthUsedHours - plannedHours > 0.05
+          ? `${formatHours(monthUsedHours - plannedHours)} over the expected monthly pace`
+          : plannedHours - monthUsedHours > 0.05
+            ? `${formatHours(plannedHours - monthUsedHours)} under the expected monthly pace`
+            : 'On the expected monthly pace')
+    : (cumulativeBalance == null
+        ? 'Contract information needed'
+        : contractOverUnder != null && contractOverUnder > 0.05
+          ? `Projected to exceed the contract by ${formatHours(contractOverUnder)}`
+          : cumulativeBalance > 0.05
+            ? `${formatHours(cumulativeBalance)} rollover hours currently available`
+            : cumulativeBalance < -0.05
+              ? `${formatHours(Math.abs(cumulativeBalance))} cumulative over-servicing`
+              : 'On the contracted hours available')
+
+  const visibleWork = showAllWork ? workRows : workRows.slice(0, 4)
 
   return (
     <div className="space-y-5">
@@ -435,8 +599,8 @@ export default function ClientReports({ client, timeEntries = [] }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All services</SelectItem>
-              {TIME_CHANNELS.map((channel) => (
-                <SelectItem key={channel.id} value={channel.id}>{channel.label}</SelectItem>
+              {serviceOptions.map((service) => (
+                <SelectItem key={service.id} value={service.id}>{service.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -487,100 +651,78 @@ export default function ClientReports({ client, timeEntries = [] }) {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <MetricCard
-              label="Hours used"
-              value={view === 'month' && hasAllowance
-                ? `${formatHours(monthUsedMinutes).replace('h', '')} / ${formatHours(monthlyHours * 60)}`
-                : formatHours(usedMinutes)}
-              note={view === 'month'
-                ? (hasAllowance ? `${usedPct}% of monthly allowance` : 'Monthly allowance unavailable')
-                : (cumulativeAvailable != null ? `${Math.round((usedHours / cumulativeAvailable) * 100)}% of hours made available` : 'Contract information needed')}
-            />
-            <MetricCard
-              label="Hours remaining"
-              value={view === 'month'
-                ? (remainingMonth == null ? <Unavailable /> : formatHours(remainingMonth * 60))
-                : (remainingTerm == null ? <Unavailable label="Contract information needed" /> : formatHours(remainingTerm * 60))}
-              note={view === 'month'
-                ? 'Against this month’s allowance. No rollover.'
-                : (rolloverHours == null
-                    ? 'Includes unused hours carried forward'
-                    : `Includes ${formatHours(rolloverHours * 60)} carried forward`)}
-            />
-            <MetricCard
-              label="Forecast"
-              value={forecastHours == null ? <Unavailable /> : formatHours(forecastHours * 60)}
-              note={overForecast == null
-                ? 'Needs monthly hours'
-                : (overForecast > 0.05 ? `${formatHours(overForecast * 60)} over this month` : 'Within this month’s allowance')}
-              warn={overForecast > 0.05}
-            />
-            <MetricCard
-              label="Retainer status"
-              value={!hasAllowance ? <Unavailable /> : overPace ? 'Over pace' : underPace ? 'Under pace' : 'On pace'}
-              note={`${elapsedPct}% of month elapsed`}
-              warn={overPace}
-            />
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>Retainer Efficiency</CardTitle>
-                    <CardDescription>Revenue coverage based on tracked hours and the client billing rate</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="text-brand-orange border-brand-orange/40">Efficiency—not true profit</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex justify-between"><span>Monthly retainer</span><span className="font-semibold">{rateChecked && monthlyRetainer != null ? money(monthlyRetainer) : <Unavailable />}</span></div>
-                <div className="flex justify-between"><span>Billing rate</span><span className="font-semibold">{rateChecked && billingRate != null ? `$${billingRate}/h` : <Unavailable />}</span></div>
-                <div className="flex justify-between"><span>Tracked work value</span><span className="font-semibold">{trackedValue != null ? money(trackedValue) : <Unavailable />}</span></div>
-                <div className="flex justify-between"><span>Revenue coverage</span><span className={cn('font-semibold', coverage > 0 && 'text-emerald-600', coverage < 0 && 'text-brand-orange')}>{coverage == null ? <Unavailable /> : `${coverage >= 0 ? '+' : ''}${money(coverage)}`}</span></div>
-                <div className="flex justify-between"><span>Effective rate</span><span className="font-semibold">{effectiveRate == null ? <Unavailable /> : `$${Math.round(effectiveRate)}/h`}</span></div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Work Consuming the Retainer</CardTitle>
-                <CardDescription>Highest-hour work items for the selected period</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {workRows.length === 0 ? (
-                  <p className="p-5 text-sm text-muted-foreground">No time entries for these filters.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
-                        <tr>
-                          <th className="text-left px-4 py-2">Task / Work Item</th>
-                          <th className="text-left px-4 py-2">Service</th>
-                          <th className="text-left px-4 py-2">Team Member</th>
-                          <th className="text-right px-4 py-2">Hours</th>
-                          <th className="text-right px-4 py-2">% of Total</th>
-                          <th className="text-right px-4 py-2">Work Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {workRows.slice(0, 8).map((row, index) => (
-                          <tr key={`${row.task}-${row.member}-${index}`}>
-                            <td className="px-4 py-2 font-medium">{row.task}</td>
-                            <td className="px-4 py-2">{timeChannelLabel(row.service)}</td>
-                            <td className="px-4 py-2">{row.member}</td>
-                            <td className="px-4 py-2 text-right">{formatHours(row.minutes)}</td>
-                            <td className="px-4 py-2 text-right">{row.pct}%</td>
-                            <td className="px-4 py-2 text-right">{row.value == null ? <Unavailable /> : money(row.value)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {view === 'month' ? (
+              <>
+                <MetricCard
+                  label="Hours Used"
+                  value={hasAllowance
+                    ? `${formatHours(monthUsedHours).replace('h', '')} / ${formatHours(monthlyHours)}`
+                    : formatHours(monthUsedHours)}
+                  note={hasAllowance ? `${usedPct}% of monthly allowance` : 'Monthly allowance unavailable'}
+                />
+                <MetricCard
+                  label="Monthly Hours Remaining"
+                  value={remainingMonth == null
+                    ? <Unavailable />
+                    : remainingMonth < -0.05
+                      ? `${formatHours(Math.abs(remainingMonth))} over`
+                      : formatHours(remainingMonth)}
+                  note="Against this month’s allowance. No rollover."
+                  warn={remainingMonth < -0.05}
+                />
+                <MetricCard
+                  label="Forecasted Month-End Hours"
+                  value={formatHours(forecastHours)}
+                  note={hasAllowance && forecastHours - monthlyHours > 0.05
+                    ? `Forecast · ${formatHours(forecastHours - monthlyHours)} over this month`
+                    : 'Forecast based on elapsed business days'}
+                  warn={hasAllowance && forecastHours - monthlyHours > 0.05}
+                />
+                <MetricCard
+                  label="Monthly Status"
+                  value={!hasAllowance ? <Unavailable /> : monthlyStatus}
+                  note={`${elapsedPct}% of month elapsed`}
+                  warn={statusWarn}
+                />
+              </>
+            ) : (
+              <>
+                <MetricCard
+                  label="Cumulative Hours Used"
+                  value={formatHours(usedHours)}
+                  note={contractStart ? `Since ${monthLabel(monthKeyFromDate(contractStart))}` : 'Contract start needed'}
+                />
+                <MetricCard
+                  label="Cumulative Hours Available"
+                  value={cumulativeAvailable == null ? <Unavailable label="Contract information needed" /> : formatHours(cumulativeAvailable)}
+                  note={hasAllowance ? `${formatHours(monthlyHours)} × ${monthCountThroughReporting} months elapsed` : 'Monthly hours needed'}
+                />
+                <MetricCard
+                  label="Cumulative Balance"
+                  value={cumulativeBalance == null
+                    ? <Unavailable label="Contract information needed" />
+                    : cumulativeBalance >= 0
+                      ? formatHours(cumulativeBalance)
+                      : `${formatHours(Math.abs(cumulativeBalance))} over`}
+                  note={cumulativeBalance == null
+                    ? 'Unused hours carried forward'
+                    : cumulativeBalance >= 0
+                      ? 'Rollover hours currently available'
+                      : 'Cumulative over-servicing'}
+                  warn={cumulativeBalance < -0.05}
+                />
+                <MetricCard
+                  label="Contract-End Forecast"
+                  value={contractForecastHours == null ? <Unavailable /> : formatHours(contractForecastHours)}
+                  note={contractOverUnder == null
+                    ? 'Needs contract end date and monthly hours'
+                    : contractOverUnder > 0.05
+                      ? `Projected ${formatHours(contractOverUnder)} over the full contract`
+                      : `Projected ${formatHours(Math.abs(contractOverUnder))} under the full contract`}
+                  warn={contractOverUnder > 0.05}
+                />
+              </>
+            )}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -591,21 +733,40 @@ export default function ClientReports({ client, timeEntries = [] }) {
                     <CardTitle>Retainer Pace</CardTitle>
                     <CardDescription>Actual usage compared with planned usage</CardDescription>
                   </div>
-                  {overForecast > 0.05 && (
-                    <Badge variant="outline" className="text-brand-orange border-brand-orange/40">
-                      {formatHours(overForecast * 60)} over forecast
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="text-brand-orange border-brand-orange/40 whitespace-normal text-right max-w-[220px]">
+                    {paceStatus}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                {hasAllowance ? (
+                {view === 'month' && hasAllowance ? (
                   <>
-                    <PaceChart days={paceDays} planned={plannedSeries} actual={actualSeries} allowance={monthlyHours} />
+                    <PaceChart
+                      points={paceDays}
+                      planned={plannedSeries}
+                      actual={actualSeries}
+                      forecast={monthForecastSeries}
+                      allowance={monthlyHours}
+                    />
                     <div className="flex flex-wrap gap-4 text-sm mt-2">
-                      <span className="text-muted-foreground">Planned pace · {formatHours((plannedHours || 0) * 60)}</span>
-                      <span className="text-brand-orange font-medium">Actual · {formatHours(monthUsedMinutes)}</span>
-                      <span>Forecast · {forecastHours == null ? 'Data unavailable' : formatHours(forecastHours * 60)}</span>
+                      <span className="text-muted-foreground">Planned pace · {formatHours(plannedHours || 0)}</span>
+                      <span className="text-brand-orange font-medium">Actual · {formatHours(monthUsedHours)}</span>
+                      <span>Forecast · {formatHours(forecastHours)}</span>
+                    </div>
+                  </>
+                ) : view === 'term' && hasAllowance && contractStart ? (
+                  <>
+                    <PaceChart
+                      points={termKeys}
+                      planned={termPlanned}
+                      actual={termActual.map((value) => value ?? lastTermHours)}
+                      forecast={termForecastSeries}
+                      available={fullAllowance || cumulativeAvailable}
+                    />
+                    <div className="flex flex-wrap gap-4 text-sm mt-2">
+                      <span className="text-muted-foreground">Available · {formatHours(cumulativeAvailable || 0)}</span>
+                      <span className="text-brand-orange font-medium">Actual · {formatHours(usedHours)}</span>
+                      <span>Forecast · {contractForecastHours == null ? 'Data unavailable' : formatHours(contractForecastHours)}</span>
                     </div>
                   </>
                 ) : (
@@ -629,10 +790,105 @@ export default function ClientReports({ client, timeEntries = [] }) {
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: slice.color }} />
                         {slice.label}
                       </span>
-                      <span className="font-medium">{formatHours(slice.minutes)}</span>
+                      <span className="font-medium">
+                        {formatHours(slice.minutes, { fromMinutes: true })}
+                        {usedMinutes > 0 ? ` · ${Math.round((slice.minutes / usedMinutes) * 100)}%` : ''}
+                      </span>
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>Retainer Efficiency</CardTitle>
+                    <CardDescription>Revenue coverage based on tracked hours and the client billing rate</CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-brand-orange border-brand-orange/40">Efficiency—not true profit</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span>{view === 'term' ? 'Contracted revenue accrued' : 'Monthly Retainer Revenue'}</span>
+                  <span className="font-semibold">{rateChecked && accruedRevenue != null ? money(accruedRevenue) : <Unavailable />}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>Client Billing Rate</span>
+                  <span className="font-semibold">{rateChecked && billingRate != null ? `$${billingRate}/h` : <Unavailable />}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>{view === 'term' ? 'Cumulative tracked work value' : 'Tracked Work Value'}</span>
+                  <span className="font-semibold">{trackedValue != null ? money(trackedValue) : <Unavailable />}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>{view === 'term' ? 'Cumulative revenue coverage' : 'Revenue Coverage'}</span>
+                  <span className={cn('font-semibold', coverage > 0 && 'text-emerald-600', coverage < 0 && 'text-brand-orange')}>
+                    {coverage == null ? <Unavailable /> : `${coverage >= 0 ? '+' : ''}${money(coverage)}`}
+                  </span>
+                </div>
+                {coverageNote && (
+                  <p className="text-xs text-muted-foreground">{coverageNote}</p>
+                )}
+                <div className="flex justify-between gap-4">
+                  <span>{view === 'term' ? 'Cumulative effective hourly rate' : 'Effective Hourly Rate'}</span>
+                  <span className="font-semibold">{effectiveRate == null ? <Unavailable /> : `$${Math.round(effectiveRate)}/h`}</span>
+                </div>
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Retainer efficiency is based on client revenue and billing rate. It does not represent true profit because internal labor costs are not included.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Work Consuming the Retainer</CardTitle>
+                <CardDescription>Highest-hour work items for the selected period</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {workRows.length === 0 ? (
+                  <p className="p-5 text-sm text-muted-foreground">No time entries for these filters.</p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-4 py-2">Task / Work Item</th>
+                            <th className="text-left px-4 py-2">Service</th>
+                            <th className="text-left px-4 py-2">Team Member</th>
+                            <th className="text-right px-4 py-2">Hours</th>
+                            <th className="text-right px-4 py-2">% of Total</th>
+                            <th className="text-right px-4 py-2">Work Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {visibleWork.map((row, index) => (
+                            <tr key={`${row.task}-${row.member}-${index}`}>
+                              <td className="px-4 py-2 font-medium">{row.task}</td>
+                              <td className="px-4 py-2">{row.service.label}</td>
+                              <td className="px-4 py-2">{row.member}</td>
+                              <td className="px-4 py-2 text-right">{formatHours(row.minutes, { fromMinutes: true })}</td>
+                              <td className="px-4 py-2 text-right">{row.pct}%</td>
+                              <td className="px-4 py-2 text-right">{row.value == null ? <Unavailable /> : money(row.value)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {workRows.length > 4 && (
+                      <div className="p-3 text-center">
+                        <Button variant="ghost" size="sm" onClick={() => setShowAllWork((open) => !open)}>
+                          {showAllWork ? 'Show less' : `Show ${workRows.length - 4} more`}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -641,3 +897,4 @@ export default function ClientReports({ client, timeEntries = [] }) {
     </div>
   )
 }
+

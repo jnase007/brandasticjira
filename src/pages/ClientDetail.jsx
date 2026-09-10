@@ -2299,7 +2299,7 @@ export default function ClientDetail() {
 
           {/* Reports Tab */}
           <TabsContent value="reports">
-            <ClientReports client={client} timeEntries={timeEntries} />
+            <ClientReports client={client} timeEntries={timeEntries} tickets={tickets} />
           </TabsContent>
           {/* Financials Tab */}
           <TabsContent value="financials">
