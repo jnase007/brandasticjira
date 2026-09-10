@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession, getOrCreateGeneralBoardForClient } from '../lib/supabase'
 import { TIME_CHANNELS, normalizeTimeChannel, parseChannelHours } from '../lib/timeChannels'
+import { fetchClientRate } from '../lib/clientRates'
 import { useAuth } from '../contexts/AuthContext'
 import { cn, formatDate, isUuid } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -523,19 +524,9 @@ export default function ClientDetail() {
         console.log('Error fetching boards:', err)
       }
       
-      // Fetch client hourly rate (what we charge this client)
       try {
-        const { data: rateData } = await supabase
-          .from('client_rates')
-          .select('hourly_rate')
-          .eq('client_id', resolvedClientId)
-          .order('effective_date', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        
-        if (rateData?.hourly_rate) {
-          setClientRate(rateData.hourly_rate)
-        }
+        const { value } = await fetchClientRate(supabase, resolvedClientId)
+        if (value != null) setClientRate(value)
       } catch (err) {
         console.log('Client rates table may not exist yet:', err)
       }

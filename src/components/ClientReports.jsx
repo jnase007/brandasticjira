@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TIME_CHANNELS, normalizeTimeChannel, timeChannelLabel } from '../lib/timeChannels'
+import { fetchClientRate } from '../lib/clientRates'
 import { cn } from '../lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
@@ -195,15 +196,9 @@ export default function ClientReports({ client, timeEntries = [] }) {
         setRateChecked(true)
         return
       }
-      const { data } = await supabase
-        .from('client_rates')
-        .select('hourly_rate')
-        .eq('client_id', client.id)
-        .order('effective_date', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const { value } = await fetchClientRate(supabase, client.id)
       if (cancelled) return
-      setBillingRate(data?.hourly_rate != null ? Number(data.hourly_rate) : null)
+      setBillingRate(value)
       setRateChecked(true)
     })()
     return () => { cancelled = true }

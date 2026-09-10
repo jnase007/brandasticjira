@@ -14,6 +14,7 @@ import {
   getClientTypeConfig 
 } from '../lib/clientTypes'
 import { supabase } from '../lib/supabase'
+import { fetchClientRate, saveClientRate } from '../lib/clientRates'
 import { cn, slugify } from '../lib/utils'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -206,16 +207,11 @@ export default function ClientDialog({
           deactivation_reason: client.deactivation_reason || '',
         })
         setStep(1)
-        supabase
-          .from('client_rates')
-          .select('hourly_rate')
-          .eq('client_id', client.id)
-          .maybeSingle()
-          .then(({ data }) => {
-            if (data?.hourly_rate != null) {
-              setFormData((prev) => ({ ...prev, hourly_rate: data.hourly_rate }))
-            }
-          })
+        fetchClientRate(supabase, client.id).then(({ value }) => {
+          if (value != null) {
+            setFormData((prev) => ({ ...prev, hourly_rate: value }))
+          }
+        })
       } else {
         setFormData({
           name: '',
@@ -536,14 +532,7 @@ export default function ClientDialog({
         ? null
         : Number(formData.hourly_rate)
       if (!result.error && savedClient?.id && rateValue != null && Number.isFinite(rateValue)) {
-        const { data: existingRate } = await supabase
-          .from('client_rates')
-          .select('id')
-          .eq('client_id', savedClient.id)
-          .maybeSingle()
-        const rateResult = existingRate?.id
-          ? await supabase.from('client_rates').update({ hourly_rate: rateValue }).eq('id', existingRate.id)
-          : await supabase.from('client_rates').insert({ client_id: savedClient.id, hourly_rate: rateValue })
+        const rateResult = await saveClientRate(supabase, savedClient.id, rateValue)
         if (rateResult.error) {
           toast({
             title: 'Client saved, but hourly rate did not save',
