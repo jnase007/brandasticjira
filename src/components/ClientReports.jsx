@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronDown, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { supabase } from '../lib/supabase'
 import { TIME_CHANNEL_IDS, normalizeTimeChannel, timeChannelLabel } from '../lib/timeChannels'
 import { fetchClientRate } from '../lib/clientRates'
@@ -14,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
 
 const SERVICE_COLORS = {
   ppc: '#F7931E',
@@ -226,7 +236,10 @@ function ServiceDonut({ slices, totalMinutes }) {
   )
 }
 
+const WORK_PAGE_SIZE = 8
+
 export default function ClientReports({ client, timeEntries = [], tickets = [] }) {
+  const navigate = useNavigate()
   const [view, setView] = useState('month')
   const [period, setPeriod] = useState('')
   const [serviceFilter, setServiceFilter] = useState('all')
@@ -234,7 +247,8 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
   const [billingRate, setBillingRate] = useState(null)
   const [rateChecked, setRateChecked] = useState(false)
   const [ticketMap, setTicketMap] = useState({})
-  const [showAllWork, setShowAllWork] = useState(false)
+  const [workSort, setWorkSort] = useState({ key: 'hours', dir: 'desc' })
+  const [workPage, setWorkPage] = useState(1)
 
   const monthlyHours = Number(client?.monthly_hours)
   const hasAllowance = Number.isFinite(monthlyHours) && monthlyHours > 0
@@ -460,6 +474,7 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
       const current = groups.get(key) || {
         task: entry.ticket?.title || entry.description || 'Time entry',
         ticketKey: entry.ticket?.ticket_id || '',
+        ticketHref: entry.ticket?.ticket_id || entry.ticket?.id || '',
         service: entry.service,
         member: (entry.user || entry.profiles)?.full_name || 'Team Member',
         minutes: 0,
@@ -500,29 +515,127 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
     setMemberFilter('all')
     setPeriod(periodOptions[0] || '')
     setView('month')
-    setShowAllWork(false)
+    setWorkSort({ key: 'hours', dir: 'desc' })
+    setWorkPage(1)
+  }
+
+  useEffect(() => {
+    setWorkPage(1)
+  }, [view, period, serviceFilter, memberFilter, workSort.key, workSort.dir])
+
+  const sortedWorkRows = useMemo(() => {
+    const rows = [...workRows]
+    const dir = workSort.dir === 'asc' ? 1 : -1
+    rows.sort((a, b) => {
+      if (workSort.key === 'hours') return (a.minutes - b.minutes) * dir
+      if (workSort.key === 'pct') return (a.pct - b.pct) * dir
+      if (workSort.key === 'value') return ((a.value || 0) - (b.value || 0)) * dir
+      const left = {
+        task: a.task,
+        service: a.service.label,
+        member: a.member,
+      }[workSort.key] || ''
+      const right = {
+        task: b.task,
+        service: b.service.label,
+        member: b.member,
+      }[workSort.key] || ''
+      return String(left).localeCompare(String(right)) * dir
+    })
+    return rows
+  }, [workRows, workSort])
+
+  const workPageCount = Math.max(1, Math.ceil(sortedWorkRows.length / WORK_PAGE_SIZE))
+  const pagedWorkRows = sortedWorkRows.slice((workPage - 1) * WORK_PAGE_SIZE, workPage * WORK_PAGE_SIZE)
+
+  const toggleWorkSort = (key) => {
+    setWorkSort((current) => (
+      current.key === key
+        ? { key, dir: current.dir === 'desc' ? 'asc' : 'desc' }
+        : { key, dir: key === 'hours' || key === 'pct' || key === 'value' ? 'desc' : 'asc' }
+    ))
+  }
+
+  const openWorkTask = (row) => {
+    if (!row.ticketHref) return
+    navigate(`/tickets/${row.ticketHref}`)
+  }
+
+  const exportMeta = {
+    client: client?.name || client?.slug || 'Client',
+    view: view === 'term' ? 'Contract Term' : 'This Month',
+    period: monthLabel(selectedMonth),
+    service: serviceFilter === 'all' ? 'All services' : (serviceOptions.find((s) => s.id === serviceFilter)?.label || serviceFilter),
+    member: memberFilter === 'all' ? 'All team members' : (teamMembers.find((m) => m.id === memberFilter)?.name || memberFilter),
+  }
+  const exportFilename = `${client?.slug || 'client'}-report-${view}-${selectedMonth}`
+  const exportRows = workRows.map((row) => ([
+    row.task,
+    row.service.label,
+    row.member,
+    formatHours(row.minutes, { fromMinutes: true }),
+    `${row.pct}%`,
+    row.value == null ? 'Data unavailable' : money(row.value),
+  ]))
+  const exportHeaders = ['Task / Work Item', 'Service', 'Team Member', 'Hours', '% of Total Hours', 'Tracked Work Value']
+
+  const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const exportCsv = () => {
     const lines = [
-      ['Task / Work Item', 'Service', 'Team Member', 'Hours', '% of Total', 'Work Value'],
-      ...workRows.map((row) => [
-        row.task,
-        row.service.label,
-        row.member,
-        formatHours(row.minutes, { fromMinutes: true }),
-        `${row.pct}%`,
-        row.value == null ? 'Data unavailable' : money(row.value),
-      ]),
+      ['Client', exportMeta.client],
+      ['View', exportMeta.view],
+      ['Reporting Period', exportMeta.period],
+      ['Service', exportMeta.service],
+      ['Team Member', exportMeta.member],
+      ['Hours Used', formatHours(usedHours)],
+      [],
+      exportHeaders,
+      ...exportRows,
     ]
     const csv = lines.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${client?.slug || 'client'}-report-${selectedMonth}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${exportFilename}.csv`)
+  }
+
+  const exportExcel = () => {
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ['Client', exportMeta.client],
+      ['View', exportMeta.view],
+      ['Reporting Period', exportMeta.period],
+      ['Service', exportMeta.service],
+      ['Team Member', exportMeta.member],
+      ['Hours Used', formatHours(usedHours)],
+      [],
+      exportHeaders,
+      ...exportRows,
+    ])
+    const book = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(book, sheet, 'Retainer Report')
+    XLSX.writeFile(book, `${exportFilename}.xlsx`)
+  }
+
+  const exportPdf = () => {
+    const doc = new jsPDF()
+    doc.setFontSize(14)
+    doc.text(`${exportMeta.client} · Retainer Report`, 14, 16)
+    doc.setFontSize(10)
+    doc.text(`${exportMeta.view} · ${exportMeta.period}`, 14, 24)
+    doc.text(`Service: ${exportMeta.service} · Team: ${exportMeta.member}`, 14, 30)
+    doc.text(`Hours used: ${formatHours(usedHours)}`, 14, 36)
+    autoTable(doc, {
+      startY: 42,
+      head: [exportHeaders],
+      body: exportRows,
+      styles: { fontSize: 8 },
+    })
+    doc.save(`${exportFilename}.pdf`)
   }
 
   const termBlocked = view === 'term' && !contractStart
@@ -560,7 +673,7 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
               ? `${formatHours(Math.abs(cumulativeBalance))} cumulative over-servicing`
               : 'On the contracted hours available')
 
-  const visibleWork = showAllWork ? workRows : workRows.slice(0, 4)
+  const sortMark = (key) => workSort.key === key ? (workSort.dir === 'desc' ? ' ↓' : ' ↑') : ''
 
   return (
     <div className="space-y-5">
@@ -571,10 +684,20 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
             Monitor monthly delivery and cumulative contract health.
           </p>
         </div>
-        <Button variant="outline" onClick={exportCsv} disabled={workRows.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={workRows.length === 0}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+              <ChevronDown className="h-4 w-4 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={exportExcel}>Excel</DropdownMenuItem>
+            <DropdownMenuItem onClick={exportPdf}>PDF</DropdownMenuItem>
+            <DropdownMenuItem onClick={exportCsv}>CSV</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -854,22 +977,36 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
                   <p className="p-5 text-sm text-muted-foreground">No time entries for these filters.</p>
                 ) : (
                   <>
-                    <div className="overflow-x-auto">
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
                           <tr>
-                            <th className="text-left px-4 py-2">Task / Work Item</th>
-                            <th className="text-left px-4 py-2">Service</th>
-                            <th className="text-left px-4 py-2">Team Member</th>
-                            <th className="text-right px-4 py-2">Hours</th>
-                            <th className="text-right px-4 py-2">% of Total</th>
-                            <th className="text-right px-4 py-2">Work Value</th>
+                            {[
+                              ['task', 'Task / Work Item', 'text-left'],
+                              ['service', 'Service', 'text-left'],
+                              ['member', 'Team Member', 'text-left'],
+                              ['hours', 'Hours', 'text-right'],
+                              ['pct', '% of Total Hours', 'text-right'],
+                              ['value', 'Tracked Work Value', 'text-right'],
+                            ].map(([key, label, align]) => (
+                              <th key={key} className={cn('px-4 py-2', align)}>
+                                <button type="button" className="font-semibold" onClick={() => toggleWorkSort(key)}>
+                                  {label}{sortMark(key)}
+                                </button>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {visibleWork.map((row, index) => (
-                            <tr key={`${row.task}-${row.member}-${index}`}>
-                              <td className="px-4 py-2 font-medium">{row.task}</td>
+                          {pagedWorkRows.map((row, index) => (
+                            <tr key={`${row.ticketHref || row.task}-${row.member}-${index}`}>
+                              <td className="px-4 py-2 font-medium">
+                                {row.ticketHref ? (
+                                  <button type="button" className="text-left hover:underline" onClick={() => openWorkTask(row)}>
+                                    {row.task}
+                                  </button>
+                                ) : row.task}
+                              </td>
                               <td className="px-4 py-2">{row.service.label}</td>
                               <td className="px-4 py-2">{row.member}</td>
                               <td className="px-4 py-2 text-right">{formatHours(row.minutes, { fromMinutes: true })}</td>
@@ -880,10 +1017,31 @@ export default function ClientReports({ client, timeEntries = [], tickets = [] }
                         </tbody>
                       </table>
                     </div>
-                    {workRows.length > 4 && (
-                      <div className="p-3 text-center">
-                        <Button variant="ghost" size="sm" onClick={() => setShowAllWork((open) => !open)}>
-                          {showAllWork ? 'Show less' : `Show ${workRows.length - 4} more`}
+                    <div className="md:hidden divide-y">
+                      {pagedWorkRows.map((row, index) => (
+                        <div key={`m-${row.ticketHref || row.task}-${row.member}-${index}`} className="p-4 space-y-1">
+                          {row.ticketHref ? (
+                            <button type="button" className="font-medium text-left hover:underline" onClick={() => openWorkTask(row)}>
+                              {row.task}
+                            </button>
+                          ) : (
+                            <p className="font-medium">{row.task}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground">{row.service.label} · {row.member}</p>
+                          <p className="text-sm">
+                            {formatHours(row.minutes, { fromMinutes: true })} · {row.pct}% · {row.value == null ? 'Data unavailable' : money(row.value)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    {workPageCount > 1 && (
+                      <div className="flex items-center justify-between p-3 text-sm border-t">
+                        <Button variant="ghost" size="sm" disabled={workPage <= 1} onClick={() => setWorkPage((page) => page - 1)}>
+                          Previous
+                        </Button>
+                        <span className="text-muted-foreground">Page {workPage} of {workPageCount}</span>
+                        <Button variant="ghost" size="sm" disabled={workPage >= workPageCount} onClick={() => setWorkPage((page) => page + 1)}>
+                          Next
                         </Button>
                       </div>
                     )}
