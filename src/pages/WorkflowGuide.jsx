@@ -422,7 +422,7 @@ export default function WorkflowGuide() {
                 <li><strong>Track Value:</strong> See estimated budget and expected close dates</li>
               </ul>
               <p className="text-xs text-muted-foreground mt-3">
-                💡 Access from <strong>Clients → Sales Pipeline</strong> tab
+                💡 Access from the <strong>Sales Pipeline</strong> page in the sidebar
               </p>
             </div>
 
@@ -1083,6 +1083,9 @@ export default function WorkflowGuide() {
           <Link to="/clients">
             Go to Clients <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/pipeline">Go to Sales Pipeline</Link>
         </Button>
         <Button variant="outline" asChild>
           <Link to="/boards">Go to Boards</Link>

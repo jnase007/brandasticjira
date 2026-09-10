@@ -10,6 +10,7 @@ const SHORTCUTS = [
       { keys: ['G', 'D'], description: 'Go to Dashboard' },
       { keys: ['G', 'T'], description: 'Go to Time Tracking' },
       { keys: ['G', 'C'], description: 'Go to Clients' },
+      { keys: ['G', 'N'], description: 'Go to Sales Pipeline' },
       { keys: ['G', 'R'], description: 'Go to Reports' },
       { keys: ['G', 'H'], description: 'Go to Team Hub' },
       { keys: ['G', 'L'], description: 'Go to Leaderboard' },
