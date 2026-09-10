@@ -54,6 +54,7 @@ import MentionInput, { sendMentionNotifications, MentionText } from '../componen
 import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplates'
 import ClientDialog from '../components/ClientDialog'
 import ClientAgendas from '../components/ClientAgendas'
+import ClientTimeEntries from '../components/ClientTimeEntries'
 import ClientMonthlyBrief from '../components/ClientMonthlyBrief'
 
 // Note types with icons
@@ -2055,53 +2056,7 @@ export default function ClientDetail() {
 
           {/* Time Entries Tab */}
           <TabsContent value="time">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Time Entries</CardTitle>
-                    <CardDescription>All time tracked for this client</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {timeEntries.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Timer className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No time entries yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {timeEntries.map((entry) => (
-                      <div key={entry.id} className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={entry.user?.avatar_url || entry.profiles?.avatar_url} />
-                          <AvatarFallback>{entry.user?.full_name?.[0] || entry.profiles?.full_name?.[0] || '?'}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {entry.description || entry.ticket?.title || entry.notes || 'Time entry'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {(entry.user?.full_name || entry.profiles?.full_name || 'Team Member')} • {formatDate(entry.date)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{Math.round(entry.minutes / 60)}h {entry.minutes % 60}m</p>
-                          <p className="text-sm text-muted-foreground">
-                            {entry.billable ? `$${Math.round((entry.minutes / 60) * 175)}` : 'Non-billable'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <ClientTimeEntries entries={timeEntries} onRefresh={() => fetchClientData(true)} />
           </TabsContent>
 
           {/* Tickets Tab - searchable table */}
