@@ -1842,23 +1842,6 @@ export default function ClientDetail() {
               <ClipboardList className="h-4 w-4" />
               <span>Agendas</span>
             </TabsTrigger>
-            <TabsTrigger value="brief" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
-              <FileText className="h-4 w-4" />
-              <span className="whitespace-nowrap">Monthly brief</span>
-            </TabsTrigger>
-            <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
-              <MessageSquare className="h-4 w-4" />
-              <span>Messages</span>
-              {notes.length > 0 && (
-                <span className="ml-1 text-[10px] bg-muted-foreground/20 px-1.5 rounded-full">
-                  {notes.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
-              <Activity className="h-4 w-4" />
-              <span>Activity</span>
-            </TabsTrigger>
             <TabsTrigger value="time" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Timer className="h-4 w-4" />
               <span className="whitespace-nowrap">Time Entries</span>
@@ -1867,13 +1850,18 @@ export default function ClientDetail() {
               <BarChart3 className="h-4 w-4" />
               <span>Reports</span>
             </TabsTrigger>
-            <TabsTrigger value="financials" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
-              <DollarSign className="h-4 w-4" />
-              <span>Financials</span>
+            <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
+              <Activity className="h-4 w-4" />
+              <span>Activity</span>
             </TabsTrigger>
-            <TabsTrigger value="team" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
-              <Users className="h-4 w-4" />
-              <span>Team</span>
+            <TabsTrigger value="boards" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
+              <Kanban className="h-4 w-4" />
+              <span>Boards</span>
+              {boards.length > 0 && (
+                <span className="ml-1 text-[10px] bg-muted-foreground/20 px-1.5 rounded-full">
+                  {boards.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="wins" className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-2 shrink-0">
               <Award className="h-4 w-4" />
@@ -2371,43 +2359,7 @@ export default function ClientDetail() {
                       </table>
                     </div>
 
-                    {/* Boards Quick Access */}
-                    {boards.length > 0 && (
-                      <div className="p-4 border-t">
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <Kanban className="h-4 w-4" />
-                          Project Boards
-                          <span className="text-xs text-muted-foreground font-normal">
-                            (drag tasks here to change status)
-                          </span>
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {boards.map((board) => (
-                            <Link 
-                              key={board.id} 
-                              to={`/boards/${board.id}`}
-                              className="p-3 rounded-lg border hover:border-brand-orange/50 hover:shadow-sm transition-all group"
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <Kanban className="h-4 w-4 text-brand-orange" />
-                                <span className="font-medium text-sm truncate">{board.name}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{tickets.filter(t => {
-                                  const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
-                                  return onBoard && normalizeStatus(t.status) !== 'closed'
-                                }).length} active</span>
-                                <span>•</span>
-                                <span className="text-green-600">{tickets.filter(t => {
-                                  const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
-                                  return onBoard && normalizeStatus(t.status) === 'closed'
-                                }).length} closed</span>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+
                   </div>
                 )}
               </CardContent>
@@ -2916,6 +2868,70 @@ export default function ClientDetail() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          {/* Boards Tab */}
+          <TabsContent value="boards">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Kanban className="h-5 w-5" />
+                      Boards
+                    </CardTitle>
+                    <CardDescription>All boards for this client</CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCreateBoardOpen(true)}
+                  >
+                    <Kanban className="h-4 w-4 mr-2" />
+                    New Board
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {boards.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Kanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No boards yet</p>
+                    <p className="text-sm mb-4">Create a board to organize this client's work</p>
+                    <Button onClick={() => setCreateBoardOpen(true)} variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Board
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {boards.map((board) => (
+                      <Link 
+                        key={board.id} 
+                        to={`/boards/${board.id}`}
+                        className="p-3 rounded-lg border hover:border-brand-orange/50 hover:shadow-sm transition-all group"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <Kanban className="h-4 w-4 text-brand-orange" />
+                          <span className="font-medium text-sm truncate">{board.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{tickets.filter(t => {
+                            const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
+                            return onBoard && normalizeStatus(t.status) !== 'closed'
+                          }).length} active</span>
+                          <span>•</span>
+                          <span className="text-green-600">{tickets.filter(t => {
+                            const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
+                            return onBoard && normalizeStatus(t.status) === 'closed'
+                          }).length} closed</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Wins Tab */}
