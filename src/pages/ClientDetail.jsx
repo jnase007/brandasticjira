@@ -2108,25 +2108,13 @@ export default function ClientDetail() {
           <TabsContent value="tickets">
             <Card>
               <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Ticket className="h-5 w-5" />
-                      Tasks
-                      {tickets.length > 0 && (
-                        <span className="ml-1 text-sm font-normal text-muted-foreground">({tickets.length})</span>
-                      )}
-                    </CardTitle>
-                  </div>
-                  <Button 
-                    size="sm"
-                    onClick={() => setCreateTaskOpen(true)}
-                    className="bg-brand-orange hover:bg-brand-orange/90"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Task
-                  </Button>
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <Ticket className="h-5 w-5" />
+                  Tasks
+                  {tickets.length > 0 && (
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">({tickets.length})</span>
+                  )}
+                </CardTitle>
 
                 {tickets.length > 0 && (
                   <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 mt-4">
