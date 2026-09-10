@@ -868,12 +868,6 @@ export default function ClientManagement() {
             </p>
           </div>
           <div className="flex w-full sm:w-auto items-center gap-2">
-            <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none">
-              <Link to="/pipeline">
-                <Target className="h-4 w-4 mr-2" />
-                Sales Pipeline
-              </Link>
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1147,14 +1141,7 @@ export default function ClientManagement() {
                             : 'Import clients to get started.'
                     }
                   </p>
-                  {statusFilter === 'prospect' && !searchQuery ? (
-                    <Button size="sm" asChild className="bg-purple-500 hover:bg-purple-600 text-white">
-                      <Link to="/pipeline">
-                        <Target className="h-4 w-4 mr-2" />
-                        Open Sales Pipeline
-                      </Link>
-                    </Button>
-                  ) : (statusFilter !== 'all' || searchQuery || clientTypeFilter !== 'all') && (
+                  {(statusFilter !== 'all' || searchQuery || clientTypeFilter !== 'all') && statusFilter !== 'prospect' && (
                     <Button
                       variant="outline"
                       size="sm"

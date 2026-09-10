@@ -429,42 +429,7 @@ function MainLayout({ children }) {
         </div>
       )}
 
-      {/* Desktop User Profile - Top Right - with more right padding to avoid overlap */}
-      {!clientPreviewMode && (
-        <div className="hidden lg:block fixed top-4 right-4 z-50">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-background/95 backdrop-blur-md border shadow-lg hover:shadow-xl transition-all ring-1 ring-black/5">
-                <Avatar className="h-8 w-8 border-2 border-brand-orange/30">
-                  <AvatarImage src={profile?.avatar_url} />
-                  <AvatarFallback className="bg-brand-orange text-white text-xs font-medium">
-                    {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || '?'}
-                  </AvatarFallback>
-                </Avatar>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span>{profile?.full_name || 'User'}</span>
-                  <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <User className="h-4 w-4 mr-2" />
-                My Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
+
 
       {/* Mobile Header - hidden in client preview */}
       {!clientPreviewMode && (
@@ -491,6 +456,39 @@ function MainLayout({ children }) {
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             className="hidden lg:block min-h-screen"
           >
+            <div className="sticky top-0 z-40 h-14 px-4 sm:px-6 lg:px-8 flex items-center justify-end bg-background/95 backdrop-blur-md border-b">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                    <Avatar className="h-8 w-8 border-2 border-brand-orange/30">
+                      <AvatarImage src={profile?.avatar_url} />
+                      <AvatarFallback className="bg-brand-orange text-white text-xs font-medium">
+                        {profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span>{profile?.full_name || 'User'}</span>
+                      <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <User className="h-4 w-4 mr-2" />
+                    My Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             {children}
           </motion.div>
           {/* Mobile layout - no sidebar margin */}
