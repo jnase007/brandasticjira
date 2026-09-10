@@ -55,6 +55,7 @@ import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplat
 import ClientDialog from '../components/ClientDialog'
 import ClientAgendas from '../components/ClientAgendas'
 import ClientTimeEntries from '../components/ClientTimeEntries'
+import ClientReports from '../components/ClientReports'
 import ClientMonthlyBrief from '../components/ClientMonthlyBrief'
 
 // Note types with icons
@@ -2305,89 +2306,8 @@ export default function ClientDetail() {
 
           {/* Reports Tab */}
           <TabsContent value="reports">
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Monthly Breakdown */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Monthly Breakdown
-                  </CardTitle>
-                  <CardDescription>Hours and revenue over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {monthlyStats.map((stat, i) => (
-                      <div key={i} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium">{stat.month}</span>
-                          <span className="text-muted-foreground">
-                            {stat.hours}h • ${stat.revenue.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-brand-orange to-brand-coral rounded-full transition-all"
-                            style={{ width: `${Math.min((stat.hours / (client.monthly_hours || 100)) * 100, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Summary Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5" />
-                    Summary
-                  </CardTitle>
-                  <CardDescription>Overall client metrics</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl bg-muted/50 text-center">
-                      <p className="text-3xl font-bold text-brand-orange">{totalHours}h</p>
-                      <p className="text-sm text-muted-foreground">Total Hours</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-muted/50 text-center">
-                      <p className="text-3xl font-bold text-green-600">${totalRevenue.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">Total Revenue</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-muted/50 text-center">
-                      <p className="text-3xl font-bold">{tickets.length}</p>
-                      <p className="text-sm text-muted-foreground">Total Tickets</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-muted/50 text-center">
-                      <p className="text-3xl font-bold">{teamMembers.length}</p>
-                      <p className="text-sm text-muted-foreground">Team Members</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">Billable Rate</span>
-                      <span className="text-green-600 font-bold">
-                        {totalHours > 0 ? Math.round((billableHours / totalHours) * 100) : 0}%
-                      </span>
-                    </div>
-                    <Progress 
-                      value={totalHours > 0 ? (billableHours / totalHours) * 100 : 0} 
-                      className="h-2"
-                    />
-                  </div>
-
-                  <Button className="w-full" variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Full Report
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <ClientReports client={client} timeEntries={timeEntries} />
           </TabsContent>
-
           {/* Financials Tab */}
           <TabsContent value="financials">
             <div className="space-y-6">
