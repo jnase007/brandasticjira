@@ -5,7 +5,7 @@ import {
   Menu, X, LayoutDashboard, Kanban, Building2, Clock, BarChart3,
   Users2, Trophy, User, Shield, LogOut, Timer, Activity,
   Search, ChevronRight, Zap, Bell, BookOpen, ActivitySquare, Settings,
-  ListTodo, Lightbulb, Bot,
+  ListTodo, Lightbulb, Bot, Target,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,6 +20,7 @@ const navItems = [
   { path: '/how-it-works', icon: BookOpen, label: 'How It Works' },
   { path: '/time', icon: Clock, label: 'Time Tracking' },
   { path: '/clients', icon: Building2, label: 'Clients' },
+  { path: '/pipeline', icon: Target, label: 'Sales Pipeline' },
   { path: '/docs', icon: BookOpen, label: 'Internal Docs' },
   { path: '/taskboard', icon: ListTodo, label: 'Task Board' },
   { path: '/reports', icon: BarChart3, label: 'Reports' },

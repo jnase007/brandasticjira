@@ -104,7 +104,8 @@ export default function ClientDialog({
   open, 
   onOpenChange, 
   client = null,
-  onSuccess 
+  onSuccess,
+  defaultClientStatus = 'active',
 }) {
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -214,7 +215,7 @@ export default function ClientDialog({
           // Client type classification
           client_type: CLIENT_TYPES.RETAINER,
           // Pipeline fields default
-          client_status: 'active',
+          client_status: defaultClientStatus,
           engagement_type: 'retainer',
           estimated_monthly_hours: null,
           estimated_project_hours: null,
@@ -229,7 +230,7 @@ export default function ClientDialog({
       }
       setErrors({})
     }
-  }, [open, client])
+  }, [open, client, defaultClientStatus])
 
   // Auto-generate slug
   const handleNameChange = (name) => {

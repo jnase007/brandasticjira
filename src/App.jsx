@@ -23,6 +23,7 @@ const TimeTracking = lazy(() => import('./pages/TimeTracking'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const ClientManagement = lazy(() => import('./pages/ClientManagement'))
+const SalesPipeline = lazy(() => import('./pages/SalesPipeline'))
 const ClientDetail = lazy(() => import('./pages/ClientDetail'))
 const TeamMemberDetail = lazy(() => import('./pages/TeamMemberDetail'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -1013,6 +1014,14 @@ function App() {
                 element={
                   <TeamRoute>
                     <ClientManagement />
+                  </TeamRoute>
+                }
+              />
+              <Route
+                path="/pipeline"
+                element={
+                  <TeamRoute>
+                    <SalesPipeline />
                   </TeamRoute>
                 }
               />
