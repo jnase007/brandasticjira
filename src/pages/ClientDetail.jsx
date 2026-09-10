@@ -159,6 +159,7 @@ export default function ClientDetail() {
   // Task sorting state
   const [taskSort, setTaskSort] = useState('newest') // 'newest' | 'oldest' | 'due_date' | 'assignee'
   const [taskStatusFilter, setTaskStatusFilter] = useState('all') // 'all' | 'new' | 'in_progress' | etc.
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all')
   const [taskSearchQuery, setTaskSearchQuery] = useState('')
   
   // Quick task state
@@ -2103,7 +2104,7 @@ export default function ClientDetail() {
             </Card>
           </TabsContent>
 
-          {/* Tickets Tab - JIRA-style Table View */}
+          {/* Tickets Tab - searchable table */}
           <TabsContent value="tickets">
             <Card>
               <CardHeader className="pb-3">
@@ -2112,84 +2113,24 @@ export default function ClientDetail() {
                     <CardTitle className="flex items-center gap-2">
                       <Ticket className="h-5 w-5" />
                       Tasks
-                    </CardTitle>
-                    <CardDescription>All work items for this client • Drag tasks on boards to change status</CardDescription>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCreateBoardOpen(true)}
-                    >
-                      <Kanban className="h-4 w-4 mr-2" />
-                      New Board
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => setCreateTaskOpen(true)}
-                      className="bg-brand-orange hover:bg-brand-orange/90"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      New Task
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Clickable Status Filter Tabs - JIRA Style */}
-                {tickets.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 mt-4">
-                    <button
-                      onClick={() => setTaskStatusFilter('all')}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                        taskStatusFilter === 'all'
-                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                          : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                      {tickets.length > 0 && (
+                        <span className="ml-1 text-sm font-normal text-muted-foreground">({tickets.length})</span>
                       )}
-                    >
-                      All
-                      <span className="ml-1 text-xs opacity-70">{tickets.length}</span>
-                    </button>
-                    {[
-                      { key: 'new', label: 'New', icon: Circle, color: 'slate', count: ticketsByStatus.new },
-                      { key: 'in_progress', label: 'In Progress', icon: PlayCircle, color: 'amber', count: ticketsByStatus.in_progress },
-                      { key: 'internal_review', label: 'Internal', icon: Eye, color: 'purple', count: ticketsByStatus.internal_review },
-                      { key: 'client_review', label: 'Client', icon: UserCheck, color: 'blue', count: ticketsByStatus.client_review },
-                      { key: 'approved', label: 'Approved', icon: ThumbsUp, color: 'emerald', count: ticketsByStatus.approved },
-                      { key: 'ready_for_billing', label: 'Billing', icon: Receipt, color: 'orange', count: ticketsByStatus.ready_for_billing },
-                      { key: 'closed', label: 'Closed', icon: CheckCircle2, color: 'green', count: ticketsByStatus.closed },
-                    ].map(({ key, label, icon: StatusIcon, color, count }) => (
-                      <button
-                        key={key}
-                        onClick={() => setTaskStatusFilter(key)}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                          taskStatusFilter === key
-                            ? "text-white"
-                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                        )}
-                        style={taskStatusFilter === key ? {
-                          backgroundColor: color === 'slate' ? '#64748b' : 
-                                          color === 'amber' ? '#f59e0b' :
-                                          color === 'purple' ? '#a855f7' :
-                                          color === 'blue' ? '#3b82f6' :
-                                          color === 'emerald' ? '#10b981' :
-                                          color === 'orange' ? '#f97316' :
-                                          color === 'green' ? '#22c55e' : undefined
-                        } : undefined}
-                      >
-                        <StatusIcon className="h-3.5 w-3.5" />
-                        {label}
-                        <span className="ml-1 text-xs opacity-70">{count}</span>
-                      </button>
-                    ))}
+                    </CardTitle>
                   </div>
-                )}
-                
-                {/* Search and Sort Row */}
+                  <Button 
+                    size="sm"
+                    onClick={() => setCreateTaskOpen(true)}
+                    className="bg-brand-orange hover:bg-brand-orange/90"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Task
+                  </Button>
+                </div>
+
                 {tickets.length > 0 && (
-                  <div className="flex items-center gap-3 mt-4">
-                    <div className="relative flex-1 max-w-xs">
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 mt-4">
+                    <div className="relative flex-1 min-w-[180px] max-w-xs">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Search tasks..."
@@ -2198,8 +2139,41 @@ export default function ClientDetail() {
                         className="pl-9 h-9"
                       />
                     </div>
+                    <Select value={taskStatusFilter} onValueChange={setTaskStatusFilter}>
+                      <SelectTrigger className="w-full sm:w-[160px] h-9">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="internal_review">Internal Review</SelectItem>
+                        <SelectItem value="client_review">Client Review</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="ready_for_billing">Billing</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={taskAssigneeFilter} onValueChange={setTaskAssigneeFilter}>
+                      <SelectTrigger className="w-full sm:w-[160px] h-9">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All assignees</SelectItem>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {[...new Map(
+                          tickets
+                            .filter(t => t.assigned_user?.id)
+                            .map(t => [t.assigned_user.id, t.assigned_user])
+                        ).values()].map((person) => (
+                          <SelectItem key={person.id} value={person.id}>
+                            {person.full_name || 'Team member'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Select value={taskSort} onValueChange={setTaskSort}>
-                      <SelectTrigger className="w-[140px] h-9">
+                      <SelectTrigger className="w-full sm:w-[140px] h-9">
                         <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
@@ -2218,32 +2192,33 @@ export default function ClientDetail() {
                   <div className="text-center py-12 text-muted-foreground">
                     <Ticket className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p className="mb-2">No tasks yet</p>
-                    <p className="text-sm">Create a task or board to get started</p>
+                    <p className="text-sm">Create a task to get started</p>
                   </div>
                 ) : (
                   <div>
-                    {/* JIRA-style Table View */}
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="border-b bg-muted/30">
                           <tr className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            <th className="px-4 py-3 w-10"></th>
                             <th className="px-4 py-3 w-24">Key</th>
                             <th className="px-4 py-3">Summary</th>
                             <th className="px-4 py-3 w-32">Status</th>
-                            <th className="px-4 py-3 w-24">Board</th>
                             <th className="px-4 py-3 w-36">Assignee</th>
                             <th className="px-4 py-3 w-24">Due Date</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
                           {(() => {
-                            // Filter by status
                             let filteredTickets = taskStatusFilter === 'all' 
                               ? tickets 
                               : tickets.filter(t => normalizeStatus(t.status) === taskStatusFilter)
+
+                            if (taskAssigneeFilter === 'unassigned') {
+                              filteredTickets = filteredTickets.filter(t => !t.assigned_user?.id)
+                            } else if (taskAssigneeFilter !== 'all') {
+                              filteredTickets = filteredTickets.filter(t => t.assigned_user?.id === taskAssigneeFilter)
+                            }
                             
-                            // Filter by search query
                             if (taskSearchQuery.trim()) {
                               const query = taskSearchQuery.toLowerCase()
                               filteredTickets = filteredTickets.filter(t => 
@@ -2253,13 +2228,12 @@ export default function ClientDetail() {
                               )
                             }
                             
-                            // Sort tickets
                             filteredTickets = sortTickets(filteredTickets)
                             
                             if (filteredTickets.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                                     No tasks found for this filter
                                   </td>
                                 </tr>
@@ -2269,39 +2243,29 @@ export default function ClientDetail() {
                             return filteredTickets.map((ticket) => {
                               const status = normalizeStatus(ticket.status)
                               const statusConfig = {
-                                new: { icon: Circle, color: 'slate', label: 'NEW', bgClass: 'bg-slate-100 text-slate-700' },
-                                in_progress: { icon: PlayCircle, color: 'amber', label: 'IN PROGRESS', bgClass: 'bg-amber-100 text-amber-700' },
-                                internal_review: { icon: Eye, color: 'purple', label: 'INTERNAL', bgClass: 'bg-purple-100 text-purple-700' },
-                                client_review: { icon: UserCheck, color: 'blue', label: 'CLIENT REVIEW', bgClass: 'bg-blue-100 text-blue-700' },
-                                approved: { icon: ThumbsUp, color: 'emerald', label: 'APPROVED', bgClass: 'bg-emerald-100 text-emerald-700' },
-                                ready_for_billing: { icon: Receipt, color: 'orange', label: 'BILLING', bgClass: 'bg-orange-100 text-orange-700' },
-                                closed: { icon: CheckCircle2, color: 'green', label: 'CLOSED', bgClass: 'bg-green-100 text-green-700' },
-                              }[status] || { icon: Circle, color: 'slate', label: status?.toUpperCase(), bgClass: 'bg-slate-100 text-slate-700' }
-                              const StatusIcon = statusConfig.icon
+                                new: { label: 'NEW', bgClass: 'bg-slate-100 text-slate-700' },
+                                in_progress: { label: 'IN PROGRESS', bgClass: 'bg-amber-100 text-amber-700' },
+                                internal_review: { label: 'INTERNAL', bgClass: 'bg-purple-100 text-purple-700' },
+                                client_review: { label: 'CLIENT REVIEW', bgClass: 'bg-blue-100 text-blue-700' },
+                                approved: { label: 'APPROVED', bgClass: 'bg-emerald-100 text-emerald-700' },
+                                ready_for_billing: { label: 'BILLING', bgClass: 'bg-orange-100 text-orange-700' },
+                                closed: { label: 'CLOSED', bgClass: 'bg-green-100 text-green-700' },
+                              }[status] || { label: status?.toUpperCase(), bgClass: 'bg-slate-100 text-slate-700' }
                               const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && status !== 'closed'
+                              const taskHref = `/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`
                               
                               return (
                                 <tr 
                                   key={ticket.id} 
-                                  className="hover:bg-muted/50 transition-colors cursor-pointer group"
-                                  onClick={() => navigate(`/clients/${client.slug || client.id}/tickets/${ticket.ticket_id || ticket.id}`)}
+                                  className="hover:bg-muted/50 transition-colors group"
                                 >
                                   <td className="px-4 py-3">
-                                    <div className={cn(
-                                      "w-6 h-6 rounded flex items-center justify-center",
-                                      ticket.ticket_type === 'client_homework' ? "bg-orange-100" : "bg-blue-100"
-                                    )}>
-                                      {ticket.ticket_type === 'client_homework' ? (
-                                        <UserCheck className="h-3.5 w-3.5 text-orange-600" />
-                                      ) : (
-                                        <ClipboardList className="h-3.5 w-3.5 text-blue-600" />
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="font-mono text-sm text-muted-foreground group-hover:text-brand-orange transition-colors">
+                                    <Link
+                                      to={taskHref}
+                                      className="font-mono text-sm text-muted-foreground hover:text-brand-orange transition-colors"
+                                    >
                                       {ticket.ticket_id || `#${ticket.id.slice(0,6)}`}
-                                    </span>
+                                    </Link>
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
@@ -2320,11 +2284,6 @@ export default function ClientDetail() {
                                     <Badge className={cn("text-[10px] font-semibold", statusConfig.bgClass)}>
                                       {statusConfig.label}
                                     </Badge>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-sm text-muted-foreground truncate block max-w-[100px]">
-                                      {ticket.boards?.name || 'General'}
-                                    </span>
                                   </td>
                                   <td className="px-4 py-3">
                                     {ticket.assigned_user ? (
@@ -2359,9 +2318,44 @@ export default function ClientDetail() {
                       </table>
                     </div>
 
-
                   </div>
                 )}
+
+                <div className="p-4 border-t">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Kanban className="h-4 w-4" />
+                    Project Boards
+                  </h4>
+                  {boards.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No boards yet for this client.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {boards.map((board) => (
+                        <Link 
+                          key={board.id} 
+                          to={`/boards/${board.id}`}
+                          className="p-3 rounded-lg border hover:border-brand-orange/50 hover:shadow-sm transition-all group"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Kanban className="h-4 w-4 text-brand-orange" />
+                            <span className="font-medium text-sm truncate">{board.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{tickets.filter(t => {
+                              const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
+                              return onBoard && normalizeStatus(t.status) !== 'closed'
+                            }).length} active</span>
+                            <span>•</span>
+                            <span className="text-green-600">{tickets.filter(t => {
+                              const onBoard = t.board_id === board.id || (t.boards?.id != null && String(t.boards.id) === String(board.id))
+                              return onBoard && normalizeStatus(t.status) === 'closed'
+                            }).length} closed</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
