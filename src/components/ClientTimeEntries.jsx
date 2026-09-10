@@ -18,6 +18,13 @@ import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import {
   DropdownMenu,
@@ -78,7 +85,10 @@ export default function ClientTimeEntries({ entries = [], onRefresh }) {
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(1)
   const [editingEntry, setEditingEntry] = useState(null)
-  const [editData, setEditData] = useState({ description: '', minutes: 0, billable: true, channel: 'general' })
+  const [editData, setEditData] = useState({ client_id: '', ticket_id: '', minutes: 0 })
+  const [clients, setClients] = useState([])
+  const [availableTickets, setAvailableTickets] = useState([])
+  const [loadingTickets, setLoadingTickets] = useState(false)
   const [saving, setSaving] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -154,34 +164,99 @@ export default function ClientTimeEntries({ entries = [], onRefresh }) {
 
   const canManage = (entry) => isAdmin || isTeam || entry.user_id === user?.id
 
-  const openEdit = (entry) => {
+  const fetchTicketsForClient = async (clientId, keepTicketId) => {
+    if (!clientId) {
+      setAvailableTickets([])
+      return []
+    }
+    setLoadingTickets(true)
+    try {
+      const { data } = await supabase
+        .from('tickets')
+        .select('id, title, ticket_id, status, client_id')
+        .eq('client_id', clientId)
+        .order('updated_at', { ascending: false })
+        .limit(50)
+      let tickets = data || []
+      if (keepTicketId && !tickets.some((ticket) => ticket.id === keepTicketId)) {
+        const { data: current } = await supabase
+          .from('tickets')
+          .select('id, title, ticket_id, status, client_id')
+          .eq('id', keepTicketId)
+          .maybeSingle()
+        if (current && current.client_id === clientId) tickets = [current, ...tickets]
+      }
+      setAvailableTickets(tickets)
+      return tickets
+    } catch (error) {
+      setAvailableTickets([])
+      return []
+    } finally {
+      setLoadingTickets(false)
+    }
+  }
+
+  const closeEdit = () => {
+    setEditingEntry(null)
+    setAvailableTickets([])
+    setEditData({ client_id: '', ticket_id: '', minutes: 0 })
+  }
+
+  const openEdit = async (entry) => {
+    const clientId = entry.client_id || ''
+    const ticketId = entry.ticket_id || ''
     setEditingEntry(entry)
     setEditData({
-      description: entry.description || '',
+      client_id: clientId,
+      ticket_id: ticketId,
       minutes: entry.minutes || 0,
-      billable: entry.billable ?? true,
-      channel: normalizeTimeChannel(entry.channel),
     })
+    const [{ data: clientRows }] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('id, name, color, client_type')
+        .or('is_active.is.true,is_active.is.null')
+        .order('name'),
+      fetchTicketsForClient(clientId, ticketId),
+    ])
+    setClients(clientRows || [])
+  }
+
+  const onEditClientChange = async (clientId) => {
+    const tickets = await fetchTicketsForClient(clientId)
+    setEditData((prev) => ({
+      ...prev,
+      client_id: clientId,
+      ticket_id: tickets.some((ticket) => ticket.id === prev.ticket_id) ? prev.ticket_id : '',
+    }))
   }
 
   const saveEntry = async () => {
     if (!editingEntry) return
+    if (!editData.client_id) {
+      toast({ title: 'Select a client', variant: 'destructive' })
+      return
+    }
+    if (editData.client_id !== editingEntry.client_id && !editData.ticket_id) {
+      toast({ title: 'Select a task', variant: 'destructive' })
+      return
+    }
     setSaving(true)
     try {
       const updates = {
-        description: editData.description,
+        client_id: editData.client_id,
+        ticket_id: editData.ticket_id || null,
         minutes: editData.minutes,
-        billable: editData.billable,
-        channel: normalizeTimeChannel(editData.channel),
+        duration_minutes: editData.minutes,
       }
       let { error } = await supabase.from('time_entries').update(updates).eq('id', editingEntry.id)
       if (error && error.message?.includes('column')) {
-        delete updates.channel
+        delete updates.duration_minutes
         ;({ error } = await supabase.from('time_entries').update(updates).eq('id', editingEntry.id))
       }
       if (error) throw error
       toast({ title: 'Time entry updated', variant: 'success' })
-      setEditingEntry(null)
+      closeEdit()
       onRefresh?.()
     } catch (error) {
       toast({ title: 'Could not update entry', description: error.message, variant: 'destructive' })
@@ -264,10 +339,9 @@ export default function ClientTimeEntries({ entries = [], onRefresh }) {
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 h-10 sm:w-[170px]" />
         </div>
         <div className="w-full sm:w-auto">
-          <Label className="text-[11px] uppercase text-muted-foreground">Team Members</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="mt-1 h-10 w-full sm:w-[220px] justify-between font-normal">
+              <Button variant="outline" className="h-10 w-full sm:w-[220px] justify-between font-normal">
                 <span className="truncate">{memberLabel}</span>
                 <ChevronDown className="h-4 w-4 ml-2 opacity-60" />
               </Button>
@@ -437,7 +511,7 @@ export default function ClientTimeEntries({ entries = [], onRefresh }) {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingEntry} onOpenChange={(open) => { if (!open) setEditingEntry(null) }}>
+      <Dialog open={!!editingEntry} onOpenChange={(open) => { if (!open) closeEdit() }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Time Entry</DialogTitle>
@@ -445,12 +519,39 @@ export default function ClientTimeEntries({ entries = [], onRefresh }) {
           {editingEntry && (
             <div className="space-y-4">
               <div>
-                <Label>Description</Label>
-                <Input
-                  className="mt-1.5"
-                  value={editData.description}
-                  onChange={(e) => setEditData((prev) => ({ ...prev, description: e.target.value }))}
-                />
+                <Label>Client</Label>
+                <Select value={editData.client_id} onValueChange={onEditClientChange}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Task</Label>
+                <Select
+                  value={editData.ticket_id || undefined}
+                  onValueChange={(value) => setEditData((prev) => ({ ...prev, ticket_id: value }))}
+                  disabled={!editData.client_id || loadingTickets}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder={loadingTickets ? 'Loading tasks...' : 'Select task'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTickets.map((ticket) => (
+                      <SelectItem key={ticket.id} value={ticket.id}>
+                        <span className="text-xs text-muted-foreground mr-2">{ticket.ticket_id || ticket.id.slice(0, 6)}</span>
+                        <span className="truncate">{ticket.title}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -484,7 +585,7 @@ export default function ClientTimeEntries({ entries = [], onRefresh }) {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingEntry(null)}>Cancel</Button>
+            <Button variant="outline" onClick={closeEdit}>Cancel</Button>
             <Button onClick={saveEntry} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
               Save
