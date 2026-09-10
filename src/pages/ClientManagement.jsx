@@ -107,7 +107,7 @@ function getClientHoursStats(client, hoursUsedByClient) {
   }
 }
 
-function getDirectoryStatus(client, hoursStats) {
+function getDirectoryStatus(client, hoursStats, options = {}) {
   if (client?.is_active === false) {
     return { label: 'Inactive', tone: 'inactive' }
   }
@@ -117,6 +117,9 @@ function getDirectoryStatus(client, hoursStats) {
   if (hoursStats?.hoursStatus === 'warning' || hoursStats?.hoursStatus === 'over') {
     return { label: 'Attention', tone: 'attention' }
   }
+  if (options.allowNotStarted && (Number(hoursStats?.used) || 0) <= 0) {
+    return { label: 'Not started', tone: 'not_started' }
+  }
   return { label: 'On track', tone: 'on_track' }
 }
 
@@ -124,7 +127,18 @@ function directoryStatusClasses(tone) {
   if (tone === 'attention') return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
   if (tone === 'inactive') return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
   if (tone === 'prospect') return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+  if (tone === 'not_started') return 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700'
   return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+}
+
+function getUtilizationBarClass(hoursStats) {
+  if (hoursStats?.hoursStatus === 'over' || (hoursStats?.percentage || 0) >= 100) {
+    return 'bg-red-500'
+  }
+  if (hoursStats?.hoursStatus === 'warning' || (hoursStats?.percentage || 0) >= 80) {
+    return 'bg-amber-500'
+  }
+  return 'bg-emerald-500'
 }
 
 function ClientMark({ client, size = 'md' }) {
@@ -1252,8 +1266,10 @@ export default function ClientManagement() {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {visibleClients.map((client) => {
                     const hoursStats = getClientHoursStats(client, hoursUsedByClient)
-                    const status = getDirectoryStatus(client, hoursStats)
+                    const status = getDirectoryStatus(client, hoursStats, { allowNotStarted: true })
                     const monthlyRevenue = getClientMonthlyRevenue(client)
+                    const utilizationPct = hoursStats.hours > 0 ? Math.max(0, hoursStats.percentage || 0) : 0
+                    const barWidth = Math.min(100, utilizationPct)
                     return (
                       <Link
                         key={client.id}
@@ -1278,23 +1294,27 @@ export default function ClientManagement() {
                               {status.label}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
-                              <p className="text-[11px] text-slate-500 dark:text-white/50">Monthly</p>
-                              <p className="font-semibold text-slate-900 dark:text-white">${monthlyRevenue.toLocaleString()}</p>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-white/50">Monthly Retainer</p>
+                              <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                                ${monthlyRevenue.toLocaleString()} · {formatHoursValue(hoursStats.hours)} hours
+                              </p>
                             </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
-                              <p className="text-[11px] text-slate-500 dark:text-white/50">Hours</p>
-                              <p className="font-semibold text-slate-900 dark:text-white">{formatHoursValue(hoursStats.hours)}h</p>
-                            </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
-                              <p className="text-[11px] text-slate-500 dark:text-white/50">Used</p>
-                              <p className="font-semibold text-slate-900 dark:text-white">{formatHoursValue(hoursStats.used)}h</p>
-                            </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-2">
-                              <p className="text-[11px] text-slate-500 dark:text-white/50">Remaining</p>
-                              <p className={cn("font-semibold", hoursStats.remaining < 0 ? "text-amber-600" : "text-slate-900 dark:text-white")}>
-                                {formatHoursValue(hoursStats.remaining)}h
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-white/50 mb-1.5">Utilization</p>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-700 dark:text-white/80">{formatHoursValue(hoursStats.used)}h used</span>
+                                <span className="font-medium text-slate-900 dark:text-white">{utilizationPct}%</span>
+                              </div>
+                              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                                <div
+                                  className={cn("h-full rounded-full transition-all", getUtilizationBarClass(hoursStats))}
+                                  style={{ width: `${barWidth}%` }}
+                                />
+                              </div>
+                              <p className={cn("mt-1.5 text-sm", hoursStats.remaining < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-white/50")}>
+                                {formatHoursValue(hoursStats.remaining)}h remaining
                               </p>
                             </div>
                           </div>
