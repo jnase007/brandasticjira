@@ -141,6 +141,10 @@ export default function ClientDialog({
     estimated_monthly_hours: null,
     estimated_project_hours: null,
     estimated_budget: null,
+    monthly_retainer_revenue: null,
+    hourly_rate: '',
+    project_start_date: '',
+    project_end_date: '',
     pipeline_stage: 'lead',
     lead_source: '',
     expected_close_date: '',
@@ -189,6 +193,10 @@ export default function ClientDialog({
           estimated_monthly_hours: client.estimated_monthly_hours || null,
           estimated_project_hours: client.estimated_project_hours || null,
           estimated_budget: client.estimated_budget || null,
+          monthly_retainer_revenue: client.monthly_retainer_revenue ?? null,
+          hourly_rate: '',
+          project_start_date: client.project_start_date || '',
+          project_end_date: client.project_end_date || '',
           pipeline_stage: client.pipeline_stage || 'lead',
           lead_source: client.lead_source || '',
           expected_close_date: client.expected_close_date || '',
@@ -198,6 +206,16 @@ export default function ClientDialog({
           deactivation_reason: client.deactivation_reason || '',
         })
         setStep(1)
+        supabase
+          .from('client_rates')
+          .select('hourly_rate')
+          .eq('client_id', client.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data?.hourly_rate != null) {
+              setFormData((prev) => ({ ...prev, hourly_rate: data.hourly_rate }))
+            }
+          })
       } else {
         setFormData({
           name: '',
@@ -220,6 +238,10 @@ export default function ClientDialog({
           estimated_monthly_hours: null,
           estimated_project_hours: null,
           estimated_budget: null,
+          monthly_retainer_revenue: null,
+          hourly_rate: '',
+          project_start_date: '',
+          project_end_date: '',
           pipeline_stage: 'lead',
           lead_source: '',
           expected_close_date: '',
@@ -461,6 +483,11 @@ export default function ClientDialog({
       if (formData.estimated_monthly_hours) dataToSave.estimated_monthly_hours = formData.estimated_monthly_hours
       if (formData.estimated_project_hours) dataToSave.estimated_project_hours = formData.estimated_project_hours
       if (formData.estimated_budget) dataToSave.estimated_budget = formData.estimated_budget
+      dataToSave.monthly_retainer_revenue = formData.monthly_retainer_revenue === '' || formData.monthly_retainer_revenue == null
+        ? null
+        : Number(formData.monthly_retainer_revenue)
+      dataToSave.project_start_date = formData.project_start_date || null
+      dataToSave.project_end_date = formData.project_end_date || null
       if (formData.client_status === 'prospect' && formData.pipeline_stage) dataToSave.pipeline_stage = formData.pipeline_stage
       if (formData.lead_source) dataToSave.lead_source = formData.lead_source
       if (formData.expected_close_date) dataToSave.expected_close_date = formData.expected_close_date
@@ -493,6 +520,37 @@ export default function ClientDialog({
         const fallback = { ...dataToSave }
         delete fallback.channel_hours
         result = await saveClient(fallback)
+      }
+      if (result.error && isMissingColumnError(result.error) && String(result.error.message || '').includes('monthly_retainer_revenue')) {
+        toast({
+          title: 'Database needs one SQL update',
+          description: 'Run supabase/add-monthly-retainer-revenue.sql, then save again.',
+          variant: 'destructive',
+        })
+        setSaving(false)
+        return
+      }
+
+      const savedClient = result.data
+      const rateValue = formData.hourly_rate === '' || formData.hourly_rate == null
+        ? null
+        : Number(formData.hourly_rate)
+      if (!result.error && savedClient?.id && rateValue != null && Number.isFinite(rateValue)) {
+        const { data: existingRate } = await supabase
+          .from('client_rates')
+          .select('id')
+          .eq('client_id', savedClient.id)
+          .maybeSingle()
+        const rateResult = existingRate?.id
+          ? await supabase.from('client_rates').update({ hourly_rate: rateValue }).eq('id', existingRate.id)
+          : await supabase.from('client_rates').insert({ client_id: savedClient.id, hourly_rate: rateValue })
+        if (rateResult.error) {
+          toast({
+            title: 'Client saved, but hourly rate did not save',
+            description: rateResult.error.message,
+            variant: 'destructive',
+          })
+        }
       }
 
       console.log('[ClientDialog] Supabase result:', result)
@@ -1158,6 +1216,68 @@ export default function ClientDialog({
                                     />
                                   </div>
                                 ))}
+                              </div>
+                            </div>
+
+                            <div className="mt-5 space-y-4">
+                              <div>
+                                <Label className="text-sm font-medium">Monthly Retainer Revenue</Label>
+                                <p className="text-xs text-muted-foreground mt-1 mb-1.5">
+                                  Amount Brandastic invoices this client each month. Not paid media budget.
+                                </p>
+                                <div className="relative flex items-center border-2 border-muted rounded-lg overflow-hidden focus-within:border-brand-orange focus-within:ring-2 focus-within:ring-brand-orange/20">
+                                  <DollarSign className="ml-3 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="5,950"
+                                    value={formData.monthly_retainer_revenue ? Number(formData.monthly_retainer_revenue).toLocaleString() : ''}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                                      const numValue = rawValue === '' ? null : parseFloat(rawValue)
+                                      setFormData((prev) => ({ ...prev, monthly_retainer_revenue: numValue }))
+                                    }}
+                                    className="flex-1 py-2.5 px-2 bg-transparent focus:outline-none text-base"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">Hourly Billing Rate</Label>
+                                <div className="relative mt-1.5 flex items-center border-2 border-muted rounded-lg overflow-hidden focus-within:border-brand-orange focus-within:ring-2 focus-within:ring-brand-orange/20">
+                                  <DollarSign className="ml-3 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="175"
+                                    value={formData.hourly_rate === '' || formData.hourly_rate == null ? '' : formData.hourly_rate}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                                      setFormData((prev) => ({ ...prev, hourly_rate: rawValue }))
+                                    }}
+                                    className="flex-1 py-2.5 px-2 bg-transparent focus:outline-none text-base"
+                                  />
+                                  <span className="pr-3 text-sm text-muted-foreground">/hr</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-sm font-medium">Contract Start</Label>
+                                  <Input
+                                    type="date"
+                                    className="mt-1.5"
+                                    value={formData.project_start_date || ''}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, project_start_date: e.target.value }))}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-sm font-medium">Contract End</Label>
+                                  <Input
+                                    type="date"
+                                    className="mt-1.5"
+                                    value={formData.project_end_date || ''}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, project_end_date: e.target.value }))}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>

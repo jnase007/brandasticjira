@@ -1795,7 +1795,9 @@ export default function ClientDetail() {
                 Retainer Revenue
               </p>
               <p className="text-3xl font-display font-bold mt-1 tabular-nums">
-                ${Math.round(monthlyBudget * clientRate).toLocaleString()}
+                {client.monthly_retainer_revenue
+                  ? `$${Math.round(Number(client.monthly_retainer_revenue)).toLocaleString()}`
+                  : '—'}
               </p>
               <div className="mt-4 space-y-1.5 text-sm text-muted-foreground">
                 <div className="flex items-center justify-between gap-3">

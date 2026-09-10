@@ -398,7 +398,8 @@ export default function ClientReports({ client, timeEntries = [] }) {
 
   const termBlocked = view === 'term' && !contractStart
   const trackedValue = billingRate != null ? usedHours * billingRate : null
-  const monthlyRetainer = hasAllowance && billingRate != null ? monthlyHours * billingRate : null
+  const retainerRevenue = Number(client?.monthly_retainer_revenue)
+  const monthlyRetainer = Number.isFinite(retainerRevenue) && retainerRevenue > 0 ? retainerRevenue : null
   const coverage = monthlyRetainer != null && trackedValue != null ? monthlyRetainer - trackedValue : null
   const effectiveRate = usedHours > 0 && monthlyRetainer != null ? monthlyRetainer / usedHours : null
 
