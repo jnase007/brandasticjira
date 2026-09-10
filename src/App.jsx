@@ -27,7 +27,6 @@ const SalesPipeline = lazy(() => import('./pages/SalesPipeline'))
 const ClientDetail = lazy(() => import('./pages/ClientDetail'))
 const TeamMemberDetail = lazy(() => import('./pages/TeamMemberDetail'))
 const NotFound = lazy(() => import('./pages/NotFound'))
-const WorkflowGuide = lazy(() => import('./pages/WorkflowGuide'))
 const Diagnostics = lazy(() => import('./pages/Diagnostics'))
 const ClientPublic = lazy(() => import('./pages/ClientPublic'))
 const ClientLogin = lazy(() => import('./pages/ClientLogin'))
@@ -218,7 +217,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './components/ui/dropdown-menu'
-import { User, LogOut, ChevronDown, X, Eye, BookOpen } from 'lucide-react'
+import { User, LogOut, ChevronDown, X, Eye } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { QuickActionsFAB } from './components/QuickActions'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
@@ -456,10 +455,6 @@ function MainLayout({ children }) {
               <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <User className="h-4 w-4 mr-2" />
                 My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/how-it-works')}>
-                <BookOpen className="h-4 w-4 mr-2" />
-                How It Works
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
@@ -1045,14 +1040,7 @@ function App() {
                 }
               />
               <Route path="/videos" element={<Navigate to="/docs" replace />} />
-              <Route
-                path="/how-it-works"
-                element={
-                  <TeamRoute>
-                    <WorkflowGuide />
-                  </TeamRoute>
-                }
-              />
+              <Route path="/how-it-works" element={<Navigate to="/docs?collection=platform-guide" replace />} />
               <Route
                 path="/diagnostics"
                 element={

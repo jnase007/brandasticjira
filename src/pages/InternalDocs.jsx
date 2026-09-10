@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { BookOpen, ExternalLink, Loader2, Plus, Trash2, Video } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -9,6 +10,7 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { Badge } from '../components/ui/badge'
 import { useToast } from '../hooks/useToast'
+import WorkflowGuide from './WorkflowGuide'
 import {
   DOC_COLLECTIONS,
   SETUP_SQL,
@@ -22,10 +24,28 @@ import {
 export default function InternalDocs() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [docs, setDocs] = useState([])
-  const [collection, setCollection] = useState('videos')
+  const collectionFromUrl = searchParams.get('collection')
+  const [collection, setCollection] = useState(
+    collectionFromUrl && (collectionFromUrl === 'all' || DOC_COLLECTIONS.some((item) => item.value === collectionFromUrl))
+      ? collectionFromUrl
+      : 'videos'
+  )
+  const selectCollection = (value) => {
+    setCollection(value)
+    if (value === 'videos') setSearchParams({})
+    else setSearchParams({ collection: value })
+  }
+
+  useEffect(() => {
+    const next = searchParams.get('collection')
+    if (next && (next === 'all' || DOC_COLLECTIONS.some((item) => item.value === next))) {
+      setCollection(next)
+    }
+  }, [searchParams])
   const [dump, setDump] = useState('')
   const [notes, setNotes] = useState('')
   const [setupNeeded, setSetupNeeded] = useState(false)
@@ -159,7 +179,7 @@ export default function InternalDocs() {
             </p>
             <button
               type="button"
-              onClick={() => setCollection('all')}
+              onClick={() => selectCollection('all')}
               className={cn(
                 'w-full text-left rounded-lg px-3 py-2 text-sm',
                 collection === 'all' ? 'bg-orange-50 text-orange-800 font-semibold' : 'hover:bg-muted'
@@ -171,7 +191,7 @@ export default function InternalDocs() {
               <button
                 key={item.value}
                 type="button"
-                onClick={() => setCollection(item.value)}
+                onClick={() => selectCollection(item.value)}
                 className={cn(
                   'w-full text-left rounded-lg px-3 py-2 text-sm',
                   collection === item.value ? 'bg-orange-50 text-orange-800 font-semibold' : 'hover:bg-muted'
@@ -184,6 +204,10 @@ export default function InternalDocs() {
         </Card>
 
         <div className="space-y-4">
+          {collection === 'platform-guide' ? (
+            <WorkflowGuide embedded />
+          ) : (
+            <>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -304,6 +328,8 @@ export default function InternalDocs() {
               )}
             </CardContent>
           </Card>
+            </>
+          )}
         </div>
       </div>
     </div>

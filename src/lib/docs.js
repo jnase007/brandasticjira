@@ -1,4 +1,5 @@
 export const DOC_COLLECTIONS = [
+  { value: 'platform-guide', label: 'Platform Guide' },
   { value: 'videos', label: 'Videos' },
   { value: 'how-tos', label: 'How-tos' },
   { value: 'client-meetings', label: 'Client meetings' },

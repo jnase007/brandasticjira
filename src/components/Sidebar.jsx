@@ -7,7 +7,6 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   Search,
   Activity,
   Timer,
@@ -60,7 +59,6 @@ const navItems = [
   { path: '/team', icon: Users2, label: 'Team Hub', shortcut: 'G H' },
   { path: '/ideas', icon: Lightbulb, label: 'Ideas', shortcut: 'G I' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard', shortcut: 'G L' },
-  { path: '/settings', icon: User, label: 'My Profile', shortcut: 'G P' },
 ]
 
 const adminNavItems = [
@@ -82,7 +80,7 @@ export default function Sidebar({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { signOut, isAdmin, isActualAdmin, viewMode, toggleViewMode, toggleClientPreview, clientPreviewMode } = useAuth()
+  const { isAdmin, isActualAdmin, viewMode, toggleViewMode, toggleClientPreview, clientPreviewMode } = useAuth()
   const [gamificationExpanded, setGamificationExpanded] = useState(false)
   const [recentlyViewed, setRecentlyViewed] = useState([])
   const [showRecent, setShowRecent] = useState(true)
@@ -112,11 +110,6 @@ export default function Sidebar({
     }
   }, [])
 
-  const handleSignOut = async () => {
-    await signOut()
-    // Use hard redirect to ensure all cached state is cleared
-    window.location.href = '/login'
-  }
   
   const getRecentIcon = (type) => {
     switch (type) {
@@ -523,21 +516,6 @@ export default function Sidebar({
         </div>
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t">
-        <Button
-          variant="ghost"
-          size={collapsed ? "icon" : "default"}
-          onClick={handleSignOut}
-          className={cn(
-            "w-full justify-start gap-2 text-muted-foreground hover:text-red-500",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Sign Out</span>}
-        </Button>
-      </div>
     </motion.aside>
   )
 }

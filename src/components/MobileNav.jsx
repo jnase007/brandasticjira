@@ -12,12 +12,19 @@ import { useAuth } from '../contexts/AuthContext'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { getInitials } from '../lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
 
 const LOGO_MARK = 'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Logo-1024x1024.png'
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/how-it-works', icon: BookOpen, label: 'How It Works' },
   { path: '/time', icon: Clock, label: 'Time Tracking' },
   { path: '/clients', icon: Building2, label: 'Clients' },
   { path: '/pipeline', icon: Target, label: 'Sales Pipeline' },
@@ -28,7 +35,6 @@ const navItems = [
   { path: '/ideas', icon: Lightbulb, label: 'Ideas' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/boards', icon: Kanban, label: 'Boards' },
-  { path: '/settings', icon: User, label: 'My Profile' },
 ]
 
 const adminNavItems = [
@@ -38,8 +44,7 @@ const adminNavItems = [
 // Bottom tab bar for quick access
 export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
   const location = useLocation()
-  const navigate = useNavigate()
-  const { isAdmin, profile, signOut } = useAuth()
+  const { isAdmin, profile } = useAuth()
   
   const quickItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
@@ -272,23 +277,6 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
                   })}
                 </div>
 
-                {/* Divider */}
-                <div className="border-t my-4" />
-
-                {/* Logout Button */}
-                <button
-                  onClick={async () => {
-                    setShowMore(false)
-                    await signOut()
-                    // Use hard redirect to ensure all cached state is cleared
-                    window.location.href = '/login'
-                  }}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors w-full"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span className="font-medium">Log Out</span>
-                </button>
-
                 {/* Close Button */}
                 <Button
                   variant="ghost"
@@ -311,8 +299,13 @@ export function MobileTabBar({ onOpenTimer, onOpenActivity }) {
 
 // Mobile Header
 export function MobileHeader({ onOpenSearch }) {
-  const { profile } = useAuth()
+  const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+
+  const handleSignOut = async () => {
+    await signOut()
+    window.location.href = '/login'
+  }
   
   return (
     <div className="fixed top-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-lg border-b h-14 flex items-center justify-between px-4 lg:hidden">
@@ -330,19 +323,33 @@ export function MobileHeader({ onOpenSearch }) {
         >
           <Search className="h-5 w-5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => navigate('/settings')}
-          className="h-9 w-9"
-        >
-          <Avatar className="h-7 w-7">
-            <AvatarImage src={profile?.avatar_url} />
-            <AvatarFallback className="text-xs bg-brand-orange text-white">
-              {getInitials(profile?.full_name)}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" className="h-9 w-9">
+              <Avatar className="h-7 w-7">
+                <AvatarImage src={profile?.avatar_url} />
+                <AvatarFallback className="text-xs bg-brand-orange text-white">
+                  {getInitials(profile?.full_name)}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              {profile?.full_name || 'Account'}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <User className="h-4 w-4 mr-2" />
+              My Profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   )
