@@ -37,7 +37,6 @@ const Financials = lazy(() => import('./pages/Financials'))
 const WorkingNotWorking = lazy(() => import('./pages/WorkingNotWorking'))
 const AdminHub = lazy(() => import('./pages/AdminHub'))
 const Ideas = lazy(() => import('./pages/Ideas'))
-const AISquad = lazy(() => import('./pages/AISquad'))
 // Note: AuthCallback removed - using implicit flow with detectSessionInUrl
 const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
 const InternalDocs = lazy(() => import('./pages/InternalDocs'))
@@ -971,11 +970,7 @@ function App() {
               />
               <Route
                 path="/ai-squad"
-                element={
-                  <TeamRoute>
-                    <AISquad />
-                  </TeamRoute>
-                }
+                element={<Navigate to="/dashboard" replace />}
               />
               <Route
                 path="/leaderboard"
