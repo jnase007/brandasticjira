@@ -55,19 +55,6 @@ import { PROJECT_TEMPLATES, getTemplatesByCategory } from '../lib/projectTemplat
 import ClientDialog from '../components/ClientDialog'
 import ClientAgendas from '../components/ClientAgendas'
 import ClientMonthlyBrief from '../components/ClientMonthlyBrief'
-import { getClientTypeConfig, getClientTypeBadgeClasses } from '../lib/clientTypes'
-
-// Pipeline stages with colors
-const PIPELINE_STAGES = [
-  { value: 'prospect', label: 'Prospect', color: 'bg-gray-500', icon: '🎯' },
-  { value: 'kickoff', label: 'Kickoff', color: 'bg-blue-500', icon: '🚀' },
-  { value: 'discovery', label: 'Discovery', color: 'bg-purple-500', icon: '🔍' },
-  { value: 'proposal', label: 'Proposal', color: 'bg-yellow-500', icon: '📝' },
-  { value: 'implementation', label: 'Implementation', color: 'bg-orange-500', icon: '⚙️' },
-  { value: 'active', label: 'Active', color: 'bg-green-500', icon: '✅' },
-  { value: 'paused', label: 'Paused', color: 'bg-amber-500', icon: '⏸️' },
-  { value: 'churned', label: 'Churned', color: 'bg-red-500', icon: '❌' },
-]
 
 // Note types with icons
 const NOTE_TYPES = [
@@ -129,9 +116,6 @@ export default function ClientDetail() {
   const [savingNote, setSavingNote] = useState(false)
   const [replyDrafts, setReplyDrafts] = useState({})
   const [replyMentions, setReplyMentions] = useState({})
-  
-  // Pipeline stage editing
-  const [editingStage, setEditingStage] = useState(false)
   
   // Team assignments state
   const [teamAssignments, setTeamAssignments] = useState([])
@@ -990,54 +974,6 @@ export default function ClientDetail() {
     }
   }
   
-  // Update client pipeline stage
-  const updatePipelineStage = async (newStage) => {
-    const oldStage = client.pipeline_stage || 'active'
-    if (newStage === oldStage) {
-      setEditingStage(false)
-      return
-    }
-    
-    try {
-      // Update client stage
-      const { error: clientError } = await supabase
-        .from('clients')
-        .update({ pipeline_stage: newStage })
-        .eq('id', resolvedClientId)
-      
-      if (clientError) throw clientError
-      
-      // Add a note about the stage change
-      await supabase
-        .from('client_notes')
-        .insert({
-          client_id: resolvedClientId,
-          created_by: user.id,
-          content: `Pipeline stage changed from "${PIPELINE_STAGES.find(s => s.value === oldStage)?.label || oldStage}" to "${PIPELINE_STAGES.find(s => s.value === newStage)?.label || newStage}"`,
-          note_type: 'milestone',
-          stage_change_from: oldStage,
-          stage_change_to: newStage,
-        })
-      
-      setClient(prev => ({ ...prev, pipeline_stage: newStage }))
-      setEditingStage(false)
-      fetchClientData(true) // Refresh notes
-      
-      toast({
-        title: '✅ Stage updated',
-        description: `Client moved to ${PIPELINE_STAGES.find(s => s.value === newStage)?.label || newStage}`,
-        variant: 'success',
-      })
-    } catch (error) {
-      console.error('Error updating stage:', error)
-      toast({
-        title: 'Error updating stage',
-        description: error.message,
-        variant: 'destructive',
-      })
-    }
-  }
-  
   // Handle banner upload
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -1459,8 +1395,8 @@ export default function ClientDetail() {
       <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-48 mb-6" />
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
         <Skeleton className="h-96" />
       </div>
@@ -1503,6 +1439,11 @@ export default function ClientDetail() {
     .reduce((sum, e) => sum + (e.minutes || 0), 0)
   const currentMonthHours = Math.round(currentMonthMinutes / 60)
   const budgetUsed = monthlyBudget > 0 ? Math.round((currentMonthHours / monthlyBudget) * 100) : 0
+  const retainerTermLabel = client.engagement_type === 'retainer'
+    ? 'Monthly'
+    : (client.project_start_date && client.project_end_date
+        ? `${format(new Date(client.project_start_date), 'MMM yyyy')} – ${format(new Date(client.project_end_date), 'MMM yyyy')}`
+        : 'Project')
   const currentMonthEntries = timeEntries.filter(e => {
     const entryDate = new Date(e.date)
     const now = new Date()
@@ -1730,62 +1671,9 @@ export default function ClientDetail() {
               <div className="flex-1 pt-1 md:pt-3">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                   <div className="min-w-0">
-                    {/* Name & Badges */}
+                    {/* Name */}
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h1 className="text-2xl md:text-3xl font-display font-bold">{client.name}</h1>
-                      
-                      {/* Client Type Badge */}
-                      {(() => {
-                        const typeConfig = getClientTypeConfig(client.client_type)
-                        const TypeIcon = typeConfig.icon
-                        return (
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "text-xs",
-                              getClientTypeBadgeClasses(client.client_type)
-                            )}
-                          >
-                            <TypeIcon className="h-3 w-3 mr-1" />
-                            {typeConfig.label}
-                          </Badge>
-                        )
-                      })()}
-                      
-                      {/* Pipeline Stage Badge */}
-                      {editingStage ? (
-                        <Select
-                          value={client.pipeline_stage || 'active'}
-                          onValueChange={(value) => updatePipelineStage(value)}
-                        >
-                          <SelectTrigger className="w-40 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PIPELINE_STAGES.map(stage => (
-                              <SelectItem key={stage.value} value={stage.value}>
-                                <span className="flex items-center gap-2">
-                                  <span>{stage.icon}</span>
-                                  <span>{stage.label}</span>
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            "cursor-pointer hover:opacity-80 transition-opacity",
-                            PIPELINE_STAGES.find(s => s.value === (client.pipeline_stage || 'active'))?.color,
-                            "text-white border-0"
-                          )}
-                          onClick={() => setEditingStage(true)}
-                        >
-                          {PIPELINE_STAGES.find(s => s.value === (client.pipeline_stage || 'active'))?.icon}{' '}
-                          {PIPELINE_STAGES.find(s => s.value === (client.pipeline_stage || 'active'))?.label || 'Active'}
-                        </Badge>
-                      )}
                     </div>
                     
                     {/* Services */}
@@ -1873,36 +1761,7 @@ export default function ClientDetail() {
                   </div>
                 </div>
 
-                {/* Quick Summary */}
-                <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
-                  <div className={cn(
-                    "rounded-xl border px-3 py-2",
-                    client.engagement_type === 'retainer' 
-                      ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" 
-                      : "bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800"
-                  )}>
-                    <p className="text-xs text-muted-foreground">Engagement</p>
-                    <p className="font-semibold flex items-center gap-1">
-                      {client.engagement_type === 'retainer' ? '📅 Retainer' : '🎯 Project'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">{client.engagement_type === 'retainer' ? 'Monthly Hours' : 'Project Hours'}</p>
-                    <p className="font-semibold">{monthlyBudget}h</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">Hours Used</p>
-                    <p className="font-semibold">{currentMonthHours}h</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">Remaining</p>
-                    <p className="font-semibold">{Math.max(monthlyBudget - currentMonthHours, 0)}h</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">Open Tasks</p>
-                    <p className="font-semibold">{activeTaskCount}</p>
-                  </div>
-                </div>
+
               </div>
             </div>
           </CardContent>
@@ -1910,78 +1769,17 @@ export default function ClientDetail() {
       </motion.div>
 
       {/* Stats Cards */}
-      <motion.div variants={containerVariants} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <motion.div variants={containerVariants} className="grid gap-4 md:grid-cols-3 mb-8">
         <motion.div variants={itemVariants}>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-500/10">
-                  <Clock className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">This Month</p>
-                  <p className="text-2xl font-bold">
-                    {Math.round(currentMonthHours)}h
-                    <span className="text-sm font-normal text-muted-foreground"> / {monthlyBudget}h</span>
-                  </p>
-                </div>
-              </div>
-              <Progress value={Math.min(budgetUsed, 100)} className="mt-3 h-2" />
-              <p className="text-xs text-muted-foreground mt-1">{budgetUsed}% of budget used</p>
-              {channelUsage.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {channelUsage.map((row) => (
-                    <div key={row.id}>
-                      <div className="flex items-center justify-between text-xs">
-                        <span>{row.label}</span>
-                        <span className="text-muted-foreground">
-                          {row.usedHours}h{row.budget > 0 ? ` / ${row.budget}h` : ''}
-                        </span>
-                      </div>
-                      <Progress
-                        value={row.budget > 0 ? Math.min(row.usedPct, 100) : 0}
-                        className={cn("mt-1 h-1.5", row.usedPct >= 100 && "[&>div]:bg-red-500")}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card className={cn(
-            client.engagement_type === 'retainer' 
-              ? "border-blue-200 dark:border-blue-800" 
-              : "border-orange-200 dark:border-orange-800"
-          )}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "p-2 rounded-xl",
-                  client.engagement_type === 'retainer' ? "bg-blue-500/10" : "bg-orange-500/10"
-                )}>
-                  <DollarSign className={cn(
-                    "h-5 w-5",
-                    client.engagement_type === 'retainer' ? "text-blue-500" : "text-orange-500"
-                  )} />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {client.engagement_type === 'retainer' ? 'Retainer Revenue' : 'Project Revenue'}
-                  </p>
-                  <p className={cn(
-                    "text-2xl font-bold",
-                    client.engagement_type === 'retainer' ? "text-blue-600" : "text-orange-600"
-                  )}>
-                    ${Math.round(totalRevenue).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                {billableHours}h billable @ $175/hr
-                {client.engagement_type === 'retainer' && ' • Monthly'}
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">Tracked Hrs This Month</p>
+              <p className="text-3xl font-display font-bold mt-1 tabular-nums">
+                {Math.round(currentMonthHours)} / {monthlyBudget}
+              </p>
+              <Progress value={Math.min(budgetUsed, 100)} className="mt-4 h-2" />
+              <p className="text-sm text-muted-foreground mt-3">
+                Hours remaining: {Math.max(monthlyBudget - currentMonthHours, 0)}
               </p>
             </CardContent>
           </Card>
@@ -1989,31 +1787,26 @@ export default function ClientDetail() {
 
         <motion.div variants={itemVariants}>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-purple-500/10">
-                  <Ticket className="h-5 w-5 text-purple-500" />
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">
+                Retainer Revenue
+              </p>
+              <p className="text-3xl font-display font-bold mt-1 tabular-nums">
+                ${Math.round(monthlyBudget * clientRate).toLocaleString()}
+              </p>
+              <div className="mt-4 space-y-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Billable Hours</span>
+                  <span className="font-medium text-foreground tabular-nums">{monthlyBudget}</span>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Tickets</p>
-                  <p className="text-2xl font-bold">
-                    {tickets.length}
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Hourly Rate</span>
+                  <span className="font-medium text-foreground tabular-nums">${clientRate}</span>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-800/50 dark:text-slate-200">
-                  {ticketsByStatus.new} new
-                </Badge>
-                <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                  {ticketsByStatus.in_progress} in progress
-                </Badge>
-                <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200">
-                  {ticketsByStatus.internal_review} review
-                </Badge>
-                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">
-                  {ticketsByStatus.closed} closed
-                </Badge>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Term</span>
+                  <span className="font-medium text-foreground">{retainerTermLabel}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -2021,33 +1814,12 @@ export default function ClientDetail() {
 
         <motion.div variants={itemVariants}>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-orange-500/10">
-                  <Users className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Team Members</p>
-                  <p className="text-2xl font-bold">
-                    {teamMembers.length}
-                  </p>
-                </div>
-              </div>
-              <div className="flex -space-x-2 mt-3">
-                {teamMembers.slice(0, 5).map((member) => (
-                  <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
-                    <AvatarImage src={member.avatar_url} />
-                    <AvatarFallback className="text-xs">
-                      {member.full_name?.[0] || '?'}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-                {teamMembers.length > 5 && (
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
-                    +{teamMembers.length - 5}
-                  </div>
-                )}
-              </div>
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">Open Tasks</p>
+              <p className="text-3xl font-display font-bold mt-1 tabular-nums">
+                {activeTaskCount}
+              </p>
+              <p className="text-sm text-muted-foreground mt-4">Across all boards</p>
             </CardContent>
           </Card>
         </motion.div>
