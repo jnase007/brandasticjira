@@ -1221,6 +1221,12 @@ export default function ClientDialog({
 
                             <div className="mt-5 space-y-4">
                               <div>
+                                <Label className="text-sm font-medium block">Monthly Retainer</Label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Brandastic invoice amount, billing rate, and contract dates. Separate from Monthly Budget.
+                                </p>
+                              </div>
+                              <div>
                                 <Label className="text-sm font-medium">Monthly Retainer Revenue</Label>
                                 <p className="text-xs text-muted-foreground mt-1 mb-1.5">
                                   Amount Brandastic invoices this client each month. Not paid media budget.
@@ -1261,7 +1267,7 @@ export default function ClientDialog({
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <Label className="text-sm font-medium">Contract Start</Label>
+                                  <Label className="text-sm font-medium">Contract Start Date</Label>
                                   <Input
                                     type="date"
                                     className="mt-1.5"
@@ -1270,7 +1276,7 @@ export default function ClientDialog({
                                   />
                                 </div>
                                 <div>
-                                  <Label className="text-sm font-medium">Contract End</Label>
+                                  <Label className="text-sm font-medium">Contract End Date</Label>
                                   <Input
                                     type="date"
                                     className="mt-1.5"
