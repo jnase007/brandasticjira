@@ -11,7 +11,7 @@ import {
   Send, Pin, Phone as PhoneCall, Video, FileText as FileIcon,
   Sparkles, AlertTriangle, Trophy, ArrowRight, Save, Award, Star, Camera, ImagePlus,
   Kanban, Circle, Upload, X, Trash2, MoreVertical, Pencil, Repeat, CalendarDays,
-  PlayCircle, UserCheck, ThumbsUp, Receipt, CheckCircle2, ArrowUpDown, Search, ClipboardList
+  PlayCircle, UserCheck, ThumbsUp, Receipt, CheckCircle2, ArrowUpDown, Search, ClipboardList, MoreHorizontal
 } from 'lucide-react'
 import { supabase, logActivity, getTimeEntries, ensureValidSession, getOrCreateGeneralBoardForClient } from '../lib/supabase'
 import { TIME_CHANNELS, normalizeTimeChannel, parseChannelHours } from '../lib/timeChannels'
@@ -41,6 +41,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
 import MentionInput, { sendMentionNotifications, MentionText } from '../components/MentionInput'
@@ -1816,26 +1823,15 @@ export default function ClientDetail() {
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 flex-shrink-0 lg:max-w-[520px]">
+                  <div className="flex items-center justify-end gap-2 flex-shrink-0">
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={() => setEditClientOpen(true)}
+                      onClick={() => setCreateTaskOpen(true)}
+                      className="bg-brand-orange hover:bg-brand-orange/90"
                     >
-                      <Edit2 className="h-4 w-4" />
-                      <span className="ml-2 hidden sm:inline">Edit</span>
+                      <Ticket className="h-4 w-4" />
+                      <span className="ml-2">New Task</span>
                     </Button>
-                    {profile?.role === 'admin' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeleteClientOpen(true)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="ml-2 hidden sm:inline">Delete</span>
-                      </Button>
-                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1845,70 +1841,35 @@ export default function ClientDetail() {
                       <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
                       <span className="ml-2 hidden sm:inline">Refresh</span>
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setTemplateSelectorOpen(true)}
-                      className="border-brand-purple text-brand-purple hover:bg-brand-purple/10"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      <span className="ml-2 hidden sm:inline">From Template</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCreateBoardOpen(true)}
-                    >
-                      <FileText className="h-4 w-4" />
-                      <span className="ml-2 hidden sm:inline">New Board</span>
-                    </Button>
-                    {isTeam && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          startClientPreview(client.id)
-                          navigate('/portal')
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span className="ml-2 hidden sm:inline">Client View</span>
-                      </Button>
-                    )}
-                    {isTeam && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleShareClientLink}
-                        disabled={sharingLink}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        <span className="ml-2 hidden sm:inline">Client Shareable Link</span>
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      onClick={() => setCreateTaskOpen(true)}
-                      className="bg-brand-orange hover:bg-brand-orange/90"
-                    >
-                      <Ticket className="h-4 w-4" />
-                      <span className="ml-2 hidden sm:inline">New Task</span>
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      className="bg-green-500 hover:bg-green-600"
-                      onClick={() => {
-                        // Open the floating timer with this client pre-selected
-                        if (window.openTimerWithClient) {
-                          window.openTimerWithClient({ id: client.id, name: client.name, color: client.color })
-                        } else {
-                          toast({ title: 'Timer opened!', description: `Tracking time for ${client.name}` })
-                        }
-                      }}
-                    >
-                      <Play className="h-4 w-4" />
-                      <span className="ml-2 hidden sm:inline">Start Timer</span>
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="px-2" aria-label="More actions">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => setEditClientOpen(true)}>
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setCreateBoardOpen(true)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          New Board
+                        </DropdownMenuItem>
+                        {profile?.role === 'admin' && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteClientOpen(true)}
+                              className="text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/20"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
