@@ -105,6 +105,15 @@ function serviceLabel(entry) {
   return 'Unspecified'
 }
 
+/** Prefer profile name; never drop a person who logged time just because profiles RLS hid their row. */
+function personLabel(entry) {
+  const u = entry?.user
+  const name = (u?.full_name || u?.name || u?.email || '').trim()
+  if (name) return name
+  if (entry?.user_id) return `Team member (${String(entry.user_id).slice(0, 8)})`
+  return 'Unassigned'
+}
+
 function HBar({ rows, colors, max: maxOverride }) {
   const max = maxOverride || Math.max(...rows.map((r) => r.value), 1)
   return (
@@ -363,7 +372,7 @@ export default function ReportsLeadership({
     const map = {}
     userTime.forEach((e) => {
       const client = e.client?.name || 'No client'
-      const person = (e.user?.full_name || 'Unassigned').trim()
+      const person = personLabel(e)
       if (!map[client]) map[client] = { total: 0, people: {} }
       const h = hoursFromMinutes(e.minutes)
       map[client].total += h
@@ -375,7 +384,7 @@ export default function ReportsLeadership({
         total: v.total,
         people: Object.entries(v.people)
           .map(([name, hours]) => ({ name, hours }))
-          .filter((p) => p.hours > 0.05)
+          .filter((p) => p.hours > 0)
           .sort((a, b) => b.hours - a.hours),
       }))
       .sort((a, b) => b.total - a.total)
@@ -384,12 +393,12 @@ export default function ReportsLeadership({
   const hoursByUser = useMemo(() => {
     const map = {}
     userTime.forEach((e) => {
-      const name = e.user?.full_name || 'Unknown'
+      const name = personLabel(e)
       map[name] = (map[name] || 0) + hoursFromMinutes(e.minutes)
     })
     return Object.entries(map)
       .map(([label, value]) => ({ label, value }))
-      .filter((r) => r.value > 0.05)
+      .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value)
   }, [userTime])
 
@@ -424,7 +433,7 @@ export default function ReportsLeadership({
   const peopleRows = useMemo(() => {
     const map = {}
     userTime.forEach((e) => {
-      const name = (e.user?.full_name || 'Unassigned').trim()
+      const name = personLabel(e)
       const id = name.toLowerCase()
       if (!map[id]) {
         map[id] = {
@@ -478,7 +487,7 @@ export default function ReportsLeadership({
   const retainerMatrix = useMemo(() => {
     const rows = {}
     byType(retainerClients).forEach((e) => {
-      const name = e.user?.full_name || 'Unknown'
+      const name = personLabel(e)
       const key = e.date.slice(0, 7)
       if (!rows[name]) rows[name] = { name, months: {}, total: 0 }
       rows[name].months[key] = (rows[name].months[key] || 0) + hoursFromMinutes(e.minutes)
@@ -499,7 +508,7 @@ export default function ReportsLeadership({
     const clientsMap = {}
     userTime.forEach((e) => {
       const cname = e.client?.name || 'No client'
-      const uname = (e.user?.full_name || 'Unassigned').trim()
+      const uname = personLabel(e)
       const mk = monthKey(e.date)
       if (!clientsMap[cname]) clientsMap[cname] = { client: cname, people: {}, total: 0, months: {} }
       const c = clientsMap[cname]

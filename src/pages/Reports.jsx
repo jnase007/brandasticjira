@@ -2404,6 +2404,26 @@ export default function Reports() {
         normalizedEntries.reduce((sum, e) => sum + (e.minutes || 0), 0)
       )
 
+      // Ensure every author of a time entry appears in People filters/charts,
+      // even when profiles RLS only returns the current user.
+      const authorIds = new Set(normalizedEntries.map((e) => e.user_id).filter(Boolean))
+      for (const id of authorIds) {
+        if (!userMap[id]) {
+          userMap[id] = {
+            id,
+            full_name: `Team member (${String(id).slice(0, 8)})`,
+            email: null,
+            role: 'team',
+          }
+        }
+      }
+      // Stamp names back onto entries that still lack user
+      for (const e of normalizedEntries) {
+        if (!e.user && e.user_id && userMap[e.user_id]) {
+          e.user = userMap[e.user_id]
+        }
+      }
+
       setEmployees(Object.values(userMap).sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''))))
       setClients(clientsData)
       setClientRates(clientRatesRes.data || [])
