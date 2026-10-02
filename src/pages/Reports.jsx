@@ -2510,7 +2510,7 @@ export default function Reports() {
       return
     }
     ;(async () => {
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
       const logoDataUrl = await loadLogoDataUrl()
@@ -2551,24 +2551,28 @@ export default function Reports() {
         doc.setTextColor(30, 30, 30)
         doc.text(title, x, y)
         const max = Math.max(...items.map((i) => i[1]), 0.01)
-        const barW = 220
+        const barW = pageWidth - margin * 2 - 160
         items.forEach((item, i) => {
-          const yy = y + 14 + i * 18
+          const yy = y + 16 + i * 22
           doc.setFont('helvetica', 'normal')
-          doc.setFontSize(8)
-          doc.text(String(item[0]).slice(0, 22), x, yy)
+          doc.setFontSize(9)
+          doc.text(String(item[0]).slice(0, 28), x, yy)
           doc.setFillColor(247, 147, 30)
-          doc.rect(x + 110, yy - 8, Math.max(4, (item[1] / max) * barW), 10, 'F')
-          doc.text(`${item[1].toFixed(1)}h`, x + 110 + barW + 8, yy)
+          doc.rect(x + 130, yy - 10, Math.max(6, (item[1] / max) * barW), 12, 'F')
+          doc.text(`${item[1].toFixed(1)}h`, x + 130 + barW + 8, yy)
         })
-        return y + 14 + items.length * 18
+        return y + 16 + items.length * 22
       }
-      const leftBottom = drawBars('Who worked (hours)', byPerson, margin, 112)
-      const rightBottom = drawBars('Hours by client', byClient, pageWidth / 2 + 10, 112)
-      const chartBottom = Math.max(leftBottom, rightBottom) + 16
+      const afterPeople = drawBars('Who worked (hours)', byPerson, margin, 112)
+      drawBars('Hours by client', byClient, margin, afterPeople + 28)
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text('Brandastic PM • Confidential', margin, pageHeight - 20)
 
+      doc.addPage('letter', 'landscape')
+      const tableWidth = doc.internal.pageSize.getWidth()
       autoTable(doc, {
-        startY: chartBottom,
+        startY: 40,
         head: [Object.keys(rows[0])],
         body: rows.map((row) => Object.values(row)),
         styles: { fontSize: 8, cellPadding: 5 },
@@ -2577,7 +2581,7 @@ export default function Reports() {
       })
       doc.setFontSize(8)
       doc.setTextColor(150, 150, 150)
-      doc.text('Brandastic PM • Confidential', margin, pageHeight - 20)
+      doc.text('Brandastic PM • Confidential', margin, doc.internal.pageSize.getHeight() - 20)
       doc.save(`${filename}.pdf`)
       toast({ title: 'PDF exported!', variant: 'success' })
     })()

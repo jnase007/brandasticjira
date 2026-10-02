@@ -371,7 +371,7 @@ export default function TimeTracking() {
   // Add time entry
   const handleAddTimeEntry = async () => {
     if (!timeEntry.client_id) {
-      toast({ title: 'Select a client', variant: 'destructive' })
+      toast({ title: 'Client required', description: 'Pick a client so reports do not show Unassigned hours.', variant: 'destructive' })
       return
     }
 

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Download, FileText, RefreshCw } from 'lucide-react'
 import { CLIENT_TYPES } from '../lib/clientTypes'
 import { cn, formatDate } from '../lib/utils'
@@ -154,15 +154,36 @@ export default function ReportsLeadership({
   const [sortKey, setSortKey] = useState('hours')
   const [sortDir, setSortDir] = useState('desc')
 
+  const applyRange = (start, end) => {
+    setFrom(toInputDate(start))
+    setTo(toInputDate(end))
+  }
+
   const resetFilters = () => {
-    setFrom('2026-01-01')
-    setTo(toInputDate(endOfMonth(now)))
+    applyRange(startOfMonth(now), endOfMonth(now))
     setClientId('all')
     setUserId('all')
     setService('all')
     setTaskId('all')
     setGroupBy('month')
   }
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('brandastic-reports-view')
+      if (!raw) return
+      const v = JSON.parse(raw)
+      if (v.from) setFrom(v.from)
+      if (v.to) setTo(v.to)
+      if (v.clientId) setClientId(v.clientId)
+      if (v.userId) setUserId(v.userId)
+      if (v.service) setService(v.service)
+      if (v.taskId) setTaskId(v.taskId)
+      if (v.groupBy) setGroupBy(v.groupBy)
+      if (v.tab) setTab(v.tab)
+      if (v.chartView) setChartView(v.chartView)
+    } catch {}
+  }, [])
 
   const services = useMemo(() => {
     const set = new Set()
@@ -460,6 +481,11 @@ export default function ReportsLeadership({
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-[150px]" />
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-[150px]" />
           </div>
+          <div className="flex gap-1 mt-2">
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => applyRange(startOfMonth(now), endOfMonth(now))}>This month</Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 1); applyRange(startOfMonth(d), endOfMonth(d)) }}>Last month</Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => applyRange(new Date(now.getFullYear(), 0, 1), endOfMonth(now))}>YTD</Button>
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
@@ -542,6 +568,11 @@ export default function ReportsLeadership({
         </div>
       </div>
 
+      {hoursFromMinutes(filtered.filter((e) => !e.client_id).reduce((s, e) => s + (e.minutes || 0), 0)) > 0.05 && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Some hours have no client (they show as Unassigned). Pick a client when logging time so reports stay clean.
+        </p>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-muted/50">
           <TabsTrigger value="user-time">User Time</TabsTrigger>
