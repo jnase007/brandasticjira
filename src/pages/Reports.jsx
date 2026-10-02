@@ -31,6 +31,7 @@ import {
 import { useToast } from '../hooks/useToast'
 import AnimatedCounter from '../components/AnimatedCounter'
 import { BarChart, DonutChart, AreaChart } from '../components/Charts'
+import ReportsLeadership from './ReportsLeadership'
 
 const BRAND_LOGO =
   'https://mjguavikbkqrzlvaizqa.supabase.co/storage/v1/object/public/images/Brandastic_black_logo%20(6).png'
@@ -2255,8 +2256,8 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   
-  // Default tab based on role
-  const defaultTab = 'time'
+  // Sandy BC-2882 layout is the default; classic reports stay available.
+  const defaultTab = 'tempo'
 
   // Fetch data
   const fetchData = async (showRefresh = false) => {
@@ -2471,6 +2472,45 @@ export default function Reports() {
     toast({ title: 'PDF exported!', variant: 'success' })
   }
 
+  const exportFiltered = (format, entries) => {
+    const rows = (entries || []).map((entry) => ({
+      Date: formatDate(entry.date),
+      Employee: entry.user?.full_name || 'Unknown',
+      Client: entry.client?.name || 'Unknown',
+      Description: entry.description || '',
+      Minutes: entry.minutes || 0,
+      Hours: ((entry.minutes || 0) / 60).toFixed(2),
+      Billable: entry.billable ? 'Yes' : 'No',
+    }))
+    if (!rows.length) {
+      toast({ title: 'No data to export', variant: 'destructive' })
+      return
+    }
+    const filename = `brandastic-report-${formatDate(new Date())}`
+    if (format === 'csv') {
+      const headers = Object.keys(rows[0])
+      const csv = [headers.join(','), ...rows.map((row) => headers.map((h) => `"${row[h] ?? ''}"`).join(','))].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: 'CSV exported!', variant: 'success' })
+      return
+    }
+    if (format === 'excel') {
+      const worksheet = XLSX.utils.json_to_sheet(rows)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report')
+      XLSX.writeFile(workbook, `${filename}.xlsx`)
+      toast({ title: 'Excel exported!', variant: 'success' })
+      return
+    }
+    exportPDF('entries')
+  }
+
   const buildExportData = (type, includeTitle = false) => {
     let data = []
     let filename = ''
@@ -2640,6 +2680,10 @@ export default function Reports() {
       {/* Tabs */}
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="bg-muted/50 flex-wrap">
+          <TabsTrigger value="tempo" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            <span>User Time / Retainers / Contracts</span>
+          </TabsTrigger>
           <TabsTrigger value="time" className="gap-2">
             <Clock className="h-4 w-4" />
             <span className="hidden sm:inline">Time Reports</span>
@@ -2668,6 +2712,19 @@ export default function Reports() {
             </TabsTrigger>
           )}
         </TabsList>
+
+        <TabsContent value="tempo">
+          <motion.div variants={itemVariants}>
+            <ReportsLeadership
+              employees={employees}
+              clients={clients}
+              timeEntries={timeEntries}
+              onRefresh={() => fetchData(true)}
+              refreshing={refreshing}
+              onExport={exportFiltered}
+            />
+          </motion.div>
+        </TabsContent>
 
         <TabsContent value="client">
           <motion.div variants={itemVariants}>
