@@ -592,77 +592,80 @@ export default function ReportsLeadership({
       <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-5 space-y-3">
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">Date range</p>
-          <div
-            className="inline-flex flex-wrap items-center rounded-xl border bg-background/90 p-1 gap-1 shadow-sm"
-            role="group"
-            aria-label="Date range presets"
-          >
-            {DATE_PRESETS.map((p) => {
-              const active = datePreset === p.id
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => applyPreset(p.id)}
-                  className={cn(
-                    'h-9 px-3 sm:px-3.5 rounded-lg text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-brand-orange text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  {p.label}
-                </button>
-              )
-            })}
-          </div>
-          {showCustomRange ? (
-            <div className="flex flex-wrap items-end gap-2 pt-1">
-              <label className="space-y-1">
-                <span className="text-[11px] font-medium text-muted-foreground">From</span>
-                <Input
-                  type="date"
-                  value={from}
-                  max={to || toInputDate(startOfDay())}
-                  onChange={(e) => {
-                    setFrom(e.target.value)
-                    setDatePreset('range')
-                  }}
-                  className="h-10 w-[150px]"
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-[11px] font-medium text-muted-foreground">To</span>
-                <Input
-                  type="date"
-                  value={to}
-                  min={from || undefined}
-                  max={toInputDate(startOfDay())}
-                  onChange={(e) => {
-                    setTo(e.target.value)
-                    setDatePreset('range')
-                  }}
-                  className="h-10 w-[150px]"
-                />
-              </label>
-              <p className="text-xs text-muted-foreground pb-2">
-                Pick any start and end dates.
-              </p>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+            <div
+              className="inline-flex flex-wrap items-center rounded-xl border bg-background/90 p-1 gap-1 shadow-sm shrink-0"
+              role="group"
+              aria-label="Date range presets"
+            >
+              {DATE_PRESETS.map((p) => {
+                const active = datePreset === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyPreset(p.id)}
+                    className={cn(
+                      'h-9 px-3 sm:px-3.5 rounded-lg text-sm font-medium transition-colors',
+                      active
+                        ? 'bg-brand-orange text-white shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {from === to
-                ? formatDate(`${from}T12:00:00`)
-                : `${formatDate(`${from}T12:00:00`)} → ${formatDate(`${to}T12:00:00`)}`}
-              <button
-                type="button"
-                className="ml-2 text-brand-orange hover:underline font-medium"
-                onClick={() => setDatePreset('range')}
-              >
-                Edit dates
-              </button>
-            </p>
-          )}
+
+            {/* Custom range on the RIGHT of presets on desktop */}
+            <div className="flex-1 min-w-0 flex flex-wrap items-end justify-start lg:justify-end gap-2">
+              {showCustomRange ? (
+                <>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">From</span>
+                    <Input
+                      type="date"
+                      value={from}
+                      max={to || toInputDate(startOfDay())}
+                      onChange={(e) => {
+                        setFrom(e.target.value)
+                        setDatePreset('range')
+                      }}
+                      className="h-10 w-[150px] bg-background"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">To</span>
+                    <Input
+                      type="date"
+                      value={to}
+                      min={from || undefined}
+                      max={toInputDate(startOfDay())}
+                      onChange={(e) => {
+                        setTo(e.target.value)
+                        setDatePreset('range')
+                      }}
+                      className="h-10 w-[150px] bg-background"
+                    />
+                  </label>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground pb-2 lg:text-right">
+                  {from === to
+                    ? formatDate(`${from}T12:00:00`)
+                    : `${formatDate(`${from}T12:00:00`)} → ${formatDate(`${to}T12:00:00`)}`}
+                  <button
+                    type="button"
+                    className="ml-2 text-brand-orange hover:underline font-medium"
+                    onClick={() => setDatePreset('range')}
+                  >
+                    Edit dates
+                  </button>
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 items-end">

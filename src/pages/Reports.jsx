@@ -117,6 +117,21 @@ function formatDecimalHours(hours) {
   return `${hours.toFixed(1)}h`
 }
 
+/** Minutes line under decimal hours so 0.7h clearly reads as 40 min. */
+function formatMinutesUnderFromHours(hours) {
+  const totalMins = Math.round((hours || 0) * 60)
+  if (totalMins <= 0) return '0 min'
+  if (totalMins < 60) return `${totalMins} min`
+  const hr = Math.floor(totalMins / 60)
+  const min = totalMins % 60
+  if (min === 0) return hr === 1 ? '1 hr' : `${hr} hrs`
+  return `${hr}h ${min}m`
+}
+
+function formatMinutesUnderFromMinutes(minutes) {
+  return formatMinutesUnderFromHours((minutes || 0) / 60)
+}
+
 function formatDayLabel(date) {
   return date.toLocaleDateString('en-US', { weekday: 'short' })
 }
@@ -935,29 +950,33 @@ function TimeReports({ employees, clients, timeEntries, selectedYear, selectedMo
               <Card>
                 <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground">Total Hours</p>
-                  <p className="text-2xl font-bold">{formatDecimalHours(totalMinutes / 60)}</p>
-                  <p className="text-xs text-muted-foreground">This month</p>
+                  <p className="text-2xl font-bold tabular-nums">{formatDecimalHours(totalMinutes / 60)}</p>
+                  <p className="text-sm font-medium text-muted-foreground tabular-nums">{formatMinutesUnderFromMinutes(totalMinutes)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">This month</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground">Billable Hours</p>
-                  <p className="text-2xl font-bold">{formatDecimalHours(billableMinutes / 60)}</p>
-                  <p className="text-xs text-muted-foreground">Billable</p>
+                  <p className="text-2xl font-bold tabular-nums">{formatDecimalHours(billableMinutes / 60)}</p>
+                  <p className="text-sm font-medium text-muted-foreground tabular-nums">{formatMinutesUnderFromMinutes(billableMinutes)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Billable</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground">Non-billable Hours</p>
-                  <p className="text-2xl font-bold">{formatDecimalHours(nonBillableMinutes / 60)}</p>
-                  <p className="text-xs text-muted-foreground">Internal</p>
+                  <p className="text-2xl font-bold tabular-nums">{formatDecimalHours(nonBillableMinutes / 60)}</p>
+                  <p className="text-sm font-medium text-muted-foreground tabular-nums">{formatMinutesUnderFromMinutes(nonBillableMinutes)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Internal</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground">Avg Daily Hours</p>
-                  <p className="text-2xl font-bold">{formatDecimalHours(avgDailyMinutes / 60)}</p>
-                  <p className="text-xs text-muted-foreground">Across month</p>
+                  <p className="text-2xl font-bold tabular-nums">{formatDecimalHours(avgDailyMinutes / 60)}</p>
+                  <p className="text-sm font-medium text-muted-foreground tabular-nums">{formatMinutesUnderFromMinutes(avgDailyMinutes)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Across month</p>
                 </CardContent>
               </Card>
             </div>
