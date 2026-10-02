@@ -128,6 +128,7 @@ export default function ReportsLeadership({
 }) {
   const now = new Date()
   const [tab, setTab] = useState('user-time')
+  const [chartView, setChartView] = useState('pie')
   const [from, setFrom] = useState('2026-01-01')
   const [to, setTo] = useState(toInputDate(endOfMonth(now)))
   const [clientId, setClientId] = useState('all')
@@ -423,30 +424,49 @@ export default function ReportsLeadership({
           </Card>
           <div className="grid lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-base">Hours by client and who worked</CardTitle>
-                <p className="text-sm text-muted-foreground">Each client, then the people who logged time there.</p>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base">Hours by client</CardTitle>
+                  <p className="text-sm text-muted-foreground">Pick pie, bars, or who worked on each client.</p>
+                </div>
+                <div className="flex gap-1 bg-muted rounded-lg p-1">
+                  {[
+                    ['pie', 'Pie'],
+                    ['bars', 'Bars'],
+                    ['people', 'Who worked'],
+                  ].map(([id, label]) => (
+                    <Button key={id} size="sm" variant={chartView === id ? 'default' : 'ghost'} onClick={() => setChartView(id)}>
+                      {label}
+                    </Button>
+                  ))}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {hoursByClientPeople.map((row) => {
-                  const max = Math.max(...hoursByClientPeople.map((r) => r.total), 1)
-                  return (
-                    <div key={row.client}>
-                      <div className="flex justify-between text-sm font-medium mb-1">
-                        <span>{row.client}</span>
-                        <span className="tabular-nums">{fmtH(row.total)}</span>
-                      </div>
-                      <div className="h-3 rounded-full bg-muted overflow-hidden mb-2">
-                        <div className="h-full rounded-full bg-gradient-to-r from-brand-orange to-brand-coral" style={{ width: `${Math.max(6, (row.total / max) * 100)}%` }} />
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {row.people.map((p) => (
-                          <span key={p.name}>{p.name} · {fmtH(p.hours)}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
+              <CardContent>
+                {chartView === 'pie' && <PieLegend slices={hoursByClient} />}
+                {chartView === 'bars' && <HBar rows={hoursByClient} colors={BRAND} />}
+                {chartView === 'people' && (
+                  <div className="space-y-4">
+                    {hoursByClientPeople.map((row) => {
+                      const max = Math.max(...hoursByClientPeople.map((r) => r.total), 1)
+                      return (
+                        <div key={row.client}>
+                          <div className="flex justify-between text-sm font-medium mb-1">
+                            <span>{row.client}</span>
+                            <span className="tabular-nums">{fmtH(row.total)}</span>
+                          </div>
+                          <div className="h-3 rounded-full bg-muted overflow-hidden mb-2">
+                            <div className="h-full rounded-full bg-gradient-to-r from-brand-orange to-brand-coral" style={{ width: `${Math.max(6, (row.total / max) * 100)}%` }} />
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                            {row.people.map((p) => (
+                              <span key={p.name}>{p.name} · {fmtH(p.hours)}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card>
