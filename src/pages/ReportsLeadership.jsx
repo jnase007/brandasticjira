@@ -4,6 +4,7 @@ import { CLIENT_TYPES } from '../lib/clientTypes'
 import { cn, formatDate } from '../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
 import { Input } from '../components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import {
@@ -14,9 +15,7 @@ import {
   SelectValue,
 } from '../components/ui/select'
 
-const TEAL = ['#99f6e4', '#5eead4', '#2dd4bf', '#14b8a6', '#0d9488', '#0f766e']
-const PURPLE = ['#c4b5fd', '#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9']
-const ORANGE = ['#fdba74', '#fb923c', '#f97316', '#ea580c']
+const BRAND = ['#F7931E', '#FF6B4A', '#7C3AED', '#2563EB', '#0D9488', '#DB2777']
 
 function hoursFromMinutes(minutes) {
   return (minutes || 0) / 60
@@ -61,7 +60,7 @@ function HBar({ rows, colors, max: maxOverride }) {
             <span className="truncate pr-2">{row.label}</span>
             <span className="tabular-nums text-muted-foreground">{fmtH(row.value)}</span>
           </div>
-          <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-3 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full"
               style={{
@@ -298,7 +297,7 @@ export default function ReportsLeadership({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-6">
         <div>
           <p className="text-xs font-semibold text-muted-foreground mb-1">Date range</p>
           <div className="flex gap-2">
@@ -343,6 +342,7 @@ export default function ReportsLeadership({
           </Select>
         </div>
         <Button variant="outline" onClick={resetFilters}>Reset</Button>
+        <Badge variant="secondary" className="hidden sm:inline-flex mb-1">Internal</Badge>
         <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
             <RefreshCw className={cn('h-4 w-4 mr-1', refreshing && 'animate-spin')} /> Refresh
@@ -354,7 +354,7 @@ export default function ReportsLeadership({
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="bg-muted/50">
           <TabsTrigger value="user-time">User Time</TabsTrigger>
           <TabsTrigger value="retainers">Retainers</TabsTrigger>
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
@@ -374,11 +374,11 @@ export default function ReportsLeadership({
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by user</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={TEAL} /></CardContent>
+              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={BRAND} /></CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by service</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByService} colors={ORANGE} /></CardContent>
+              <CardContent><HBar rows={hoursByService} colors={BRAND} /></CardContent>
             </Card>
           </div>
           <Card>
@@ -418,17 +418,17 @@ export default function ReportsLeadership({
           <div className="grid lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by user</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={TEAL} /></CardContent>
+              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={BRAND} /></CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by service</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByService} colors={ORANGE} /></CardContent>
+              <CardContent><HBar rows={hoursByService} colors={BRAND} /></CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Usage vs included</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-3 rounded-full bg-slate-100 overflow-hidden mb-2">
-                  <div className="h-full bg-teal-600" style={{ width: `${Math.min(100, usedPct)}%` }} />
+                <div className="h-3 rounded-full bg-muted overflow-hidden mb-2">
+                  <div className="h-full bg-gradient-to-r from-brand-orange to-brand-coral" style={{ width: `${Math.min(100, usedPct)}%` }} />
                 </div>
                 <p className="text-sm text-muted-foreground">{fmtH(usedRetainer)} of {fmtH(includedHours)}</p>
               </CardContent>
@@ -471,7 +471,7 @@ export default function ReportsLeadership({
           <div className="grid lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by user</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={TEAL} /></CardContent>
+              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={BRAND} /></CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by client</CardTitle></CardHeader>
