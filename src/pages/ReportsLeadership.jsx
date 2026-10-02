@@ -474,96 +474,92 @@ export default function ReportsLeadership({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-6">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Date range</p>
-          <div className="flex gap-2">
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-[150px]" />
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-[150px]" />
+      <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-5 space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 items-end">
+          <div className="col-span-2">
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Date range</p>
+            <div className="flex gap-2">
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10" />
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10" />
+            </div>
           </div>
-          <div className="flex gap-1 mt-2">
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => applyRange(startOfMonth(now), endOfMonth(now))}>This month</Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 1); applyRange(startOfMonth(d), endOfMonth(d)) }}>Last month</Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => applyRange(new Date(now.getFullYear(), 0, 1), endOfMonth(now))}>YTD</Button>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
+            <Select value={clientId} onValueChange={setClientId}>
+              <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All clients</SelectItem>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">User</p>
+            <Select value={userId} onValueChange={setUserId}>
+              <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All users</SelectItem>
+                {employees.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Service</p>
+            <Select value={service} onValueChange={setService}>
+              <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All services</SelectItem>
+                {services.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Task</p>
+            <Select value={taskId} onValueChange={setTaskId}>
+              <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tasks</SelectItem>
+                {tasks.slice(0, 80).map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
-          <Select value={clientId} onValueChange={setClientId}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All clients</SelectItem>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">User</p>
-          <Select value={userId} onValueChange={setUserId}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All users</SelectItem>
-              {employees.map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Service</p>
-          <Select value={service} onValueChange={setService}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All services</SelectItem>
-              {services.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Task</p>
-          <Select value={taskId} onValueChange={setTaskId}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All tasks</SelectItem>
-              {tasks.slice(0, 80).map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Group by</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => applyRange(startOfMonth(now), endOfMonth(now))}>This month</Button>
+          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 1); applyRange(startOfMonth(d), endOfMonth(d)) }}>Last month</Button>
+          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => applyRange(new Date(now.getFullYear(), 0, 1), endOfMonth(now))}>YTD</Button>
           <Select value={groupBy} onValueChange={setGroupBy}>
-            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="week">Week</SelectItem>
               <SelectItem value="month">Month</SelectItem>
               <SelectItem value="quarter">Quarter</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <Button variant="outline" onClick={resetFilters} className="text-red-600">Reset</Button>
-        <Button variant="outline" onClick={saveView}>Save view</Button>
-        <Badge variant="secondary" className="hidden sm:inline-flex mb-1">Internal</Badge>
-        <div className="ml-auto flex flex-wrap gap-2 relative">
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
-            <RefreshCw className={cn('h-4 w-4 mr-1', refreshing && 'animate-spin')} /> Refresh
-          </Button>
-          <div className="relative">
-            <Button variant="outline" size="sm" onClick={() => setExportOpen((o) => !o)}>
-              Export <ChevronDown className="h-4 w-4 ml-1" />
+          <Button variant="outline" size="sm" className="h-8 text-red-600" onClick={resetFilters}>Reset</Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={saveView}>Save view</Button>
+          <Badge variant="secondary">Internal</Badge>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="h-8" onClick={onRefresh} disabled={refreshing}>
+              <RefreshCw className={cn('h-4 w-4 mr-1', refreshing && 'animate-spin')} /> Refresh
             </Button>
-            {exportOpen && (
-              <div className="absolute right-0 mt-1 z-20 w-36 rounded-md border bg-white shadow-md py-1">
-                <button className="w-full text-left px-3 py-2 text-sm hover:bg-muted" onClick={() => { onExport('excel', userTime); setExportOpen(false) }}>Excel</button>
-                <button className="w-full text-left px-3 py-2 text-sm hover:bg-muted" onClick={() => { onExport('pdf', userTime); setExportOpen(false) }}>PDF</button>
-                <button className="w-full text-left px-3 py-2 text-sm hover:bg-muted" onClick={() => { onExport('csv', userTime); setExportOpen(false) }}>CSV</button>
-              </div>
-            )}
+            <Button variant="outline" size="sm" className="h-8" onClick={() => onExport('excel', userTime)}>
+              <Download className="h-4 w-4 mr-1" /> Excel
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => onExport('pdf', userTime)}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => onExport('csv', userTime)}>
+              <Download className="h-4 w-4 mr-1" /> CSV
+            </Button>
           </div>
         </div>
       </div>
@@ -600,8 +596,8 @@ export default function ReportsLeadership({
               )}
             </CardContent>
           </Card>
-          <div className="grid lg:grid-cols-3 gap-4">
-            <Card className="lg:col-span-2">
+          <div className="grid lg:grid-cols-2 gap-4">
+            <Card>
               <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <CardTitle className="text-base">Hours by client</CardTitle>
@@ -651,11 +647,11 @@ export default function ReportsLeadership({
               <CardHeader><CardTitle className="text-base">Hours by person</CardTitle></CardHeader>
               <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={BRAND} /></CardContent>
             </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-base">Hours by service</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByService} colors={BRAND} /></CardContent>
-            </Card>
           </div>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Hours by service</CardTitle></CardHeader>
+            <CardContent><HBar rows={hoursByService} colors={BRAND} /></CardContent>
+          </Card>
           <Card>
             <CardHeader><CardTitle className="text-base">People</CardTitle></CardHeader>
             <CardContent className="overflow-auto">
