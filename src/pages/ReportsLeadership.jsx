@@ -185,12 +185,12 @@ export default function ReportsLeadership({
   onExport,
 }) {
   const now = new Date()
-  const default30 = rangeLastDays(30)
+  const defaultToday = rangeLastDays(1)
   const [tab, setTab] = useState('user-time')
   const [chartView, setChartView] = useState('pie')
-  const [from, setFrom] = useState(toInputDate(default30.start))
-  const [to, setTo] = useState(toInputDate(default30.end))
-  const [datePreset, setDatePreset] = useState('30d')
+  const [from, setFrom] = useState(toInputDate(defaultToday.start))
+  const [to, setTo] = useState(toInputDate(defaultToday.end))
+  const [datePreset, setDatePreset] = useState('today')
   const [clientId, setClientId] = useState('all')
   const [userId, setUserId] = useState('all')
   const [service, setService] = useState('all')
@@ -220,8 +220,8 @@ export default function ReportsLeadership({
   }
 
   const resetFilters = () => {
-    const r = rangeLastDays(30)
-    applyRange(r.start, r.end, '30d')
+    const r = rangeLastDays(1)
+    applyRange(r.start, r.end, 'today')
     setClientId('all')
     setUserId('all')
     setService('all')
@@ -237,12 +237,21 @@ export default function ReportsLeadership({
       const raw = localStorage.getItem('brandastic-reports-view')
       if (!raw) return
       const v = JSON.parse(raw)
-      if (v.from) setFrom(v.from)
-      if (v.to) setTo(v.to)
-      if (v.from || v.to) {
-        setDatePreset(matchDatePreset(v.from || from, v.to || to))
-      } else if (v.datePreset && DATE_PRESETS.some((p) => p.id === v.datePreset)) {
-        setDatePreset(v.datePreset)
+      // Keep Today as default unless user explicitly saved a preset
+      if (v.datePreset && DATE_PRESETS.some((p) => p.id === v.datePreset)) {
+        if (v.datePreset === 'range' && v.from && v.to) {
+          setFrom(v.from)
+          setTo(v.to)
+          setDatePreset('range')
+        } else if (v.datePreset !== 'range') {
+          const preset = DATE_PRESETS.find((p) => p.id === v.datePreset)
+          if (preset?.days) {
+            const { start, end } = rangeLastDays(preset.days)
+            setFrom(toInputDate(start))
+            setTo(toInputDate(end))
+            setDatePreset(v.datePreset)
+          }
+        }
       }
       if (v.clientId) setClientId(v.clientId)
       if (v.userId) setUserId(v.userId)

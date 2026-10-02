@@ -217,9 +217,14 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
     }
 
     try {
-      const startTime = new Date(manualEntry.date)
-      startTime.setHours(9, 0, 0, 0)
+      const parts = String(manualEntry.date || localYmd()).split('-').map(Number)
+      const startTime = new Date(parts[0], parts[1] - 1, parts[2], 9, 0, 0, 0)
       const endTime = new Date(startTime.getTime() + totalMinutes * 60000)
+      const entryDate = [
+        startTime.getFullYear(),
+        String(startTime.getMonth() + 1).padStart(2, '0'),
+        String(startTime.getDate()).padStart(2, '0'),
+      ].join('-')
 
       const { error } = await createManualTimeEntry({
         ticket_id: ticketId,
@@ -228,6 +233,10 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         notes: manualEntry.notes,
+        description: manualEntry.notes || 'Time entry',
+        minutes: totalMinutes,
+        date: entryDate,
+        billable: true,
       })
 
       if (error) throw error

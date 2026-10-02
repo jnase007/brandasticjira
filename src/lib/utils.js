@@ -12,12 +12,34 @@ export function cn(...inputs) {
 /**
  * Format date for display
  */
+/** Parse YYYY-MM-DD as local calendar date (avoids UTC day-shift in PT). */
+export function parseLocalDate(value) {
+  if (!value) return null
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value
+  const s = String(value).trim()
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+export function localYmd(d = new Date()) {
+  const x = d instanceof Date ? d : parseLocalDate(d) || new Date()
+  return [
+    x.getFullYear(),
+    String(x.getMonth() + 1).padStart(2, '0'),
+    String(x.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 export function formatDate(date, formatStr = 'MMM d, yyyy') {
   if (!date) return ''
   try {
-    const d = new Date(date)
-    // Check if date is valid
-    if (isNaN(d.getTime())) return ''
+    const d = parseLocalDate(date)
+    if (!d) return ''
     return format(d, formatStr)
   } catch (e) {
     console.warn('Invalid date:', date)
