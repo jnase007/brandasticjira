@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select'
-import { AreaChart, BarChart } from '../components/Charts'
+import { AreaChart } from '../components/Charts'
 
 const BRAND = ['#F7931E', '#FF6B4A', '#7C3AED', '#2563EB', '#0D9488', '#DB2777']
 
@@ -197,6 +197,28 @@ export default function ReportsLeadership({
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8)
+  }, [userTime])
+
+  const hoursByClientPeople = useMemo(() => {
+    const map = {}
+    userTime.forEach((e) => {
+      const client = e.client?.name || 'No client'
+      const person = (e.user?.full_name || 'Unassigned').trim()
+      if (!map[client]) map[client] = { total: 0, people: {} }
+      const h = hoursFromMinutes(e.minutes)
+      map[client].total += h
+      map[client].people[person] = (map[client].people[person] || 0) + h
+    })
+    return Object.entries(map)
+      .map(([client, v]) => ({
+        client,
+        total: v.total,
+        people: Object.entries(v.people)
+          .map(([name, hours]) => ({ name, hours }))
+          .filter((p) => p.hours > 0.05)
+          .sort((a, b) => b.hours - a.hours),
+      }))
+      .sort((a, b) => b.total - a.total)
   }, [userTime])
 
   const hoursByUser = useMemo(() => {
@@ -389,7 +411,7 @@ export default function ReportsLeadership({
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Hours over time</CardTitle>
-              <p className="text-sm text-muted-foreground">Weekly total in this date range — Toggl-style trend</p>
+              <p className="text-sm text-muted-foreground">Hours logged each week in this range. Peaks are heavy weeks, not a percent.</p>
             </CardHeader>
             <CardContent>
               {hoursByWeek.length ? (
@@ -400,15 +422,36 @@ export default function ReportsLeadership({
             </CardContent>
           </Card>
           <div className="grid lg:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base">Hours by client</CardTitle></CardHeader>
-              <CardContent><PieLegend slices={hoursByClient} /></CardContent>
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base">Hours by client and who worked</CardTitle>
+                <p className="text-sm text-muted-foreground">Each client, then the people who logged time there.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {hoursByClientPeople.map((row) => {
+                  const max = Math.max(...hoursByClientPeople.map((r) => r.total), 1)
+                  return (
+                    <div key={row.client}>
+                      <div className="flex justify-between text-sm font-medium mb-1">
+                        <span>{row.client}</span>
+                        <span className="tabular-nums">{fmtH(row.total)}</span>
+                      </div>
+                      <div className="h-3 rounded-full bg-muted overflow-hidden mb-2">
+                        <div className="h-full rounded-full bg-gradient-to-r from-brand-orange to-brand-coral" style={{ width: `${Math.max(6, (row.total / max) * 100)}%` }} />
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {row.people.map((p) => (
+                          <span key={p.name}>{p.name} · {fmtH(p.hours)}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Hours by user</CardTitle></CardHeader>
-              <CardContent>
-                {hoursByUser.length ? <BarChart data={hoursByUser.slice(0, 8)} height={200} /> : <p className="text-sm text-muted-foreground">No hours in this range yet.</p>}
-              </CardContent>
+              <CardHeader><CardTitle className="text-base">Hours by person</CardTitle></CardHeader>
+              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={BRAND} /></CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by service</CardTitle></CardHeader>

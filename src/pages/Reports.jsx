@@ -2529,13 +2529,46 @@ export default function Reports() {
       doc.setTextColor(30, 30, 30)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(14)
-      doc.text('Time entries (filtered)', margin, 78)
+      doc.text('Hours by client and who worked', margin, 78)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
       doc.setTextColor(100, 100, 100)
-      doc.text(`${rows.length} rows · Generated ${formatDate(new Date())}`, margin, 93)
+      doc.text(`${rows.length} time rows · Generated ${formatDate(new Date())}`, margin, 93)
+
+      const rollup = (key) => {
+        const m = {}
+        rows.forEach((r) => {
+          const k = r[key] || 'Unassigned'
+          m[k] = (m[k] || 0) + Number(r.Hours || 0)
+        })
+        return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 7)
+      }
+      const byPerson = rollup('Employee')
+      const byClient = rollup('Client')
+      const drawBars = (title, items, x, y) => {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(30, 30, 30)
+        doc.text(title, x, y)
+        const max = Math.max(...items.map((i) => i[1]), 0.01)
+        const barW = 220
+        items.forEach((item, i) => {
+          const yy = y + 14 + i * 18
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(8)
+          doc.text(String(item[0]).slice(0, 22), x, yy)
+          doc.setFillColor(247, 147, 30)
+          doc.rect(x + 110, yy - 8, Math.max(4, (item[1] / max) * barW), 10, 'F')
+          doc.text(`${item[1].toFixed(1)}h`, x + 110 + barW + 8, yy)
+        })
+        return y + 14 + items.length * 18
+      }
+      const leftBottom = drawBars('Who worked (hours)', byPerson, margin, 112)
+      const rightBottom = drawBars('Hours by client', byClient, pageWidth / 2 + 10, 112)
+      const chartBottom = Math.max(leftBottom, rightBottom) + 16
+
       autoTable(doc, {
-        startY: 105,
+        startY: chartBottom,
         head: [Object.keys(rows[0])],
         body: rows.map((row) => Object.values(row)),
         styles: { fontSize: 8, cellPadding: 5 },
