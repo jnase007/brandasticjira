@@ -53,6 +53,38 @@ function toInputDate(d) {
   return `${y}-${m}-${day}`
 }
 
+function startOfDay(d = new Date()) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
+/** Inclusive last N calendar days ending today (N=1 => today only). */
+function rangeLastDays(days) {
+  const end = startOfDay()
+  const start = startOfDay()
+  start.setDate(start.getDate() - (Math.max(1, days) - 1))
+  return { start, end }
+}
+
+const DATE_PRESETS = [
+  { id: 'today', label: 'Today', days: 1 },
+  { id: '7d', label: '7 days', days: 7 },
+  { id: '30d', label: '30 days', days: 30 },
+  { id: '90d', label: '90 days', days: 90 },
+  { id: 'range', label: 'Range', days: null },
+]
+
+function matchDatePreset(from, to) {
+  const end = startOfDay()
+  const endIso = toInputDate(end)
+  if (to !== endIso) return 'range'
+  for (const p of DATE_PRESETS) {
+    if (!p.days) continue
+    const { start } = rangeLastDays(p.days)
+    if (from === toInputDate(start)) return p.id
+  }
+  return 'range'
+}
+
 function serviceLabel(entry) {
   const fromTicket = entry.ticket?.title || entry.ticket?.ticket_id
   if (fromTicket) return String(fromTicket).split('—')[0].split('-')[0].trim().slice(0, 32)
@@ -139,10 +171,12 @@ export default function ReportsLeadership({
   onExport,
 }) {
   const now = new Date()
+  const default30 = rangeLastDays(30)
   const [tab, setTab] = useState('user-time')
   const [chartView, setChartView] = useState('pie')
-  const [from, setFrom] = useState('2026-01-01')
-  const [to, setTo] = useState(toInputDate(endOfMonth(now)))
+  const [from, setFrom] = useState(toInputDate(default30.start))
+  const [to, setTo] = useState(toInputDate(default30.end))
+  const [datePreset, setDatePreset] = useState('30d')
   const [clientId, setClientId] = useState('all')
   const [userId, setUserId] = useState('all')
   const [service, setService] = useState('all')
@@ -154,13 +188,26 @@ export default function ReportsLeadership({
   const [sortKey, setSortKey] = useState('hours')
   const [sortDir, setSortDir] = useState('desc')
 
-  const applyRange = (start, end) => {
+  const applyRange = (start, end, presetId = 'range') => {
     setFrom(toInputDate(start))
     setTo(toInputDate(end))
+    setDatePreset(presetId)
+  }
+
+  const applyPreset = (presetId) => {
+    if (presetId === 'range') {
+      setDatePreset('range')
+      return
+    }
+    const preset = DATE_PRESETS.find((p) => p.id === presetId)
+    if (!preset?.days) return
+    const { start, end } = rangeLastDays(preset.days)
+    applyRange(start, end, presetId)
   }
 
   const resetFilters = () => {
-    applyRange(startOfMonth(now), endOfMonth(now))
+    const r = rangeLastDays(30)
+    applyRange(r.start, r.end, '30d')
     setClientId('all')
     setUserId('all')
     setService('all')
@@ -175,6 +222,11 @@ export default function ReportsLeadership({
       const v = JSON.parse(raw)
       if (v.from) setFrom(v.from)
       if (v.to) setTo(v.to)
+      if (v.from || v.to) {
+        setDatePreset(matchDatePreset(v.from || from, v.to || to))
+      } else if (v.datePreset && DATE_PRESETS.some((p) => p.id === v.datePreset)) {
+        setDatePreset(v.datePreset)
+      }
       if (v.clientId) setClientId(v.clientId)
       if (v.userId) setUserId(v.userId)
       if (v.service) setService(v.service)
@@ -183,6 +235,7 @@ export default function ReportsLeadership({
       if (v.tab) setTab(v.tab)
       if (v.chartView) setChartView(v.chartView)
     } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const services = useMemo(() => {
@@ -462,9 +515,25 @@ export default function ReportsLeadership({
 
   const saveView = () => {
     try {
-      localStorage.setItem('brandastic-reports-view', JSON.stringify({ from, to, clientId, userId, service, taskId, groupBy, tab, chartView }))
+      localStorage.setItem(
+        'brandastic-reports-view',
+        JSON.stringify({
+          from,
+          to,
+          datePreset,
+          clientId,
+          userId,
+          service,
+          taskId,
+          groupBy,
+          tab,
+          chartView,
+        })
+      )
     } catch {}
   }
+
+  const showCustomRange = datePreset === 'range'
 
   const timesheet = useMemo(() => {
     return [...userTime]
@@ -475,14 +544,82 @@ export default function ReportsLeadership({
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border bg-gradient-to-r from-brand-orange/10 via-transparent to-brand-coral/10 p-4 sm:p-5 space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 items-end">
-          <div className="col-span-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-1">Date range</p>
-            <div className="flex gap-2">
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10" />
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10" />
-            </div>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">Date range</p>
+          <div
+            className="inline-flex flex-wrap items-center rounded-xl border bg-background/90 p-1 gap-1 shadow-sm"
+            role="group"
+            aria-label="Date range presets"
+          >
+            {DATE_PRESETS.map((p) => {
+              const active = datePreset === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p.id)}
+                  className={cn(
+                    'h-9 px-3 sm:px-3.5 rounded-lg text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-brand-orange text-white shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  {p.label}
+                </button>
+              )
+            })}
           </div>
+          {showCustomRange ? (
+            <div className="flex flex-wrap items-end gap-2 pt-1">
+              <label className="space-y-1">
+                <span className="text-[11px] font-medium text-muted-foreground">From</span>
+                <Input
+                  type="date"
+                  value={from}
+                  max={to || toInputDate(startOfDay())}
+                  onChange={(e) => {
+                    setFrom(e.target.value)
+                    setDatePreset('range')
+                  }}
+                  className="h-10 w-[150px]"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[11px] font-medium text-muted-foreground">To</span>
+                <Input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  max={toInputDate(startOfDay())}
+                  onChange={(e) => {
+                    setTo(e.target.value)
+                    setDatePreset('range')
+                  }}
+                  className="h-10 w-[150px]"
+                />
+              </label>
+              <p className="text-xs text-muted-foreground pb-2">
+                Pick any start and end dates.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {from === to
+                ? formatDate(`${from}T12:00:00`)
+                : `${formatDate(`${from}T12:00:00`)} → ${formatDate(`${to}T12:00:00`)}`}
+              <button
+                type="button"
+                className="ml-2 text-brand-orange hover:underline font-medium"
+                onClick={() => setDatePreset('range')}
+              >
+                Edit dates
+              </button>
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 items-end">
           <div>
             <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
             <Select value={clientId} onValueChange={setClientId}>
@@ -531,19 +668,47 @@ export default function ReportsLeadership({
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Group by</p>
+            <Select value={groupBy} onValueChange={setGroupBy}>
+              <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Week</SelectItem>
+                <SelectItem value="month">Month</SelectItem>
+                <SelectItem value="quarter">Quarter</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => applyRange(startOfMonth(now), endOfMonth(now))}>This month</Button>
-          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 1); applyRange(startOfMonth(d), endOfMonth(d)) }}>Last month</Button>
-          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => applyRange(new Date(now.getFullYear(), 0, 1), endOfMonth(now))}>YTD</Button>
-          <Select value={groupBy} onValueChange={setGroupBy}>
-            <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">Week</SelectItem>
-              <SelectItem value="month">Month</SelectItem>
-              <SelectItem value="quarter">Quarter</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 text-xs"
+            onClick={() => applyRange(startOfMonth(now), endOfMonth(now), 'range')}
+          >
+            This month
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 text-xs"
+            onClick={() => {
+              const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+              applyRange(startOfMonth(d), endOfMonth(d), 'range')
+            }}
+          >
+            Last month
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 text-xs"
+            onClick={() => applyRange(new Date(now.getFullYear(), 0, 1), endOfMonth(now), 'range')}
+          >
+            YTD
+          </Button>
           <Button variant="outline" size="sm" className="h-8 text-red-600" onClick={resetFilters}>Reset</Button>
           <Button variant="outline" size="sm" className="h-8" onClick={saveView}>Save view</Button>
           <Badge variant="secondary">Internal</Badge>
