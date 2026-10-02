@@ -26,6 +26,17 @@ function fmtH(h) {
   return `${(h || 0).toFixed(1)}h`
 }
 
+/** Plain minutes under decimal hours so 0.7h is clearly 40 min, not "7 hours". */
+function fmtMinsUnder(h) {
+  const totalMins = Math.round((h || 0) * 60)
+  if (totalMins <= 0) return '0 min'
+  if (totalMins < 60) return `${totalMins} min`
+  const hr = Math.floor(totalMins / 60)
+  const min = totalMins % 60
+  if (min === 0) return hr === 1 ? '1 hr' : `${hr} hrs`
+  return `${hr}h ${min}m`
+}
+
 function retainerStatus(used, included) {
   if (!included) return { label: 'No hours set', cls: 'bg-muted text-muted-foreground' }
   const pct = used / included
@@ -150,12 +161,15 @@ function PieLegend({ slices }) {
   )
 }
 
-function Kpi({ label, value, hint }) {
+function Kpi({ label, value, sub, hint }) {
   return (
     <Card>
       <CardContent className="p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="text-2xl font-semibold mt-1 tabular-nums">{value}</p>
+        {sub ? (
+          <p className="text-sm font-medium text-muted-foreground mt-0.5 tabular-nums">{sub}</p>
+        ) : null}
         {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
       </CardContent>
     </Card>
@@ -785,9 +799,9 @@ export default function ReportsLeadership({
             </p>
           )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Kpi label="Total hours tracked" value={fmtH(totalHours)} />
+            <Kpi label="Total hours tracked" value={fmtH(totalHours)} sub={fmtMinsUnder(totalHours)} />
             <Kpi label="Users" value={userCount} />
-            <Kpi label="Avg hours / user" value={fmtH(avgHours)} />
+            <Kpi label="Avg hours / user" value={fmtH(avgHours)} sub={fmtMinsUnder(avgHours)} />
             <Kpi label="Utilization" value={`${utilization.toFixed(0)}%`} hint="Tracked vs monthly targets" />
           </div>
           <Card>
@@ -906,9 +920,9 @@ export default function ReportsLeadership({
 
         <TabsContent value="retainers" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Kpi label="Total retainer hours" value={fmtH(includedHours)} hint="Sum of monthly included hours" />
-            <Kpi label="Hours used" value={fmtH(usedRetainer)} />
-            <Kpi label="Hours remaining" value={fmtH(remaining)} />
+            <Kpi label="Total retainer hours" value={fmtH(includedHours)} sub={fmtMinsUnder(includedHours)} hint="Sum of monthly included hours" />
+            <Kpi label="Hours used" value={fmtH(usedRetainer)} sub={fmtMinsUnder(usedRetainer)} />
+            <Kpi label="Hours remaining" value={fmtH(remaining)} sub={fmtMinsUnder(remaining)} />
             <Kpi label="% used" value={`${usedPct.toFixed(0)}%`} />
           </div>
           <div className="grid lg:grid-cols-3 gap-4">
@@ -1011,7 +1025,7 @@ export default function ReportsLeadership({
 
         <TabsContent value="contracts" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Kpi label="Total tracked" value={fmtH(totalHours)} />
+            <Kpi label="Total tracked" value={fmtH(totalHours)} sub={fmtMinsUnder(totalHours)} />
             <Kpi label="Tasks" value={new Set(userTime.map((e) => e.ticket_id || e.id)).size} />
             <Kpi label="Users" value={userCount} />
             <Kpi label="Services" value={hoursByService.length} />
