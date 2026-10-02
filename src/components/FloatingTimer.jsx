@@ -711,14 +711,25 @@ export default function FloatingTimer({
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - seconds * 1000)
       
+      // Local calendar date (not UTC) so "Today" on Reports matches what you just logged
+      const localDate = [
+        endTime.getFullYear(),
+        String(endTime.getMonth() + 1).padStart(2, '0'),
+        String(endTime.getDate()).padStart(2, '0'),
+      ].join('-')
+
       const timeEntry = {
         user_id: user.id,
         client_id: selectedClient.id,
         channel: normalizeTimeChannel(selectedChannel),
-        description: description || selectedClient.name || 'No description',
+        description:
+          description ||
+          (selectedTicket?.title
+            ? selectedTicket.title
+            : selectedClient.name || 'No description'),
         notes: description || '',
         minutes: totalMinutes,
-        date: endTime.toISOString().split('T')[0],
+        date: localDate,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         is_running: false,

@@ -2277,10 +2277,10 @@ export default function Reports() {
       
       // Fetch base data first
       const [employeesRes, clientsRes, clientRatesRes, timeEntriesRes] = await Promise.all([
+        // Include every staff role — owner/superadmin were missing and broke "who worked" maps
         supabase
           .from('profiles')
           .select('*')
-          .in('role', ['team', 'admin'])
           .order('full_name'),
         supabase
           .from('clients')
@@ -2290,55 +2290,102 @@ export default function Reports() {
         supabase
           .from('client_rates')
           .select('*'),
-        // Use simpler query without joins for reliability
+        // Page past PostgREST default 1000-row cap so new entries always appear
         supabase
           .from('time_entries')
           .select('*')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(5000),
       ])
 
-      const employeesData = employeesRes.data || []
+      if (timeEntriesRes.error) {
+        console.error('[Reports] time_entries error:', timeEntriesRes.error)
+      }
+      if (employeesRes.error) {
+        console.error('[Reports] profiles error:', employeesRes.error)
+      }
+
+      const employeesData = (employeesRes.data || []).filter((p) => {
+        const role = String(p.role || '').toLowerCase()
+        // Keep staff on reports; drop pure client portal logins only
+        return role !== 'client'
+      })
       const clientsData = clientsRes.data || []
       const rawTimeEntries = timeEntriesRes.data || []
 
       console.log('[Reports] Fetched time entries:', rawTimeEntries.length)
-      
+
       // Normalize time entries and add user/client data
-      const userMap = employeesData.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+      let userMap = employeesData.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
       const clientMap = clientsData.reduce((acc, c) => ({ ...acc, [c.id]: c }), {})
-      
+
+      // Pull any entry authors missing from the first profiles query (RLS / role edge cases)
+      const missingUserIds = [
+        ...new Set(
+          rawTimeEntries
+            .map((e) => e.user_id)
+            .filter((id) => id && !userMap[id])
+        ),
+      ]
+      if (missingUserIds.length > 0) {
+        const { data: extraUsers } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', missingUserIds)
+        if (extraUsers?.length) {
+          userMap = extraUsers.reduce((acc, u) => ({ ...acc, [u.id]: u }), { ...userMap })
+        }
+      }
+
       // Fetch ticket data for entries that have ticket_id
-      const ticketIds = [...new Set(rawTimeEntries.map(e => e.ticket_id).filter(Boolean))]
+      const ticketIds = [...new Set(rawTimeEntries.map((e) => e.ticket_id).filter(Boolean))]
       let ticketMap = {}
       if (ticketIds.length > 0) {
-        const { data: tickets } = await supabase
-          .from('tickets')
-          .select('id, title, ticket_id')
-          .in('id', ticketIds)
-        ticketMap = (tickets || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), {})
-      }
-      
-      const normalizedEntries = rawTimeEntries.map(entry => {
-        // Normalize the date field
-        const date = entry.date || 
-          (entry.start_time ? entry.start_time.split('T')[0] : null) ||
-          (entry.created_at ? entry.created_at.split('T')[0] : null)
-        
-        return {
-          ...entry,
-          date,
-          minutes: entry.minutes ?? entry.duration_minutes ?? 0,
-          billable: entry.billable ?? true,
-          user: userMap[entry.user_id] || null,
-          client: clientMap[entry.client_id] || null,
-          ticket: ticketMap[entry.ticket_id] || null,
+        // .in() chunks if needed
+        const chunkSize = 200
+        for (let i = 0; i < ticketIds.length; i += chunkSize) {
+          const chunk = ticketIds.slice(i, i + chunkSize)
+          const { data: tickets } = await supabase
+            .from('tickets')
+            .select('id, title, ticket_id, client_id')
+            .in('id', chunk)
+          ticketMap = (tickets || []).reduce((acc, t) => ({ ...acc, [t.id]: t }), { ...ticketMap })
         }
-      }).filter(e => e.date) // Only keep entries with valid dates
+      }
 
-      console.log('[Reports] Normalized entries:', normalizedEntries.length, 
-        'Total minutes:', normalizedEntries.reduce((sum, e) => sum + (e.minutes || 0), 0))
+      const normalizedEntries = rawTimeEntries
+        .map((entry) => {
+          // Prefer local calendar date; fall back carefully (UTC date can skew near midnight)
+          const date =
+            entry.date ||
+            (entry.start_time ? String(entry.start_time).slice(0, 10) : null) ||
+            (entry.created_at ? String(entry.created_at).slice(0, 10) : null)
 
-      setEmployees(employeesData)
+          // Inherit client from ticket when time row is missing client_id
+          const ticket = ticketMap[entry.ticket_id] || null
+          const clientId = entry.client_id || ticket?.client_id || null
+
+          return {
+            ...entry,
+            client_id: clientId,
+            date,
+            minutes: Number(entry.minutes ?? entry.duration_minutes ?? 0) || 0,
+            billable: entry.billable ?? entry.is_billable ?? true,
+            user: userMap[entry.user_id] || null,
+            client: clientMap[clientId] || null,
+            ticket,
+          }
+        })
+        .filter((e) => e.date && e.minutes > 0)
+
+      console.log(
+        '[Reports] Normalized entries:',
+        normalizedEntries.length,
+        'Total minutes:',
+        normalizedEntries.reduce((sum, e) => sum + (e.minutes || 0), 0)
+      )
+
+      setEmployees(Object.values(userMap).sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''))))
       setClients(clientsData)
       setClientRates(clientRatesRes.data || [])
       setTimeEntries(normalizedEntries)

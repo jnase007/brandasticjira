@@ -645,6 +645,15 @@ export async function stopTimeEntry(entryId) {
   return { data, error }
 }
 
+function localYmd(d = new Date()) {
+  const x = d instanceof Date ? d : new Date(d)
+  return [
+    x.getFullYear(),
+    String(x.getMonth() + 1).padStart(2, '0'),
+    String(x.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 export async function createManualTimeEntry(entryData) {
   const startDate = entryData.start_time ? new Date(entryData.start_time) : new Date()
   const endDate = entryData.end_time ? new Date(entryData.end_time) : new Date()
@@ -660,7 +669,8 @@ export async function createManualTimeEntry(entryData) {
     notes: entryData.notes ?? null,
     is_running: false,
     minutes: entryData.minutes ?? durationMinutes,
-    date: entryData.date ?? startDate.toISOString().split('T')[0],
+    // Prefer explicit date, else local calendar day (never UTC split — breaks "Today")
+    date: entryData.date || localYmd(endDate),
     billable: entryData.billable ?? true,
   }
   if (entryData.client_id) payload.client_id = entryData.client_id

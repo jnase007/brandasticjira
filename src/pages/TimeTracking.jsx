@@ -1,3 +1,12 @@
+function localYmd(d = new Date()) {
+  const x = d instanceof Date ? d : new Date(d)
+  return [
+    x.getFullYear(),
+    String(x.getMonth() + 1).padStart(2, '0'),
+    String(x.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -147,7 +156,7 @@ export default function TimeTracking() {
     description: '',
     hours: '',
     minutes: '',
-    date: new Date().toISOString().split('T')[0],
+    date: localYmd(),
     billable: true,
     channel: DEFAULT_TIME_CHANNEL,
   })
@@ -424,7 +433,7 @@ export default function TimeTracking() {
         description: '',
         hours: '',
         minutes: '',
-        date: new Date().toISOString().split('T')[0],
+        date: localYmd(),
         billable: true,
         channel: DEFAULT_TIME_CHANNEL,
       })

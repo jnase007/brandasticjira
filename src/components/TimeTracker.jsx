@@ -1,3 +1,12 @@
+function localYmd(d = new Date()) {
+  const x = d instanceof Date ? d : new Date(d)
+  return [
+    x.getFullYear(),
+    String(x.getMonth() + 1).padStart(2, '0'),
+    String(x.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Square, Clock, Plus, Trash2 } from 'lucide-react'
@@ -37,7 +46,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
   const [localStartTime, setLocalStartTime] = useState(null)
   const [manualDialogOpen, setManualDialogOpen] = useState(false)
   const [manualEntry, setManualEntry] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: localYmd(),
     hours: '',
     minutes: '',
     notes: '',
@@ -146,7 +155,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
           end_time: endTime.toISOString(),
           notes,
           minutes: durationMinutes,
-          date: endTime.toISOString().split('T')[0],
+          date: localYmd(endTime),
           billable: true,
           description: notes || 'Time entry',
         })
@@ -225,7 +234,7 @@ export default function TimeTracker({ ticketId, clientId, onTimeLogged }) {
 
       setManualDialogOpen(false)
       setManualEntry({
-        date: new Date().toISOString().split('T')[0],
+        date: localYmd(),
         hours: '',
         minutes: '',
         notes: '',

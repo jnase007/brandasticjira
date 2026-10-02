@@ -213,6 +213,9 @@ export default function ReportsLeadership({
     setService('all')
     setTaskId('all')
     setGroupBy('month')
+    try {
+      localStorage.removeItem('brandastic-reports-view')
+    } catch {}
   }
 
   useEffect(() => {
@@ -254,6 +257,31 @@ export default function ReportsLeadership({
     return Object.entries(map).map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title))
   }, [timeEntries])
 
+  // Drop stale saved filters that no longer match any row (common "0 hours" trap)
+  useEffect(() => {
+    if (service !== 'all' && services.length && !services.includes(service)) {
+      setService('all')
+    }
+  }, [service, services])
+
+  useEffect(() => {
+    if (taskId !== 'all' && tasks.length && !tasks.some((t) => t.id === taskId)) {
+      setTaskId('all')
+    }
+  }, [taskId, tasks])
+
+  useEffect(() => {
+    if (clientId !== 'all' && clients.length && !clients.some((c) => c.id === clientId)) {
+      setClientId('all')
+    }
+  }, [clientId, clients])
+
+  useEffect(() => {
+    if (userId !== 'all' && employees.length && !employees.some((u) => u.id === userId)) {
+      setUserId('all')
+    }
+  }, [userId, employees])
+
   const filtered = useMemo(() => {
     return timeEntries.filter((e) => {
       if (!e.date) return false
@@ -265,6 +293,10 @@ export default function ReportsLeadership({
       return true
     })
   }, [timeEntries, from, to, clientId, userId, service, taskId])
+
+  const unfilteredInRange = useMemo(() => {
+    return timeEntries.filter((e) => e.date && e.date >= from && e.date <= to)
+  }, [timeEntries, from, to])
 
   const retainerClients = useMemo(
     () => clients.filter((c) => (c.client_type || CLIENT_TYPES.RETAINER) === CLIENT_TYPES.RETAINER),
@@ -742,6 +774,16 @@ export default function ReportsLeadership({
         </TabsList>
 
         <TabsContent value="user-time" className="space-y-4 mt-4">
+          {totalHours < 0.05 && (
+            <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              No hours match these filters
+              {unfilteredInRange.length > 0
+                ? ` (${unfilteredInRange.length} entr${unfilteredInRange.length === 1 ? 'y' : 'ies'} exist in this date range — try Reset, or set Client/User/Service/Task back to All).`
+                : timeEntries.length === 0
+                  ? ' (no time loaded — hit Refresh).'
+                  : ' for this date range.'}
+            </p>
+          )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Kpi label="Total hours tracked" value={fmtH(totalHours)} />
             <Kpi label="Users" value={userCount} />
