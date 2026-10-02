@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select'
+import { AreaChart, BarChart } from '../components/Charts'
 
 const BRAND = ['#F7931E', '#FF6B4A', '#7C3AED', '#2563EB', '#0D9488', '#DB2777']
 
@@ -210,6 +211,22 @@ export default function ReportsLeadership({
       .sort((a, b) => b.value - a.value)
   }, [userTime])
 
+  const hoursByWeek = useMemo(() => {
+    const map = {}
+    userTime.forEach((e) => {
+      if (!e.date) return
+      const d = new Date(`${e.date}T00:00:00`)
+      const day = (d.getDay() + 6) % 7
+      d.setDate(d.getDate() - day)
+      const key = toInputDate(d)
+      map[key] = (map[key] || 0) + hoursFromMinutes(e.minutes)
+    })
+    return Object.keys(map).sort().map((label) => ({
+      label: label.slice(5),
+      value: map[label],
+    }))
+  }, [userTime])
+
   const hoursByService = useMemo(() => {
     const map = {}
     userTime.forEach((e) => {
@@ -369,6 +386,19 @@ export default function ReportsLeadership({
             <Kpi label="Avg hours / user" value={fmtH(avgHours)} />
             <Kpi label="Utilization" value={`${utilization.toFixed(0)}%`} hint="Tracked vs monthly targets" />
           </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Hours over time</CardTitle>
+              <p className="text-sm text-muted-foreground">Weekly total in this date range — Toggl-style trend</p>
+            </CardHeader>
+            <CardContent>
+              {hoursByWeek.length ? (
+                <AreaChart data={hoursByWeek} height={220} />
+              ) : (
+                <p className="text-sm text-muted-foreground">No hours in this range yet.</p>
+              )}
+            </CardContent>
+          </Card>
           <div className="grid lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by client</CardTitle></CardHeader>
@@ -376,7 +406,9 @@ export default function ReportsLeadership({
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by user</CardTitle></CardHeader>
-              <CardContent><HBar rows={hoursByUser.slice(0, 8)} colors={BRAND} /></CardContent>
+              <CardContent>
+                {hoursByUser.length ? <BarChart data={hoursByUser.slice(0, 8)} height={200} /> : <p className="text-sm text-muted-foreground">No hours in this range yet.</p>}
+              </CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Hours by service</CardTitle></CardHeader>
