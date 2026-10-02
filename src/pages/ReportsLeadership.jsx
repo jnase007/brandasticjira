@@ -81,7 +81,7 @@ function PieLegend({ slices }) {
   const stops = slices.map((s, i) => {
     const start = acc
     acc += (s.value / total) * 100
-    return `${PURPLE[i % PURPLE.length]} ${start}% ${acc}%`
+    return `${BRAND[i % BRAND.length]} ${start}% ${acc}%`
   })
   return (
     <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -93,7 +93,7 @@ function PieLegend({ slices }) {
         {slices.map((s, i) => (
           <div key={s.label} className="flex items-center justify-between gap-3 text-sm">
             <span className="flex items-center gap-2 min-w-0">
-              <i className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: PURPLE[i % PURPLE.length] }} />
+              <i className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: BRAND[i % BRAND.length] }} />
               <span className="truncate">{s.label}</span>
             </span>
             <span className="tabular-nums text-muted-foreground">{fmtH(s.value)}</span>
@@ -127,7 +127,7 @@ export default function ReportsLeadership({
 }) {
   const now = new Date()
   const [tab, setTab] = useState('user-time')
-  const [from, setFrom] = useState(toInputDate(startOfMonth(now)))
+  const [from, setFrom] = useState('2026-01-01')
   const [to, setTo] = useState(toInputDate(endOfMonth(now)))
   const [clientId, setClientId] = useState('all')
   const [userId, setUserId] = useState('all')
@@ -136,7 +136,7 @@ export default function ReportsLeadership({
   const [sortDir, setSortDir] = useState('desc')
 
   const resetFilters = () => {
-    setFrom(toInputDate(startOfMonth(now)))
+    setFrom('2026-01-01')
     setTo(toInputDate(endOfMonth(now)))
     setClientId('all')
     setUserId('all')
