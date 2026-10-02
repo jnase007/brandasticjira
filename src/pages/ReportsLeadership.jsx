@@ -206,6 +206,7 @@ export default function ReportsLeadership({
     })
     return Object.entries(map)
       .map(([label, value]) => ({ label, value }))
+      .filter((r) => r.value > 0.05)
       .sort((a, b) => b.value - a.value)
   }, [userTime])
 
@@ -224,11 +225,12 @@ export default function ReportsLeadership({
   const peopleRows = useMemo(() => {
     const map = {}
     userTime.forEach((e) => {
-      const id = e.user_id || 'unknown'
+      const name = (e.user?.full_name || 'Unassigned').trim()
+      const id = name.toLowerCase()
       if (!map[id]) {
         map[id] = {
           id,
-          name: e.user?.full_name || 'Unknown',
+          name,
           hours: 0,
           clients: new Set(),
           tasks: new Set(),
@@ -242,7 +244,7 @@ export default function ReportsLeadership({
       ...r,
       clientCount: r.clients.size,
       taskCount: r.tasks.size,
-    }))
+    })).filter((r) => r.hours > 0.05)
     rows.sort((a, b) => {
       const av = sortKey === 'name' ? a.name : sortKey === 'clients' ? a.clientCount : sortKey === 'tasks' ? a.taskCount : a.hours
       const bv = sortKey === 'name' ? b.name : sortKey === 'clients' ? b.clientCount : sortKey === 'tasks' ? b.taskCount : b.hours

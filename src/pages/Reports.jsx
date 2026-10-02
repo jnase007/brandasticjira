@@ -2258,6 +2258,7 @@ export default function Reports() {
   
   // Sandy BC-2882 layout is the default; classic reports stay available.
   const defaultTab = 'tempo'
+  const [reportTab, setReportTab] = useState(defaultTab)
 
   // Fetch data
   const fetchData = async (showRefresh = false) => {
@@ -2508,7 +2509,45 @@ export default function Reports() {
       toast({ title: 'Excel exported!', variant: 'success' })
       return
     }
-    exportPDF('entries')
+    ;(async () => {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' })
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const logoDataUrl = await loadLogoDataUrl()
+      const margin = 40
+      if (logoDataUrl) {
+        const logoProps = doc.getImageProperties(logoDataUrl)
+        const logoHeight = 11
+        const logoWidth = (logoProps.width / logoProps.height) * logoHeight
+        doc.addImage(logoDataUrl, logoProps.fileType || 'PNG', margin, 22, logoWidth, logoHeight, undefined, 'FAST')
+      }
+      doc.setFontSize(10)
+      doc.setTextColor(100, 100, 100)
+      doc.text('Project Management', pageWidth - margin, 40, { align: 'right' })
+      doc.setDrawColor(200, 200, 200)
+      doc.line(margin, 55, pageWidth - margin, 55)
+      doc.setTextColor(30, 30, 30)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.text('Time entries (filtered)', margin, 78)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(100, 100, 100)
+      doc.text(`${rows.length} rows · Generated ${formatDate(new Date())}`, margin, 93)
+      autoTable(doc, {
+        startY: 105,
+        head: [Object.keys(rows[0])],
+        body: rows.map((row) => Object.values(row)),
+        styles: { fontSize: 8, cellPadding: 5 },
+        headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold' },
+        margin: { left: margin, right: margin },
+      })
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text('Brandastic PM • Confidential', margin, pageHeight - 20)
+      doc.save(`${filename}.pdf`)
+      toast({ title: 'PDF exported!', variant: 'success' })
+    })()
   }
 
   const buildExportData = (type, includeTitle = false) => {
@@ -2607,7 +2646,8 @@ export default function Reports() {
             </Button>
           </div>
           
-          {/* Controls Row - Date Selector & Export */}
+          {/* Month picker is for classic tabs only. Tempo uses its own date range. */}
+          {reportTab !== 'tempo' && (
           <div className="flex flex-wrap items-center gap-2">
             {/* Date Selector */}
             <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
@@ -2674,11 +2714,12 @@ export default function Reports() {
             </Button>
             </div>
           </div>
+          )}
         </div>
       </motion.div>
 
       {/* Tabs */}
-      <Tabs defaultValue={defaultTab} className="space-y-6">
+      <Tabs value={reportTab} onValueChange={setReportTab} className="space-y-6">
         <TabsList className="bg-muted/50 flex-wrap">
           <TabsTrigger value="tempo" className="gap-2">
             <BarChart3 className="h-4 w-4" />
